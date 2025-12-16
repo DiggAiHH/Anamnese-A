@@ -1,7 +1,9 @@
 # Vosk Models (large files)
-models/
-*.zip
-*.tar.gz
+models/*.zip
+models/*.tar.gz
+models/vosk-*
+# But keep the README
+!models/README.md
 
 # OS Files
 .DS_Store
