@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medizinische Anamnese / Medical History</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="title">Medizinische Anamnese</h1>
+            <div class="language-selector">
+                <label for="language" id="lang-label">Sprache / Language:</label>
+                <select id="language" onchange="changeLanguage()">
+                    <option value="de">Deutsch</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                    <option value="it">Italiano</option>
+                    <option value="pt">Português</option>
+                    <option value="nl">Nederlands</option>
+                    <option value="pl">Polski</option>
+                    <option value="tr">Türkçe</option>
+                    <option value="ar">العربية</option>
+                </select>
+            </div>
+        </header>
+
+        <form id="anamneseForm">
+            <!-- Personal Information -->
+            <section class="form-section">
+                <h2 id="section-personal">Persönliche Daten</h2>
+                
+                <div class="form-group">
+                    <label for="firstName" id="label-firstName">Vorname:</label>
+                    <input type="text" id="firstName" name="firstName" required>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('firstName')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="lastName" id="label-lastName">Nachname:</label>
+                    <input type="text" id="lastName" name="lastName" required>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('lastName')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="dateOfBirth" id="label-dateOfBirth">Geburtsdatum:</label>
+                    <input type="date" id="dateOfBirth" name="dateOfBirth" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="gender" id="label-gender">Geschlecht:</label>
+                    <select id="gender" name="gender" required>
+                        <option value="" id="option-select">Bitte wählen</option>
+                        <option value="male" id="option-male">Männlich</option>
+                        <option value="female" id="option-female">Weiblich</option>
+                        <option value="other" id="option-other">Divers</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="address" id="label-address">Adresse:</label>
+                    <textarea id="address" name="address" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('address')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone" id="label-phone">Telefon:</label>
+                    <input type="tel" id="phone" name="phone">
+                </div>
+
+                <div class="form-group">
+                    <label for="email" id="label-email">E-Mail:</label>
+                    <input type="email" id="email" name="email">
+                </div>
+            </section>
+
+            <!-- Medical History -->
+            <section class="form-section">
+                <h2 id="section-medical">Medizinische Vorgeschichte</h2>
+
+                <div class="form-group">
+                    <label for="currentComplaints" id="label-currentComplaints">Aktuelle Beschwerden:</label>
+                    <textarea id="currentComplaints" name="currentComplaints" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('currentComplaints')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="pastIllnesses" id="label-pastIllnesses">Frühere Erkrankungen:</label>
+                    <textarea id="pastIllnesses" name="pastIllnesses" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('pastIllnesses')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="surgeries" id="label-surgeries">Operationen:</label>
+                    <textarea id="surgeries" name="surgeries" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('surgeries')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="medications" id="label-medications">Aktuelle Medikamente:</label>
+                    <textarea id="medications" name="medications" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('medications')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="allergies" id="label-allergies">Allergien:</label>
+                    <textarea id="allergies" name="allergies" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('allergies')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="familyHistory" id="label-familyHistory">Familienanamnese:</label>
+                    <textarea id="familyHistory" name="familyHistory" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('familyHistory')" title="Spracheingabe">🎤</button>
+                </div>
+            </section>
+
+            <!-- Lifestyle -->
+            <section class="form-section">
+                <h2 id="section-lifestyle">Lebensstil</h2>
+
+                <div class="form-group">
+                    <label for="smoking" id="label-smoking">Rauchen:</label>
+                    <select id="smoking" name="smoking">
+                        <option value="never" id="option-never">Nie</option>
+                        <option value="former" id="option-former">Ehemals</option>
+                        <option value="current" id="option-current">Aktuell</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="alcohol" id="label-alcohol">Alkoholkonsum:</label>
+                    <select id="alcohol" name="alcohol">
+                        <option value="never" id="option-alcohol-never">Nie</option>
+                        <option value="occasional" id="option-occasional">Gelegentlich</option>
+                        <option value="regular" id="option-regular">Regelmäßig</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="exercise" id="label-exercise">Körperliche Aktivität:</label>
+                    <textarea id="exercise" name="exercise" rows="2"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('exercise')" title="Spracheingabe">🎤</button>
+                </div>
+            </section>
+
+            <!-- Additional Notes -->
+            <section class="form-section">
+                <h2 id="section-additional">Zusätzliche Informationen</h2>
+
+                <div class="form-group">
+                    <label for="additionalNotes" id="label-additionalNotes">Weitere Anmerkungen:</label>
+                    <textarea id="additionalNotes" name="additionalNotes" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('additionalNotes')" title="Spracheingabe">🎤</button>
+                </div>
+            </section>
+
+            <!-- Privacy Consent -->
+            <section class="form-section">
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="privacyConsent" name="privacyConsent" required>
+                        <span id="label-privacyConsent">Ich bestätige, dass meine Daten verschlüsselt und nur lokal gespeichert werden. Ich verstehe, dass keine Daten an externe Server übertragen werden.</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button type="button" class="btn btn-primary" onclick="saveEncrypted()" id="btn-save">Verschlüsselt Speichern</button>
+                <button type="button" class="btn btn-secondary" onclick="loadEncrypted()" id="btn-load">Gespeicherte Daten Laden</button>
+                <button type="button" class="btn btn-success" onclick="exportJSON()" id="btn-export">Als JSON Exportieren</button>
+                <button type="button" class="btn btn-danger" onclick="clearForm()" id="btn-clear">Formular Leeren</button>
+            </div>
+        </form>
+
+        <!-- Voice Recognition Status -->
+        <div id="voiceStatus" class="voice-status" style="display: none;">
+            <span id="voiceStatusText">Spracherkennung aktiv...</span>
+        </div>
+
+        <footer>
+            <p id="footer-text">Datenschutzkonforme lokale Anamnese - Alle Daten bleiben auf Ihrem Gerät</p>
+        </footer>
+    </div>
+
+    <!-- Password Modal for Encryption -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Verschlüsselung</h2>
+            <p id="modal-text">Bitte geben Sie ein Passwort ein, um Ihre Daten zu verschlüsseln:</p>
+            <input type="password" id="encryptionPassword" placeholder="Passwort">
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="confirmPassword()" id="modal-confirm">Bestätigen</button>
+                <button class="btn btn-secondary" onclick="closePasswordModal()" id="modal-cancel">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="vosk-integration.js"></script>
+    <script src="encryption.js"></script>
+    <script src="translations.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

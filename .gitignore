@@ -1,0 +1,30 @@
+# VOSK Models (large binary files - download separately)
+model/vosk-model-*
+model/*.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Build artifacts (if any)
+dist/
+build/
+
+# Dependencies (if any)
+node_modules/
+
+# Test files
+*.test.js
+test/
