@@ -12258,7 +12258,7 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                             }
                         } else if (field.id === '0003_monat') {
                             html += `<option value="">${T('0003_monat')}</option>`;
-                            const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+                            // Use numeric month values (1-12) for universal internationalization
                             for (let i = 1; i <= 12; i++) {
                                 const selected = currentValue === String(i) ? 'selected' : '';
                                 html += `<option value="${i}" ${selected}>${i}</option>`;
@@ -12384,11 +12384,11 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                 
                 const jsonString = JSON.stringify(data, null, 2);
                 
-                // Check if encryptData function exists (from the old code)
+                // Defensive check: encryptData depends on CryptoJS from CDN which may fail to load
+                // If encryption is unavailable, fallback to plain JSON display
                 if (typeof encryptData === 'function') {
                     jsonBox.value = encryptData(jsonString);
                 } else {
-                    // Fallback to plain JSON if encryption not available
                     jsonBox.value = jsonString;
                 }
             },
