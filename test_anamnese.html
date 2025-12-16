@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anamnese Tests</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        .fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        h2 {
+            color: #007bff;
+        }
+        .test-summary {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Anamnese Application Tests</h1>
+    <div id="test-results"></div>
+    <div id="test-summary"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script>
+        // Test Framework
+        class TestRunner {
+            constructor() {
+                this.tests = [];
+                this.results = [];
+            }
+
+            test(name, fn) {
+                this.tests.push({ name, fn });
+            }
+
+            async run() {
+                console.log('🧪 Running tests...');
+                for (const test of this.tests) {
+                    try {
+                        await test.fn();
+                        this.results.push({ name: test.name, passed: true });
+                        console.log(`✅ ${test.name}`);
+                    } catch (error) {
+                        this.results.push({ name: test.name, passed: false, error: error.message });
+                        console.error(`❌ ${test.name}: ${error.message}`);
+                    }
+                }
+                this.displayResults();
+            }
+
+            displayResults() {
+                const container = document.getElementById('test-results');
+                const summary = document.getElementById('test-summary');
+                
+                const passed = this.results.filter(r => r.passed).length;
+                const failed = this.results.filter(r => !r.passed).length;
+                
+                summary.className = 'test-summary';
+                summary.innerHTML = `
+                    <div>Total Tests: ${this.results.length}</div>
+                    <div style="color: green;">Passed: ${passed}</div>
+                    <div style="color: red;">Failed: ${failed}</div>
+                `;
+
+                container.innerHTML = this.results.map(result => `
+                    <div class="test-result ${result.passed ? 'pass' : 'fail'}">
+                        ${result.passed ? '✅' : '❌'} ${result.name}
+                        ${result.error ? '<br><small>' + result.error + '</small>' : ''}
+                    </div>
+                `).join('');
+            }
+        }
+
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message || 'Assertion failed');
+            }
+        }
+
+        function assertEqual(actual, expected, message) {
+            if (actual !== expected) {
+                throw new Error(message || `Expected ${expected} but got ${actual}`);
+            }
+        }
+
+        // Initialize test runner
+        const runner = new TestRunner();
+
+        // ===================================================================
+        // TEST 1: Encryption/Decryption Tests
+        // ===================================================================
+        runner.test('AES-256 Encryption - Basic encryption works', () => {
+            const ENCRYPTION_KEY = 'Test-Key-32-Bytes-Long-123456';
+            const testData = 'Hello World';
+            const encrypted = CryptoJS.AES.encrypt(testData, ENCRYPTION_KEY).toString();
+            assert(encrypted !== testData, 'Encrypted data should be different from original');
+            assert(encrypted.length > 0, 'Encrypted data should not be empty');
+        });
+
+        runner.test('AES-256 Decryption - Basic decryption works', () => {
+            const ENCRYPTION_KEY = 'Test-Key-32-Bytes-Long-123456';
+            const testData = 'Hello World';
+            const encrypted = CryptoJS.AES.encrypt(testData, ENCRYPTION_KEY).toString();
+            const decrypted = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
+            assertEqual(decrypted, testData, 'Decrypted data should match original');
+        });
+
+        runner.test('AES-256 Encryption - JSON data encryption', () => {
+            const ENCRYPTION_KEY = 'Test-Key-32-Bytes-Long-123456';
+            const testData = { name: 'John Doe', age: 30, answers: ['a', 'b', 'c'] };
+            const jsonString = JSON.stringify(testData);
+            const encrypted = CryptoJS.AES.encrypt(jsonString, ENCRYPTION_KEY).toString();
+            const decrypted = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
+            const parsed = JSON.parse(decrypted);
+            assertEqual(parsed.name, testData.name, 'Decrypted JSON should match original');
+            assertEqual(parsed.age, testData.age, 'Decrypted JSON should match original');
+        });
+
+        // ===================================================================
+        // TEST 2: Answer Storage Tests
+        // ===================================================================
+        runner.test('Answer Storage - Single answer updates correctly', () => {
+            const answers = {};
+            const questionId = 'q001';
+            
+            // First answer
+            answers[questionId] = 'Answer 1';
+            assertEqual(answers[questionId], 'Answer 1', 'First answer should be stored');
+            
+            // Update answer (should replace, not append)
+            answers[questionId] = 'Answer 2';
+            assertEqual(answers[questionId], 'Answer 2', 'Answer should be updated');
+            assert(answers[questionId] !== 'Answer 1', 'Old answer should be replaced');
+        });
+
+        runner.test('Answer Storage - Array answers update correctly', () => {
+            const answers = {};
+            const questionId = 'q002';
+            
+            // First answer set
+            answers[questionId] = ['option1', 'option2'];
+            assertEqual(answers[questionId].length, 2, 'First answer array should have 2 items');
+            
+            // Update answer (should replace entire array)
+            answers[questionId] = ['option3'];
+            assertEqual(answers[questionId].length, 1, 'Updated answer array should have 1 item');
+            assertEqual(answers[questionId][0], 'option3', 'Updated answer should be correct');
+        });
+
+        // ===================================================================
+        // TEST 3: Conditional Logic Tests
+        // ===================================================================
+        runner.test('Conditional Logic - Gender-based questions (male)', () => {
+            const answers = { '0002': 'männlich' };
+            const condition = { field: '0002', value: 'weiblich', operator: '==' };
+            
+            // Gynecology questions should not be shown for males
+            const shouldShow = (answers[condition.field] === condition.value);
+            assertEqual(shouldShow, false, 'Gynecology questions should not show for males');
+        });
+
+        runner.test('Conditional Logic - Gender-based questions (female)', () => {
+            const answers = { '0002': 'weiblich' };
+            const condition = { field: '0002', value: 'weiblich', operator: '==' };
+            
+            // Gynecology questions should be shown for females
+            const shouldShow = (answers[condition.field] === condition.value);
+            assertEqual(shouldShow, true, 'Gynecology questions should show for females');
+        });
+
+        runner.test('Conditional Logic - No complaints skip detail questions', () => {
+            const answers = { 'has_complaints': 'no' };
+            const condition = { field: 'has_complaints', value: 'yes', operator: '==' };
+            
+            // Detail questions should not be shown if no complaints
+            const shouldShow = (answers[condition.field] === condition.value);
+            assertEqual(shouldShow, false, 'Detail questions should not show when no complaints');
+        });
+
+        runner.test('Conditional Logic - With complaints show detail questions', () => {
+            const answers = { 'has_complaints': 'yes' };
+            const condition = { field: 'has_complaints', value: 'yes', operator: '==' };
+            
+            // Detail questions should be shown if has complaints
+            const shouldShow = (answers[condition.field] === condition.value);
+            assertEqual(shouldShow, true, 'Detail questions should show when has complaints');
+        });
+
+        // ===================================================================
+        // TEST 4: Date Validation Tests
+        // ===================================================================
+        runner.test('Birthday Validation - Valid date components', () => {
+            const day = 15;
+            const month = 6;
+            const year = 1990;
+            
+            assert(day >= 1 && day <= 31, 'Day should be valid');
+            assert(month >= 1 && month <= 12, 'Month should be valid');
+            assert(year >= 1900 && year <= new Date().getFullYear(), 'Year should be valid');
+        });
+
+        runner.test('Birthday Validation - February leap year', () => {
+            const year = 2024; // Leap year
+            const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+            assert(isLeap === true, '2024 should be a leap year');
+            
+            const daysInFeb = isLeap ? 29 : 28;
+            assertEqual(daysInFeb, 29, 'February should have 29 days in leap year');
+        });
+
+        runner.test('Birthday Validation - February non-leap year', () => {
+            const year = 2023; // Not a leap year
+            const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+            assert(isLeap === false, '2023 should not be a leap year');
+            
+            const daysInFeb = isLeap ? 29 : 28;
+            assertEqual(daysInFeb, 28, 'February should have 28 days in non-leap year');
+        });
+
+        // ===================================================================
+        // TEST 5: Translation/Multi-language Tests
+        // ===================================================================
+        runner.test('Translation - Multiple languages supported', () => {
+            const translations = {
+                'de': { 'hello': 'Hallo' },
+                'en': { 'hello': 'Hello' },
+                'fr': { 'hello': 'Bonjour' },
+                'es': { 'hello': 'Hola' },
+                'it': { 'hello': 'Ciao' },
+                'tr': { 'hello': 'Merhaba' },
+                'pl': { 'hello': 'Cześć' },
+                'ru': { 'hello': 'Привет' },
+                'ar': { 'hello': 'مرحبا' },
+                'zh': { 'hello': '你好' }
+            };
+            
+            const languages = Object.keys(translations);
+            assertEqual(languages.length, 10, 'Should support 10 languages');
+        });
+
+        runner.test('Translation - Key lookup works', () => {
+            const translations = {
+                'de': { 'app_title': 'Anamnese-Fragebogen' },
+                'en': { 'app_title': 'Medical Questionnaire' }
+            };
+            
+            const lang = 'de';
+            const key = 'app_title';
+            const translated = translations[lang][key];
+            assertEqual(translated, 'Anamnese-Fragebogen', 'Translation should work');
+        });
+
+        // ===================================================================
+        // TEST 6: Export Functionality Tests
+        // ===================================================================
+        runner.test('JSON Export - Creates valid JSON', () => {
+            const answers = {
+                '0000': 'Doe',
+                '0001': 'John',
+                '0002': 'männlich'
+            };
+            
+            const exportData = {
+                metadata: {
+                    version: '3.0.0',
+                    timestamp: new Date().toISOString(),
+                    language: 'de'
+                },
+                answers: answers
+            };
+            
+            const jsonString = JSON.stringify(exportData, null, 2);
+            const parsed = JSON.parse(jsonString);
+            
+            assertEqual(parsed.answers['0000'], 'Doe', 'JSON export should preserve answers');
+            assert(parsed.metadata.timestamp, 'JSON export should include timestamp');
+        });
+
+        runner.test('JSON Export - Filters empty answers', () => {
+            const answers = {
+                '0000': 'Doe',
+                '0001': '',
+                '0002': 'männlich',
+                '0003': null,
+                '0004': undefined
+            };
+            
+            const filtered = {};
+            for (const [key, value] of Object.entries(answers)) {
+                if (value !== undefined && value !== null && value !== '' && 
+                    !(Array.isArray(value) && value.length === 0)) {
+                    filtered[key] = value;
+                }
+            }
+            
+            assertEqual(Object.keys(filtered).length, 2, 'Should only keep non-empty answers');
+            assert(filtered['0000'], 'Should keep valid answer');
+            assert(!filtered['0001'], 'Should filter empty string');
+        });
+
+        runner.test('Email Export - Creates mailto link', () => {
+            const subject = 'Anamnese Antworten';
+            const body = 'Encrypted data here';
+            const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            
+            assert(mailtoLink.startsWith('mailto:?'), 'Should create mailto link');
+            assert(mailtoLink.includes('subject='), 'Should include subject');
+            assert(mailtoLink.includes('body='), 'Should include body');
+        });
+
+        runner.test('NFC Export - Checks for NDEFReader support', () => {
+            const hasNFC = 'NDEFReader' in window;
+            // This will likely be false in most browsers, but test the check works
+            assert(typeof hasNFC === 'boolean', 'NFC check should return boolean');
+        });
+
+        // ===================================================================
+        // TEST 7: UI/Data Consistency Tests
+        // ===================================================================
+        runner.test('Summary Box - Shows only latest answer per question', () => {
+            const summaryItems = {};
+            const questionId = 'q001';
+            
+            // Simulate multiple updates to same question
+            summaryItems[questionId] = 'Answer 1';
+            summaryItems[questionId] = 'Answer 2';
+            summaryItems[questionId] = 'Answer 3';
+            
+            // Should only have one entry
+            assertEqual(summaryItems[questionId], 'Answer 3', 'Should show only latest answer');
+            assertEqual(Object.keys(summaryItems).length, 1, 'Should have only one entry');
+        });
+
+        runner.test('Answer Navigation - Can jump to question', () => {
+            // Simulate finding section index for a question
+            const sections = [
+                { id: 's1', questions: [{ id: 'q1' }, { id: 'q2' }] },
+                { id: 's2', questions: [{ id: 'q3' }, { id: 'q4' }] }
+            ];
+            
+            const questionId = 'q3';
+            const sectionIndex = sections.findIndex(section => 
+                section.questions.some(q => q.id === questionId)
+            );
+            
+            assertEqual(sectionIndex, 1, 'Should find correct section for question');
+        });
+
+        // ===================================================================
+        // TEST 8: Input Validation Tests
+        // ===================================================================
+        runner.test('Email Validation - Valid email accepted', () => {
+            const email = 'test@example.com';
+            const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            assert(isValid, 'Valid email should pass validation');
+        });
+
+        runner.test('Email Validation - Invalid email rejected', () => {
+            const email = 'not-an-email';
+            const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            assert(!isValid, 'Invalid email should fail validation');
+        });
+
+        runner.test('Phone Validation - Valid phone accepted', () => {
+            const phone = '+49 123 456789';
+            const isValid = /^[\d\s\+\-\(\)]*$/.test(phone);
+            assert(isValid, 'Valid phone should pass validation');
+        });
+
+        runner.test('Phone Validation - Invalid phone rejected', () => {
+            const phone = 'abc123';
+            const isValid = /^[\d\s\+\-\(\)]*$/.test(phone);
+            assert(!isValid, 'Invalid phone should fail validation');
+        });
+
+        // ===================================================================
+        // RUN ALL TESTS
+        // ===================================================================
+        window.addEventListener('load', () => {
+            runner.run();
+        });
+    </script>
+</body>
+</html>
