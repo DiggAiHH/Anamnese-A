@@ -114,8 +114,13 @@
         // ===================================================================
         // TEST 1: Encryption/Decryption Tests
         // ===================================================================
+        
+        // ⚠️ TEST ENCRYPTION KEY - DO NOT USE IN PRODUCTION ⚠️
+        // This key is ONLY for testing purposes and should NEVER be used in production
+        const TEST_ENCRYPTION_KEY_DO_NOT_USE_IN_PROD = 'TEST-KEY-32-Bytes-FOR-TESTING';
+        
         runner.test('AES-256 Encryption - Basic encryption works', () => {
-            const ENCRYPTION_KEY = 'Test-Key-32-Bytes-Long-123456';
+            const ENCRYPTION_KEY = TEST_ENCRYPTION_KEY_DO_NOT_USE_IN_PROD;
             const testData = 'Hello World';
             const encrypted = CryptoJS.AES.encrypt(testData, ENCRYPTION_KEY).toString();
             assert(encrypted !== testData, 'Encrypted data should be different from original');
@@ -123,7 +128,7 @@
         });
 
         runner.test('AES-256 Decryption - Basic decryption works', () => {
-            const ENCRYPTION_KEY = 'Test-Key-32-Bytes-Long-123456';
+            const ENCRYPTION_KEY = TEST_ENCRYPTION_KEY_DO_NOT_USE_IN_PROD;
             const testData = 'Hello World';
             const encrypted = CryptoJS.AES.encrypt(testData, ENCRYPTION_KEY).toString();
             const decrypted = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
@@ -131,7 +136,7 @@
         });
 
         runner.test('AES-256 Encryption - JSON data encryption', () => {
-            const ENCRYPTION_KEY = 'Test-Key-32-Bytes-Long-123456';
+            const ENCRYPTION_KEY = TEST_ENCRYPTION_KEY_DO_NOT_USE_IN_PROD;
             const testData = { name: 'John Doe', age: 30, answers: ['a', 'b', 'c'] };
             const jsonString = JSON.stringify(testData);
             const encrypted = CryptoJS.AES.encrypt(jsonString, ENCRYPTION_KEY).toString();

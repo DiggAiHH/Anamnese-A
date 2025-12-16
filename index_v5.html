@@ -461,6 +461,12 @@ function initApp() {
  */
 const ENCRYPTION_KEY = "Your-Secret-Key-Here-Must-Be-32-Bytes"; // ÄNDERN SIE DIES! / CHANGE THIS!
 
+// Sicherheitswarnung für Standard-Schlüssel / Security warning for default key
+if (ENCRYPTION_KEY === "Your-Secret-Key-Here-Must-Be-32-Bytes") {
+    console.warn("⚠️ SECURITY WARNING: Using default encryption key! Please change ENCRYPTION_KEY in production!");
+    console.warn("⚠️ SICHERHEITSWARNUNG: Standard-Verschlüsselungsschlüssel wird verwendet! Bitte ENCRYPTION_KEY in Produktion ändern!");
+}
+
 /**
  * Erstellt das JSON-Objekt der Antworten.
  * @returns {object} - Das JSON-Objekt der Antworten.
@@ -1310,8 +1316,8 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
             <button class="btn btn-secondary" onclick="document.getElementById('load-file').click()">📂 Laden</button>
             <input type="file" id="load-file" accept=".json" style="display:none" onchange="App.loadFromFile(event)">
             <button class="btn btn-danger" onclick="App.resetAll()">🔄 Neu</button>
-        
-            <bu
+        </div>
+
         <!-- ================================================================
              JSON ANTWORT BOX (MANUS)
              ================================================================ -->
@@ -11720,30 +11726,43 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                 try {
                     const statusEl = document.getElementById('voice-status');
                     statusEl.style.display = 'block';
-                    statusEl.textContent = '⏳ Lade Vosk Sprachmodell (45MB)...';
                     
-                    // Modell-URL: Nutze lokales 45MB deutsches Modell für Offline-Betrieb
-                    // Alternativ: Fallback zum CDN wenn lokales Modell nicht verfügbar
-                    const localModelUrl = "models/vosk-model-small-de-0.15.zip"; // Lokaler Pfad zum 45MB Modell
-                    const cdnModelUrl = "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-de-0.15.tar.gz";
+                    // Modell-Konfiguration / Model configuration
+                    const MODEL_CONFIG = {
+                        local: {
+                            url: "models/vosk-model-small-de-0.15.zip",
+                            size: "45MB",
+                            name: "German Small Model"
+                        },
+                        cdn: {
+                            url: "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-de-0.15.tar.gz",
+                            size: "~50MB",
+                            name: "German Small Model (CDN)"
+                        }
+                    };
+                    
+                    statusEl.textContent = `⏳ Lade Vosk Sprachmodell (${MODEL_CONFIG.local.size})...`;
                     
                     // Versuche zuerst lokales Modell zu laden
-                    let modelUrl = localModelUrl;
+                    let modelUrl = MODEL_CONFIG.local.url;
+                    let modelInfo = MODEL_CONFIG.local;
                     
                     // Prüfe ob lokales Modell verfügbar ist
                     try {
-                        const response = await fetch(localModelUrl, { method: 'HEAD' });
+                        const response = await fetch(MODEL_CONFIG.local.url, { method: 'HEAD' });
                         if (!response.ok) {
                             console.warn('Lokales Vosk-Modell nicht gefunden, verwende CDN...');
-                            modelUrl = cdnModelUrl;
-                            statusEl.textContent = '⏳ Lade Vosk Sprachmodell von CDN...';
+                            modelUrl = MODEL_CONFIG.cdn.url;
+                            modelInfo = MODEL_CONFIG.cdn;
+                            statusEl.textContent = `⏳ Lade ${modelInfo.name} (${modelInfo.size})...`;
                         } else {
-                            console.log('Verwende lokales Vosk-Modell (45MB)');
+                            console.log(`Verwende ${modelInfo.name} (${modelInfo.size})`);
                         }
                     } catch (error) {
                         console.warn('Fehler beim Prüfen des lokalen Modells, verwende CDN:', error);
-                        modelUrl = cdnModelUrl;
-                        statusEl.textContent = '⏳ Lade Vosk Sprachmodell von CDN...';
+                        modelUrl = MODEL_CONFIG.cdn.url;
+                        modelInfo = MODEL_CONFIG.cdn;
+                        statusEl.textContent = `⏳ Lade ${modelInfo.name} (${modelInfo.size})...`;
                     }
                     
                     if (typeof Vosk === 'undefined') {
