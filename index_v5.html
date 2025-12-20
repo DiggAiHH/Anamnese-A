@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Digitaler Anamnese-Fragebogen - Offline Medical App">
+    <meta name="description" content="Digital Medical History Questionnaire - Offline Medical App">
     <meta name="author" content="DiggAi GmbH">
-    <title>Anamnese-Fragebogen (Vosk Integrated)</title>
+    <title>Medical History Questionnaire (Vosk Integrated)</title>
     
     <!-- Vosk Library Async Load -->
     <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.9/dist/vosk.js"></script>
@@ -643,7 +643,7 @@ async function updateJsonBox() {
 function getTranslation(key) {
     // Falls APP_STATE existiert, verwende dessen Sprache, sonst verwende 'de'
     const lang = (typeof APP_STATE !== 'undefined' && APP_STATE.language) ? APP_STATE.language : 
-                 (typeof AppState !== 'undefined' && AppState.language) ? AppState.language : 'de';
+                 (typeof AppState !== 'undefined' && AppState.language) ? AppState.language : 'en';
     
     if (!window.APP_DATA || !window.APP_DATA.translations) return key;
     const trans = window.APP_DATA.translations[lang];
@@ -768,7 +768,7 @@ async function exportJsonFile(encrypted = true) {
             dataToExport = await encryptData(jsonString);
             filename = 'anamnese_antworten_enc.txt';
         } catch (e) {
-            alert('Fehler bei der Verschlüsselung: ' + e.message);
+            alert('Encryption error: ' + e.message);
             return;
         }
     }
@@ -801,7 +801,7 @@ async function sendEmail() {
         const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         window.location.href = mailtoLink;
     } catch (e) {
-        alert('Fehler bei der Verschlüsselung für E-Mail: ' + e.message);
+        alert('Encryption error for email: ' + e.message);
     }
 }
 
@@ -822,7 +822,7 @@ async function exportNFC() {
                 .then(() => alert(getTranslation('nfc_success')))
                 .catch(error => alert(getTranslation('nfc_error') + error));
         } catch (e) {
-            alert('Fehler bei der Verschlüsselung für NFC: ' + e.message);
+            alert('Encryption error for NFC: ' + e.message);
         }
     } else {
         // Fallback/Simulation
@@ -832,7 +832,7 @@ async function exportNFC() {
             const encryptedData = await encryptData(JSON.stringify(getAnswerJson(), null, 2));
             document.getElementById('json-answer-box').value = encryptedData;
         } catch (e) {
-            alert('Fehler bei der Verschlüsselung: ' + e.message);
+            alert('Encryption error: ' + e.message);
         }
     }
 }
@@ -863,7 +863,7 @@ async function showDecryptionModal() {
                 }
             }
         } catch (e) {
-            alert('Entschlüsselung fehlgeschlagen: ' + e.message);
+            alert('Decryption failed: ' + e.message);
         }
     }
 }
@@ -1003,15 +1003,15 @@ async function showDocumentUploadDialog() {
                     processedCount++;
                 } catch (error) {
                     console.error('Fehler beim Verarbeiten der Datei:', error);
-                    alert('Fehler: ' + error.message);
+                    alert('Error: ' + error.message);
                 }
             }
             
             if (processedDocs.length > 0) {
-                alert(`${processedDocs.length} Dokument(e) erfolgreich verarbeitet und hinzugefügt.`);
+                alert(`${processedDocs.length} document(s) successfully processed and added.`);
                 resolve(true);
             } else {
-                alert('Keine Dokumente konnten verarbeitet werden.');
+                alert('No documents could be processed.');
                 resolve(false);
             }
         };
@@ -1059,7 +1059,7 @@ async function exportJsonFileWithDocuments(encrypted = true, includeDocuments = 
             dataToExport = await encryptData(jsonString);
             filename = 'anamnese_antworten_enc.txt';
         } catch (e) {
-            alert('Fehler bei der Verschlüsselung: ' + e.message);
+            alert('Encryption error: ' + e.message);
             return;
         }
     }
@@ -1079,7 +1079,7 @@ async function exportJsonFileWithDocuments(encrypted = true, includeDocuments = 
  * Fragt vor dem Export, ob Dokumente hochgeladen werden sollen
  */
 async function exportWithDocumentPrompt(encrypted = true) {
-    const wantToUpload = confirm('Möchten Sie vor dem Export zusätzliche Dokumente (Bilder, PDFs, Textdateien) hochladen?');
+    const wantToUpload = confirm('Would you like to upload additional documents (images, PDFs, text files) before export?');
     
     if (wantToUpload) {
         await showDocumentUploadDialog();
@@ -1093,7 +1093,7 @@ async function exportWithDocumentPrompt(encrypted = true) {
  * Sendet E-Mail mit Dokumenten
  */
 async function sendEmailWithDocuments() {
-    const wantToUpload = confirm('Möchten Sie vor dem Versand zusätzliche Dokumente (Bilder, PDFs, Textdateien) hochladen?');
+    const wantToUpload = confirm('Would you like to upload additional documents (images, PDFs, text files) before sending?');
     
     if (wantToUpload) {
         await showDocumentUploadDialog();
@@ -1111,7 +1111,7 @@ async function sendEmailWithDocuments() {
         let body = getTranslation('email_body') + '\n\n';
         
         if (DOCUMENT_STORAGE.documents.length > 0) {
-            body += `(${DOCUMENT_STORAGE.documents.length} Dokument(e) angehängt)\n\n`;
+            body += `(${DOCUMENT_STORAGE.documents.length} document(s) attached)\n\n`;
         }
         
         body += encryptedData;
@@ -1119,7 +1119,7 @@ async function sendEmailWithDocuments() {
         const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
         window.location.href = mailtoLink;
     } catch (e) {
-        alert('Fehler bei der Verschlüsselung für E-Mail: ' + e.message);
+        alert('Encryption error for email: ' + e.message);
     }
 }
 
@@ -1128,11 +1128,11 @@ async function sendEmailWithDocuments() {
  */
 function showUploadedDocuments() {
     if (DOCUMENT_STORAGE.documents.length === 0) {
-        alert('Keine Dokumente hochgeladen.');
+        alert('No documents uploaded.');
         return;
     }
     
-    let message = `Hochgeladene Dokumente (${DOCUMENT_STORAGE.documents.length}):\n\n`;
+    let message = `Uploaded documents (${DOCUMENT_STORAGE.documents.length}):\n\n`;
     DOCUMENT_STORAGE.documents.forEach((doc, index) => {
         message += `${index + 1}. ${doc.filename}\n`;
         message += `   Typ: ${doc.type}\n`;
@@ -1148,13 +1148,13 @@ function showUploadedDocuments() {
  */
 function clearUploadedDocuments() {
     if (DOCUMENT_STORAGE.documents.length === 0) {
-        alert('Keine Dokumente zum Löschen vorhanden.');
+        alert('No documents available to delete.');
         return;
     }
     
-    if (confirm(`Möchten Sie alle ${DOCUMENT_STORAGE.documents.length} hochgeladenen Dokumente löschen?`)) {
+    if (confirm(`Do you want to delete all ${DOCUMENT_STORAGE.documents.length} uploaded documents?`)) {
         DOCUMENT_STORAGE.documents = [];
-        alert('Alle Dokumente wurden gelöscht.');
+        alert('All documents have been deleted.');
     }
 }
 
@@ -1738,56 +1738,56 @@ App.clearUploadedDocuments = clearUploadedDocuments;
             </h3>
             <textarea id="json-answer-box" rows="10" readonly style="font-family: monospace; font-size: 0.8rem;"></textarea>
             
-            <!-- Dokumenten-Upload Bereich -->
+            <!-- Document Upload Section -->
             <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--primary);">
-                <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text);">📄 Zusätzliche Dokumente</h4>
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text);">📄 Additional Documents</h4>
                 <p style="font-size: 0.85rem; color: var(--secondary); margin: 0 0 0.5rem 0;">
-                    Sie können zusätzliche Dokumente (Bilder, PDFs, Textdateien) hochladen. Diese werden mit OCR verarbeitet und verschlüsselt exportiert.
+                    You can upload additional documents (images, PDFs, text files). These will be processed with OCR and exported encrypted.
                 </p>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                     <button class="btn btn-info" onclick="App.showDocumentUploadDialog()" style="font-size: 0.9rem;">
-                        📤 Dokumente hochladen
+                        📤 Upload Documents
                     </button>
                     <button class="btn btn-secondary" onclick="App.showUploadedDocuments()" style="font-size: 0.9rem;">
-                        📋 Dokumente anzeigen
+                        📋 View Documents
                     </button>
                     <button class="btn btn-danger" onclick="App.clearUploadedDocuments()" style="font-size: 0.9rem;">
-                        🗑️ Dokumente löschen
+                        🗑️ Delete Documents
                     </button>
                 </div>
             </div>
             
             <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="App.exportWithDocumentPrompt(true)">
-                    💾 <span data-translate="export_file_enc">Export (Verschlüsselt + Dokumente)</span>
+                    💾 <span data-translate="export_file_enc">Export (Encrypted + Documents)</span>
                 </button>
                 <button class="btn btn-secondary" onclick="App.exportJsonFile(false)">
-                    💾 <span data-translate="export_file_raw">Export (Roh-JSON)</span>
+                    💾 <span data-translate="export_file_raw">Export (Raw JSON)</span>
                 </button>
                 <button class="btn btn-success" onclick="App.showDecryptionModal()">
-                    🔑 <span data-translate="decrypt_data">Daten entschlüsseln</span>
+                    🔑 <span data-translate="decrypt_data">Decrypt Data</span>
                 </button>
                 <button class="btn btn-secondary" onclick="App.exportNFC()">
                     📲 <span data-translate="export_nfc">Export (NFC)</span>
                 </button>
                 <button class="btn btn-secondary" onclick="App.sendEmailWithDocuments()">
-                    📧 <span data-translate="export_email">Export (E-Mail + Dokumente)</span>
+                    📧 <span data-translate="export_email">Export (Email + Documents)</span>
                 </button>
             </div>
         </div>
 
         <div id="summary-box" class="summary-box hidden">
-            <h3>📋 Zusammenfassung Ihrer Angaben</h3>
-            <p style="color: var(--secondary); font-size: 0.85rem;">Klicken Sie auf einen Eintrag, um zur Frage zu springen.</p>
+            <h3>📋 Summary of Your Information</h3>
+            <p style="color: var(--secondary); font-size: 0.85rem;">Click on an entry to jump to the question.</p>
             <div id="summary-content"></div>
             <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                <button class="btn btn-primary" onclick="App.exportJSON(true)">📤 Export (Voll)</button>
-                <button class="btn btn-secondary" onclick="App.exportJSON(false)">📤 Export (Anonym)</button>
+                <button class="btn btn-primary" onclick="App.exportJSON(true)">📤 Export (Full)</button>
+                <button class="btn btn-secondary" onclick="App.exportJSON(false)">📤 Export (Anonymous)</button>
             </div>
         </div>
 
         <footer>
-            <p><strong>Medizinische Konzeption: Dr. Christian Klapproth</strong></p>
+            <p><strong>Medical Concept: Dr. Christian Klapproth</strong></p>
             <p>Technische Umsetzung: DiggAi GmbH</p>
             <p style="font-size: 0.7em">Powered by Vosk Browser</p>
         </footer>
@@ -12228,7 +12228,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
         const AppState = {
             currentStep: 0,
             answers: {},
-            language: 'de',
+            language: 'en',  // Changed to English as default
             isDarkMode: false,
             isListening: false,
             privacyAccepted: false,
@@ -12404,7 +12404,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                     
                 } catch (e) {
                     console.error("Mic Error:", e);
-                    alert("Fehler beim Zugriff auf das Mikrofon.");
+                    alert("Error accessing microphone.");
                 }
             },
 
@@ -13033,10 +13033,10 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                             if (data.language) AppState.language = data.language;
                             this.saveToStorage();
                             this.renderStep(0);
-                            alert("Daten erfolgreich geladen!");
+                            alert("Data loaded successfully!");
                         }
                     } catch (err) {
-                        alert("Fehler beim Laden der Datei: " + err.message);
+                        alert("Error loading file: " + err.message);
                     }
                 };
                 reader.readAsText(file);
