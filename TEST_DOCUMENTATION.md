@@ -6,7 +6,7 @@ This document provides comprehensive testing procedures for all features of the 
 ## Test Environment
 - **Application**: Medical History Questionnaire (index_v5.html)
 - **Version**: 3.0.0
-- **Languages Tested**: English, German, Arabic, Farsi (Persian), Urdu
+- **Languages Tested**: English, German, French, Arabic, Farsi (Persian), Urdu
 - **Features**: Multi-language UI, RTL support, document upload, OCR, encryption, voice input
 
 ## Test Categories
@@ -48,7 +48,27 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Buttons: "Speichern", "Laden", "Neu starten"
 - ✅ Export buttons: "Export (Verschlüsselt + Dokumente)"
 
-#### Test 1.3: Arabic Language with RTL
+#### Test 1.3: French Language Switch
+**Objective**: Verify French language switch works correctly
+
+**Steps**:
+1. From English, select "Français" from language dropdown
+2. Observe all text elements update
+3. Verify section titles, field labels, buttons
+4. Navigate through questionnaire sections
+5. Test export functionality
+6. Test document management section in French
+
+**Expected Results**:
+- ✅ All UI text changes to French instantly
+- ✅ Direction remains LTR
+- ✅ HTML lang attribute changes to: `fr`
+- ✅ Buttons: "Sauvegarder", "Charger", "Recommencer"
+- ✅ Export buttons: "Exporter (Chiffré + Documents)"
+- ✅ Document section: "Documents Supplémentaires"
+- ✅ Title: "Questionnaire d'Anamnèse Médicale"
+
+#### Test 1.4: Arabic Language with RTL
 **Objective**: Verify Arabic language with RTL layout
 
 **Steps**:
@@ -71,7 +91,30 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "استبيان التاريخ الطبي"
 
-#### Test 1.4: Farsi (Persian) Language with RTL
+#### Test 1.4: Arabic Language with RTL
+**Objective**: Verify Arabic language with RTL layout
+
+**Steps**:
+1. Select "العربية" from language dropdown
+2. Observe layout flip to RTL
+3. Verify all text in Arabic
+4. Check text alignment (right-aligned)
+5. Test all buttons and navigation
+6. Fill out form fields and verify RTL input
+7. Test document upload in Arabic
+
+**Expected Results**:
+- ✅ All UI text changes to Arabic instantly
+- ✅ Direction: RTL (Right-to-Left)
+- ✅ HTML lang attribute: `ar`
+- ✅ Body dir attribute: `rtl`
+- ✅ All text right-aligned
+- ✅ Buttons flow from right to left
+- ✅ Input fields have RTL cursor
+- ✅ Navigation arrows reversed logically
+- ✅ Title: "استبيان التاريخ الطبي"
+
+#### Test 1.5: Farsi (Persian) Language with RTL
 **Objective**: Verify Farsi language with RTL layout
 
 **Steps**:
@@ -94,7 +137,30 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "پرسشنامه تاریخچه پزشکی"
 
-#### Test 1.5: Urdu Language with RTL
+#### Test 1.5: Farsi (Persian) Language with RTL
+**Objective**: Verify Farsi language with RTL layout
+
+**Steps**:
+1. Select "فارسی" from language dropdown
+2. Observe layout flip to RTL
+3. Verify all text in Farsi
+4. Check text alignment (right-aligned)
+5. Test all buttons and navigation
+6. Fill out form fields and verify RTL input
+7. Test document upload in Farsi
+
+**Expected Results**:
+- ✅ All UI text changes to Farsi instantly
+- ✅ Direction: RTL (Right-to-Left)
+- ✅ HTML lang attribute: `fa`
+- ✅ Body dir attribute: `rtl`
+- ✅ All text right-aligned
+- ✅ Buttons flow from right to left
+- ✅ Input fields have RTL cursor
+- ✅ Navigation arrows reversed logically
+- ✅ Title: "پرسشنامه تاریخچه پزشکی"
+
+#### Test 1.6: Urdu Language with RTL
 **Objective**: Verify Urdu language with RTL layout
 
 **Steps**:
@@ -117,7 +183,30 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "طبی تاریخ کا سوالنامہ"
 
-#### Test 1.6: Language Persistence
+#### Test 1.6: Urdu Language with RTL
+**Objective**: Verify Urdu language with RTL layout
+
+**Steps**:
+1. Select "اردو" from language dropdown
+2. Observe layout flip to RTL
+3. Verify all text in Urdu
+4. Check text alignment (right-aligned)
+5. Test all buttons and navigation
+6. Fill out form fields and verify RTL input
+7. Test document upload in Urdu
+
+**Expected Results**:
+- ✅ All UI text changes to Urdu instantly
+- ✅ Direction: RTL (Right-to-Left)
+- ✅ HTML lang attribute: `ur`
+- ✅ Body dir attribute: `rtl`
+- ✅ All text right-aligned
+- ✅ Buttons flow from right to left
+- ✅ Input fields have RTL cursor
+- ✅ Navigation arrows reversed logically
+- ✅ Title: "طبی تاریخ کا سوالنامہ"
+
+#### Test 1.7: Language Persistence
 **Objective**: Verify language preference is saved
 
 **Steps**:
