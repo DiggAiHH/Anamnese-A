@@ -1665,30 +1665,30 @@ App.clearUploadedDocuments = clearUploadedDocuments;
          ================================================================ -->
     <div id="privacy-modal" class="modal-overlay">
         <div class="modal-content">
-            <h2>🔒 Datenschutzhinweis</h2>
+            <h2>🔒 Privacy Notice</h2>
             <p id="modal-text">
-                Diese Anwendung verarbeitet Ihre Gesundheitsdaten ausschließlich lokal auf Ihrem Gerät. 
-                Es werden keine Daten an externe Server übermittelt (außer für das einmalige Laden der Sprachmodelle, falls online). 
-                Mit dem Klick auf 'Akzeptieren & Starten' stimmen Sie der lokalen Verarbeitung zu.
+                This application processes your health data exclusively locally on your device. 
+                No data is transmitted to external servers (except for one-time loading of language models, if online). 
+                By clicking 'Accept & Start' you agree to local processing.
             </p>
             <button class="btn btn-primary" onclick="App.acceptPrivacy()">
-                ✓ Akzeptieren & Starten
+                ✓ Accept & Start
             </button>
         </div>
     </div>
 
     <!-- ================================================================
-         HAUPTANWENDUNG
+         MAIN APPLICATION
          ================================================================ -->
     <div id="app-container" class="app-container hidden">
         <header>
-            <h1 id="app-title">🏥 Anamnese-Fragebogen</h1>
+            <h1 id="app-title">🏥 Medical History Questionnaire</h1>
             
             <div class="disclaimer warning" id="disclaimer-medical">
-                Dies ist ein digitales Anamnese-Werkzeug und ersetzt keine ärztliche Untersuchung.
+                This is a digital medical history tool and does not replace a medical examination.
             </div>
             <div class="disclaimer success" id="disclaimer-privacy">
-                Ihre Eingaben werden lokal gespeichert und nur als Datei übergeben.
+                Your entries are stored locally and only transferred as a file.
             </div>
 
             <div class="header-controls">
@@ -1712,25 +1712,25 @@ App.clearUploadedDocuments = clearUploadedDocuments;
         <div id="question-area" class="question-card"></div>
 
         <div class="question-card" style="margin-bottom: 1rem;">
-            <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--secondary);">📝 Transkribierte Spracheingaben</h3>
+            <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--secondary);">📝 Transcribed Voice Inputs</h3>
             <div id="chat-area" class="chat-area"></div>
         </div>
 
         <div class="nav-buttons">
-            <button id="back-btn" class="btn btn-secondary" onclick="App.prevStep()" disabled>← Zurück</button>
-            <button id="next-btn" class="btn btn-primary" onclick="App.nextStep()">Weiter →</button>
-            <button id="submit-btn" class="btn btn-success hidden" onclick="App.showSummary()">✓ Zusammenfassung</button>
+            <button id="back-btn" class="btn btn-secondary" onclick="App.prevStep()" disabled>← Back</button>
+            <button id="next-btn" class="btn btn-primary" onclick="App.nextStep()">Next →</button>
+            <button id="submit-btn" class="btn btn-success hidden" onclick="App.showSummary()">✓ Summary</button>
         </div>
 
         <div class="action-buttons">
-            <button class="btn btn-secondary" onclick="App.saveToFile()">💾 Speichern</button>
-            <button class="btn btn-secondary" onclick="document.getElementById('load-file').click()">📂 Laden</button>
+            <button class="btn btn-secondary" onclick="App.saveToFile()">💾 Save</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('load-file').click()">📂 Load</button>
             <input type="file" id="load-file" accept=".json" style="display:none" onchange="App.loadFromFile(event)">
-            <button class="btn btn-danger" onclick="App.resetAll()">🔄 Neu</button>
+            <button class="btn btn-danger" onclick="App.resetAll()">🔄 Restart</button>
         </div>
 
         <!-- ================================================================
-             JSON ANTWORT BOX (MANUS)
+             JSON ANSWER BOX
              ================================================================ -->
         <div class="question-card" style="margin-bottom: 1.5rem;">
             <h3 style="margin: 0 0 0.5rem 0; font-size: 1.3rem; color: var(--primary);">
