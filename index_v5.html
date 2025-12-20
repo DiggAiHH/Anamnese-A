@@ -8,7 +8,8 @@
     <title>Anamnese-Fragebogen (Vosk Integrated)</title>
     
     <!-- Vosk Library Async Load -->
-    <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.9/dist/vosk.js">
+    <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.9/dist/vosk.js"></script>
+    <script>
 // =================================================================
 // NEUE FUNKTIONEN FÜR LOGIK UND UI-VERBESSERUNGEN (MANUS)
 // =================================================================
@@ -496,14 +497,65 @@ function getAnswerJson() {
 }
 
 /**
- * Verschlüsselt einen String mit AES-256.
- * @param {string} data - Der zu verschlüsselnde String.
- * @returns {string} - Der verschlüsselte String.
+ * Derive encryption key from password using PBKDF2
+ * @param {string} password - The password to derive the key from
+ * @param {Uint8Array} salt - Salt for key derivation
+ * @returns {Promise<CryptoKey>} - The derived key
  */
-function encryptData(data) {
+async function deriveKeyFromPassword(password, salt) {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits', 'deriveKey']
+    );
+
+    return crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 100000,
+            hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+    );
+}
+
+/**
+ * Verschlüsselt einen String mit AES-256-GCM (Web Crypto API).
+ * @param {string} data - Der zu verschlüsselnde String.
+ * @returns {Promise<string>} - Der verschlüsselte String (Base64).
+ */
+async function encryptData(data) {
     try {
-        const encrypted = CryptoJS.AES.encrypt(data, ENCRYPTION_KEY).toString();
-        return encrypted;
+        const encoder = new TextEncoder();
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        
+        const key = await deriveKeyFromPassword(ENCRYPTION_KEY, salt);
+        
+        const encryptedData = await crypto.subtle.encrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv
+            },
+            key,
+            encoder.encode(data)
+        );
+
+        // Combine salt, iv, and encrypted data
+        const result = new Uint8Array(salt.length + iv.length + encryptedData.byteLength);
+        result.set(salt, 0);
+        result.set(iv, salt.length);
+        result.set(new Uint8Array(encryptedData), salt.length + iv.length);
+
+        // Convert to base64 for storage
+        return btoa(String.fromCharCode.apply(null, result));
     } catch (e) {
         console.error("Verschlüsselungsfehler:", e);
         alert("Fehler bei der Verschlüsselung der Daten.");
@@ -512,14 +564,36 @@ function encryptData(data) {
 }
 
 /**
- * Entschlüsselt einen String mit AES-256.
- * @param {string} encryptedData - Der verschlüsselte String.
- * @returns {string|null} - Der entschlüsselte String oder null im Fehlerfall.
+ * Entschlüsselt einen String mit AES-256-GCM (Web Crypto API).
+ * @param {string} encryptedBase64 - Der verschlüsselte String (Base64).
+ * @returns {Promise<string|null>} - Der entschlüsselte String oder null im Fehlerfall.
  */
-function decryptData(encryptedData) {
+async function decryptData(encryptedBase64) {
     try {
-        const decrypted = CryptoJS.AES.decrypt(encryptedData, ENCRYPTION_KEY);
-        return decrypted.toString(CryptoJS.enc.Utf8);
+        const decoder = new TextDecoder();
+        
+        // Decode from base64
+        const encryptedArray = new Uint8Array(
+            atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
+        );
+
+        // Extract salt, iv, and encrypted data
+        const salt = encryptedArray.slice(0, 16);
+        const iv = encryptedArray.slice(16, 28);
+        const data = encryptedArray.slice(28);
+
+        const key = await deriveKeyFromPassword(ENCRYPTION_KEY, salt);
+
+        const decryptedData = await crypto.subtle.decrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv
+            },
+            key,
+            data
+        );
+
+        return decoder.decode(decryptedData);
     } catch (e) {
         console.error("Entschlüsselungsfehler:", e);
         alert("Fehler bei der Entschlüsselung der Daten. Möglicherweise falscher Schlüssel.");
@@ -530,12 +604,12 @@ function decryptData(encryptedData) {
 /**
  * Aktualisiert die JSON-Box mit den aktuellen Antworten.
  */
-function updateJsonBox() {
+async function updateJsonBox() {
     const answerJson = getAnswerJson();
     const jsonString = JSON.stringify(answerJson, null, 2);
     
     // Verschlüsseln für die Anzeige in der Box (optional, aber gut für die Demonstration)
-    const encryptedString = encryptData(jsonString);
+    const encryptedString = await encryptData(jsonString);
     
     const jsonBox = document.getElementById('json-answer-box');
     if (jsonBox) {
@@ -667,7 +741,7 @@ function jumpToQuestion(questionId) {
  * Exportiert die Antworten als verschlüsselte JSON-Datei.
  * @param {boolean} encrypted - Ob die Daten verschlüsselt werden sollen.
  */
-function exportJsonFile(encrypted = true) {
+async function exportJsonFile(encrypted = true) {
     const answerJson = getAnswerJson();
     const jsonString = JSON.stringify(answerJson, null, 2);
     
@@ -675,7 +749,7 @@ function exportJsonFile(encrypted = true) {
     let filename = 'anamnese_antworten.json';
     
     if (encrypted) {
-        dataToExport = encryptData(jsonString);
+        dataToExport = await encryptData(jsonString);
         filename = 'anamnese_antworten_enc.txt';
     }
     
@@ -693,10 +767,10 @@ function exportJsonFile(encrypted = true) {
 /**
  * Sendet die Antworten per E-Mail (als verschlüsselten Anhang).
  */
-function sendEmail() {
+async function sendEmail() {
     const answerJson = getAnswerJson();
     const jsonString = JSON.stringify(answerJson, null, 2);
-    const encryptedData = encryptData(jsonString);
+    const encryptedData = await encryptData(jsonString);
     
     const subject = getTranslation('email_subject');
     const body = getTranslation('email_body') + '\n\n' + encryptedData;
@@ -709,12 +783,12 @@ function sendEmail() {
 /**
  * Exportiert die Antworten über NFC (simuliert, da NFC-API komplex ist).
  */
-function exportNFC() {
+async function exportNFC() {
     if ('NDEFReader' in window) {
         // Echte NFC-Implementierung
         const answerJson = getAnswerJson();
         const jsonString = JSON.stringify(answerJson, null, 2);
-        const encryptedData = encryptData(jsonString);
+        const encryptedData = await encryptData(jsonString);
         
         const reader = new NDEFReader();
         reader.write({ records: [{ recordType: "text", data: encryptedData }] })
@@ -724,7 +798,7 @@ function exportNFC() {
         // Fallback/Simulation
         alert(getTranslation('nfc_simulation'));
         // Zeige die verschlüsselten Daten an, die über NFC gesendet würden
-        const encryptedData = encryptData(JSON.stringify(getAnswerJson(), null, 2));
+        const encryptedData = await encryptData(JSON.stringify(getAnswerJson(), null, 2));
         document.getElementById('json-answer-box').value = encryptedData;
     }
 }
@@ -741,10 +815,10 @@ function handleAnswerChange(id, value) {
 }
 
 // Füge die Entschlüsselungsfunktion für die Praxis/Klinik hinzu
-function showDecryptionModal() {
+async function showDecryptionModal() {
     const encryptedData = prompt(getTranslation('decryption_prompt'));
     if (encryptedData) {
-        const decryptedData = decryptData(encryptedData);
+        const decryptedData = await decryptData(encryptedData);
         if (decryptedData) {
             try {
                 const jsonObject = JSON.parse(decryptedData);
@@ -764,7 +838,7 @@ App.jumpToQuestion = jumpToQuestion;
 App.showDecryptionModal = showDecryptionModal;
 App.updateJsonBox = updateJsonBox; // Für die Initialisierung
 // ... (Rest des Original-Codes)
-</script><script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+</script>
 
     <style>
         /* =================================================================
@@ -12371,7 +12445,7 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                 this.updateJsonBox();
             },
             
-            updateJsonBox() {
+            async updateJsonBox() {
                 const jsonBox = document.getElementById('json-answer-box');
                 if (!jsonBox) return;
                 
@@ -12384,10 +12458,9 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                 
                 const jsonString = JSON.stringify(data, null, 2);
                 
-                // Defensive check: encryptData depends on CryptoJS from CDN which may fail to load
-                // If encryption is unavailable, fallback to plain JSON display
+                // Use Web Crypto API for encryption
                 if (typeof encryptData === 'function') {
-                    jsonBox.value = encryptData(jsonString);
+                    jsonBox.value = await encryptData(jsonString);
                 } else {
                     jsonBox.value = jsonString;
                 }
