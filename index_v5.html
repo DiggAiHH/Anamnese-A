@@ -554,12 +554,12 @@ async function encryptData(data) {
         result.set(iv, salt.length);
         result.set(new Uint8Array(encryptedData), salt.length + iv.length);
 
-        // Convert to base64 for storage
-        return btoa(String.fromCharCode.apply(null, result));
+        // Convert to base64 safely for large data
+        const base64 = btoa(result.reduce((data, byte) => data + String.fromCharCode(byte), ''));
+        return base64;
     } catch (e) {
         console.error("Verschlüsselungsfehler:", e);
-        alert("Fehler bei der Verschlüsselung der Daten.");
-        return data; // Rückgabe unverschlüsselt im Fehlerfall
+        throw new Error("Encryption failed: " + e.message);
     }
 }
 
@@ -572,10 +572,12 @@ async function decryptData(encryptedBase64) {
     try {
         const decoder = new TextDecoder();
         
-        // Decode from base64
-        const encryptedArray = new Uint8Array(
-            atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
-        );
+        // Decode from base64 efficiently
+        const binaryString = atob(encryptedBase64);
+        const encryptedArray = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            encryptedArray[i] = binaryString.charCodeAt(i);
+        }
 
         // Extract salt, iv, and encrypted data
         const salt = encryptedArray.slice(0, 16);
@@ -596,8 +598,7 @@ async function decryptData(encryptedBase64) {
         return decoder.decode(decryptedData);
     } catch (e) {
         console.error("Entschlüsselungsfehler:", e);
-        alert("Fehler bei der Entschlüsselung der Daten. Möglicherweise falscher Schlüssel.");
-        return null;
+        throw new Error("Decryption failed - incorrect password or corrupted data");
     }
 }
 
@@ -608,12 +609,16 @@ async function updateJsonBox() {
     const answerJson = getAnswerJson();
     const jsonString = JSON.stringify(answerJson, null, 2);
     
-    // Verschlüsseln für die Anzeige in der Box (optional, aber gut für die Demonstration)
-    const encryptedString = await encryptData(jsonString);
-    
     const jsonBox = document.getElementById('json-answer-box');
     if (jsonBox) {
-        jsonBox.value = encryptedString;
+        try {
+            // Verschlüsseln für die Anzeige in der Box
+            const encryptedString = await encryptData(jsonString);
+            jsonBox.value = encryptedString;
+        } catch (e) {
+            console.error("Failed to encrypt JSON box data:", e);
+            jsonBox.value = "[Encryption Error: " + e.message + "]";
+        }
     }
     
     // Aktualisiere die Zusammenfassung (Summary Box)
@@ -749,8 +754,13 @@ async function exportJsonFile(encrypted = true) {
     let filename = 'anamnese_antworten.json';
     
     if (encrypted) {
-        dataToExport = await encryptData(jsonString);
-        filename = 'anamnese_antworten_enc.txt';
+        try {
+            dataToExport = await encryptData(jsonString);
+            filename = 'anamnese_antworten_enc.txt';
+        } catch (e) {
+            alert('Fehler bei der Verschlüsselung: ' + e.message);
+            return;
+        }
     }
     
     const blob = new Blob([dataToExport], { type: 'application/json' });
@@ -770,14 +780,19 @@ async function exportJsonFile(encrypted = true) {
 async function sendEmail() {
     const answerJson = getAnswerJson();
     const jsonString = JSON.stringify(answerJson, null, 2);
-    const encryptedData = await encryptData(jsonString);
     
-    const subject = getTranslation('email_subject');
-    const body = getTranslation('email_body') + '\n\n' + encryptedData;
-    
-    // Erstelle einen Mailto-Link
-    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoLink;
+    try {
+        const encryptedData = await encryptData(jsonString);
+        
+        const subject = getTranslation('email_subject');
+        const body = getTranslation('email_body') + '\n\n' + encryptedData;
+        
+        // Erstelle einen Mailto-Link
+        const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailtoLink;
+    } catch (e) {
+        alert('Fehler bei der Verschlüsselung für E-Mail: ' + e.message);
+    }
 }
 
 /**
@@ -788,18 +803,27 @@ async function exportNFC() {
         // Echte NFC-Implementierung
         const answerJson = getAnswerJson();
         const jsonString = JSON.stringify(answerJson, null, 2);
-        const encryptedData = await encryptData(jsonString);
         
-        const reader = new NDEFReader();
-        reader.write({ records: [{ recordType: "text", data: encryptedData }] })
-            .then(() => alert(getTranslation('nfc_success')))
-            .catch(error => alert(getTranslation('nfc_error') + error));
+        try {
+            const encryptedData = await encryptData(jsonString);
+            
+            const reader = new NDEFReader();
+            reader.write({ records: [{ recordType: "text", data: encryptedData }] })
+                .then(() => alert(getTranslation('nfc_success')))
+                .catch(error => alert(getTranslation('nfc_error') + error));
+        } catch (e) {
+            alert('Fehler bei der Verschlüsselung für NFC: ' + e.message);
+        }
     } else {
         // Fallback/Simulation
         alert(getTranslation('nfc_simulation'));
         // Zeige die verschlüsselten Daten an, die über NFC gesendet würden
-        const encryptedData = await encryptData(JSON.stringify(getAnswerJson(), null, 2));
-        document.getElementById('json-answer-box').value = encryptedData;
+        try {
+            const encryptedData = await encryptData(JSON.stringify(getAnswerJson(), null, 2));
+            document.getElementById('json-answer-box').value = encryptedData;
+        } catch (e) {
+            alert('Fehler bei der Verschlüsselung: ' + e.message);
+        }
     }
 }
 
@@ -818,14 +842,18 @@ function handleAnswerChange(id, value) {
 async function showDecryptionModal() {
     const encryptedData = prompt(getTranslation('decryption_prompt'));
     if (encryptedData) {
-        const decryptedData = await decryptData(encryptedData);
-        if (decryptedData) {
-            try {
-                const jsonObject = JSON.parse(decryptedData);
-                alert(getTranslation('decryption_success') + JSON.stringify(jsonObject, null, 2));
-            } catch (e) {
-                alert(getTranslation('decryption_error_json'));
+        try {
+            const decryptedData = await decryptData(encryptedData);
+            if (decryptedData) {
+                try {
+                    const jsonObject = JSON.parse(decryptedData);
+                    alert(getTranslation('decryption_success') + JSON.stringify(jsonObject, null, 2));
+                } catch (e) {
+                    alert(getTranslation('decryption_error_json'));
+                }
             }
+        } catch (e) {
+            alert('Entschlüsselung fehlgeschlagen: ' + e.message);
         }
     }
 }
@@ -12460,7 +12488,12 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                 
                 // Use Web Crypto API for encryption
                 if (typeof encryptData === 'function') {
-                    jsonBox.value = await encryptData(jsonString);
+                    try {
+                        jsonBox.value = await encryptData(jsonString);
+                    } catch (e) {
+                        console.error("Encryption failed in App.updateJsonBox:", e);
+                        jsonBox.value = "[Encryption Error]";
+                    }
                 } else {
                     jsonBox.value = jsonString;
                 }
