@@ -6,7 +6,7 @@ This document provides comprehensive testing procedures for all features of the 
 ## Test Environment
 - **Application**: Medical History Questionnaire (index_v5.html)
 - **Version**: 3.0.0
-- **Languages Tested**: English, German, French, Arabic, Farsi (Persian), Urdu
+- **Languages Tested**: English, German, French, Spanish, Arabic, Farsi (Persian), Urdu
 - **Features**: Multi-language UI, RTL support, document upload, OCR, encryption, voice input
 
 ## Test Categories
@@ -68,7 +68,29 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Document section: "Documents Supplémentaires"
 - ✅ Title: "Questionnaire d'Anamnèse Médicale"
 
-#### Test 1.4: Arabic Language with RTL
+#### Test 1.4: Spanish Language Switch
+**Objective**: Verify Spanish language switch works correctly
+
+**Steps**:
+1. From English, select "Español" from language dropdown
+2. Observe all text elements update
+3. Verify section titles, field labels, buttons
+4. Navigate through questionnaire sections
+5. Test export functionality
+6. Test document management section in Spanish
+
+**Expected Results**:
+- ✅ All UI text changes to Spanish instantly
+- ✅ Direction remains LTR
+- ✅ HTML lang attribute changes to: `es`
+- ✅ Buttons: "Guardar", "Cargar", "Reiniciar", "Atrás", "Siguiente"
+- ✅ Export buttons: "Exportar (Cifrado + Documentos)"
+- ✅ Document section: "Documentos Adicionales"
+- ✅ Title: "Cuestionario de Historia Médica"
+- ✅ Privacy notice: "Aviso de Privacidad"
+- ✅ Summary: "Resumen de Su Información"
+
+#### Test 1.5: Arabic Language with RTL
 **Objective**: Verify Arabic language with RTL layout
 
 **Steps**:
@@ -114,7 +136,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "استبيان التاريخ الطبي"
 
-#### Test 1.5: Farsi (Persian) Language with RTL
+#### Test 1.6: Farsi (Persian) Language with RTL
 **Objective**: Verify Farsi language with RTL layout
 
 **Steps**:
@@ -137,30 +159,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "پرسشنامه تاریخچه پزشکی"
 
-#### Test 1.5: Farsi (Persian) Language with RTL
-**Objective**: Verify Farsi language with RTL layout
-
-**Steps**:
-1. Select "فارسی" from language dropdown
-2. Observe layout flip to RTL
-3. Verify all text in Farsi
-4. Check text alignment (right-aligned)
-5. Test all buttons and navigation
-6. Fill out form fields and verify RTL input
-7. Test document upload in Farsi
-
-**Expected Results**:
-- ✅ All UI text changes to Farsi instantly
-- ✅ Direction: RTL (Right-to-Left)
-- ✅ HTML lang attribute: `fa`
-- ✅ Body dir attribute: `rtl`
-- ✅ All text right-aligned
-- ✅ Buttons flow from right to left
-- ✅ Input fields have RTL cursor
-- ✅ Navigation arrows reversed logically
-- ✅ Title: "پرسشنامه تاریخچه پزشکی"
-
-#### Test 1.6: Urdu Language with RTL
+#### Test 1.7: Urdu Language with RTL
 **Objective**: Verify Urdu language with RTL layout
 
 **Steps**:
