@@ -9,6 +9,16 @@
     
     <!-- Vosk Library Async Load -->
     <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.9/dist/vosk.js"></script>
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- PDF.js for PDF text extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        }
+    </script>
     <script>
 // =================================================================
 // NEUE FUNKTIONEN FÜR LOGIK UND UI-VERBESSERUNGEN (MANUS)
@@ -858,6 +868,297 @@ async function showDecryptionModal() {
     }
 }
 
+// =================================================================
+// DOKUMENTEN-UPLOAD UND OCR-FUNKTIONALITÄT
+// =================================================================
+
+/**
+ * Speichert hochgeladene Dokumente und OCR-Texte
+ */
+const DOCUMENT_STORAGE = {
+    documents: [] // Array von {filename, text, timestamp, type}
+};
+
+/**
+ * Extrahiert Text aus einem PDF-Dokument
+ * @param {File} file - Die PDF-Datei
+ * @returns {Promise<string>} - Der extrahierte Text
+ */
+async function extractTextFromPDF(file) {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+        
+        return fullText.trim();
+    } catch (error) {
+        console.error('PDF-Textextraktion fehlgeschlagen:', error);
+        throw new Error('Fehler beim Extrahieren des Textes aus PDF: ' + error.message);
+    }
+}
+
+/**
+ * Führt OCR auf einem Bild durch
+ * @param {File} file - Die Bilddatei
+ * @returns {Promise<string>} - Der erkannte Text
+ */
+async function performOCR(file) {
+    try {
+        const result = await Tesseract.recognize(
+            file,
+            'deu', // Deutsch als Hauptsprache, kann auf 'eng' oder 'deu+eng' geändert werden
+            {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        console.log('OCR Fortschritt:', Math.round(m.progress * 100) + '%');
+                    }
+                }
+            }
+        );
+        return result.data.text;
+    } catch (error) {
+        console.error('OCR fehlgeschlagen:', error);
+        throw new Error('Fehler bei der Texterkennung: ' + error.message);
+    }
+}
+
+/**
+ * Verarbeitet eine hochgeladene Datei (Bild, PDF oder Text)
+ * @param {File} file - Die hochgeladene Datei
+ * @returns {Promise<object>} - Objekt mit filename, text, timestamp, type
+ */
+async function processUploadedFile(file) {
+    const timestamp = new Date().toISOString();
+    const fileType = file.type;
+    
+    let extractedText = '';
+    let processType = '';
+    
+    try {
+        if (fileType === 'application/pdf') {
+            // PDF-Verarbeitung
+            processType = 'pdf-extraction';
+            extractedText = await extractTextFromPDF(file);
+        } else if (fileType.startsWith('image/')) {
+            // Bildverarbeitung mit OCR
+            processType = 'ocr';
+            extractedText = await performOCR(file);
+        } else if (fileType.startsWith('text/')) {
+            // Textdatei direkt lesen
+            processType = 'text-file';
+            extractedText = await file.text();
+        } else {
+            throw new Error('Nicht unterstützter Dateityp: ' + fileType);
+        }
+        
+        return {
+            filename: file.name,
+            text: extractedText,
+            timestamp: timestamp,
+            type: processType,
+            originalSize: file.size
+        };
+    } catch (error) {
+        throw new Error('Fehler beim Verarbeiten von ' + file.name + ': ' + error.message);
+    }
+}
+
+/**
+ * Zeigt einen Dialog zum Hochladen von Dokumenten
+ */
+async function showDocumentUploadDialog() {
+    // Erstelle ein verstecktes File-Input-Element
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,.pdf,.txt';
+    input.multiple = true;
+    
+    return new Promise((resolve) => {
+        input.onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) {
+                resolve(false);
+                return;
+            }
+            
+            // Zeige Fortschrittsanzeige
+            const processedDocs = [];
+            let processedCount = 0;
+            
+            for (const file of files) {
+                try {
+                    // Zeige Fortschritt
+                    alert(`Verarbeite Dokument ${processedCount + 1} von ${files.length}: ${file.name}...`);
+                    
+                    const docData = await processUploadedFile(file);
+                    DOCUMENT_STORAGE.documents.push(docData);
+                    processedDocs.push(docData);
+                    processedCount++;
+                } catch (error) {
+                    console.error('Fehler beim Verarbeiten der Datei:', error);
+                    alert('Fehler: ' + error.message);
+                }
+            }
+            
+            if (processedDocs.length > 0) {
+                alert(`${processedDocs.length} Dokument(e) erfolgreich verarbeitet und hinzugefügt.`);
+                resolve(true);
+            } else {
+                alert('Keine Dokumente konnten verarbeitet werden.');
+                resolve(false);
+            }
+        };
+        
+        input.click();
+    });
+}
+
+/**
+ * Erweiterte getAnswerJson-Funktion mit Dokumenten
+ * @returns {object} - Das JSON-Objekt mit Antworten und Dokumenten
+ */
+function getAnswerJsonWithDocuments() {
+    const baseJson = getAnswerJson();
+    
+    // Füge Dokumente hinzu, wenn vorhanden
+    if (DOCUMENT_STORAGE.documents.length > 0) {
+        baseJson.attachedDocuments = DOCUMENT_STORAGE.documents;
+    }
+    
+    return baseJson;
+}
+
+/**
+ * Exportiert JSON mit optionalen Dokumenten
+ * @param {boolean} encrypted - Ob die Daten verschlüsselt werden sollen
+ * @param {boolean} includeDocuments - Ob Dokumente einbezogen werden sollen
+ */
+async function exportJsonFileWithDocuments(encrypted = true, includeDocuments = true) {
+    let answerJson;
+    
+    if (includeDocuments && DOCUMENT_STORAGE.documents.length > 0) {
+        answerJson = getAnswerJsonWithDocuments();
+    } else {
+        answerJson = getAnswerJson();
+    }
+    
+    const jsonString = JSON.stringify(answerJson, null, 2);
+    
+    let dataToExport = jsonString;
+    let filename = 'anamnese_antworten.json';
+    
+    if (encrypted) {
+        try {
+            dataToExport = await encryptData(jsonString);
+            filename = 'anamnese_antworten_enc.txt';
+        } catch (e) {
+            alert('Fehler bei der Verschlüsselung: ' + e.message);
+            return;
+        }
+    }
+    
+    const blob = new Blob([dataToExport], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Fragt vor dem Export, ob Dokumente hochgeladen werden sollen
+ */
+async function exportWithDocumentPrompt(encrypted = true) {
+    const wantToUpload = confirm('Möchten Sie vor dem Export zusätzliche Dokumente (Bilder, PDFs, Textdateien) hochladen?');
+    
+    if (wantToUpload) {
+        await showDocumentUploadDialog();
+    }
+    
+    // Exportiere mit allen verfügbaren Dokumenten
+    await exportJsonFileWithDocuments(encrypted, true);
+}
+
+/**
+ * Sendet E-Mail mit Dokumenten
+ */
+async function sendEmailWithDocuments() {
+    const wantToUpload = confirm('Möchten Sie vor dem Versand zusätzliche Dokumente (Bilder, PDFs, Textdateien) hochladen?');
+    
+    if (wantToUpload) {
+        await showDocumentUploadDialog();
+    }
+    
+    const answerJson = DOCUMENT_STORAGE.documents.length > 0 
+        ? getAnswerJsonWithDocuments() 
+        : getAnswerJson();
+    const jsonString = JSON.stringify(answerJson, null, 2);
+    
+    try {
+        const encryptedData = await encryptData(jsonString);
+        
+        const subject = getTranslation('email_subject');
+        let body = getTranslation('email_body') + '\n\n';
+        
+        if (DOCUMENT_STORAGE.documents.length > 0) {
+            body += `(${DOCUMENT_STORAGE.documents.length} Dokument(e) angehängt)\n\n`;
+        }
+        
+        body += encryptedData;
+        
+        const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailtoLink;
+    } catch (e) {
+        alert('Fehler bei der Verschlüsselung für E-Mail: ' + e.message);
+    }
+}
+
+/**
+ * Zeigt die hochgeladenen Dokumente an
+ */
+function showUploadedDocuments() {
+    if (DOCUMENT_STORAGE.documents.length === 0) {
+        alert('Keine Dokumente hochgeladen.');
+        return;
+    }
+    
+    let message = `Hochgeladene Dokumente (${DOCUMENT_STORAGE.documents.length}):\n\n`;
+    DOCUMENT_STORAGE.documents.forEach((doc, index) => {
+        message += `${index + 1}. ${doc.filename}\n`;
+        message += `   Typ: ${doc.type}\n`;
+        message += `   Text-Länge: ${doc.text.length} Zeichen\n`;
+        message += `   Zeitstempel: ${doc.timestamp}\n\n`;
+    });
+    
+    alert(message);
+}
+
+/**
+ * Löscht alle hochgeladenen Dokumente
+ */
+function clearUploadedDocuments() {
+    if (DOCUMENT_STORAGE.documents.length === 0) {
+        alert('Keine Dokumente zum Löschen vorhanden.');
+        return;
+    }
+    
+    if (confirm(`Möchten Sie alle ${DOCUMENT_STORAGE.documents.length} hochgeladenen Dokumente löschen?`)) {
+        DOCUMENT_STORAGE.documents = [];
+        alert('Alle Dokumente wurden gelöscht.');
+    }
+}
+
+
 // Füge die neuen Funktionen zum App-Objekt hinzu
 App.exportJsonFile = exportJsonFile;
 App.sendEmail = sendEmail;
@@ -865,6 +1166,12 @@ App.exportNFC = exportNFC;
 App.jumpToQuestion = jumpToQuestion;
 App.showDecryptionModal = showDecryptionModal;
 App.updateJsonBox = updateJsonBox; // Für die Initialisierung
+// Neue Dokumenten-Upload-Funktionen
+App.exportWithDocumentPrompt = exportWithDocumentPrompt;
+App.sendEmailWithDocuments = sendEmailWithDocuments;
+App.showDocumentUploadDialog = showDocumentUploadDialog;
+App.showUploadedDocuments = showUploadedDocuments;
+App.clearUploadedDocuments = clearUploadedDocuments;
 // ... (Rest des Original-Codes)
 </script>
 
@@ -1241,6 +1548,8 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
         .btn-secondary:hover:not(:disabled) { background: #5a6268; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-success { background: var(--success); color: white; }
+        .btn-info { background: #17a2b8; color: white; border: none; }
+        .btn-info:hover:not(:disabled) { background: #138496; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn.hidden { display: none; }
 
@@ -1428,9 +1737,29 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                 🔒 <span data-translate="json_box_title">Verschlüsselte Antworten (AES-256)</span>
             </h3>
             <textarea id="json-answer-box" rows="10" readonly style="font-family: monospace; font-size: 0.8rem;"></textarea>
+            
+            <!-- Dokumenten-Upload Bereich -->
+            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--primary);">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 1rem; color: var(--text);">📄 Zusätzliche Dokumente</h4>
+                <p style="font-size: 0.85rem; color: var(--secondary); margin: 0 0 0.5rem 0;">
+                    Sie können zusätzliche Dokumente (Bilder, PDFs, Textdateien) hochladen. Diese werden mit OCR verarbeitet und verschlüsselt exportiert.
+                </p>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-info" onclick="App.showDocumentUploadDialog()" style="font-size: 0.9rem;">
+                        📤 Dokumente hochladen
+                    </button>
+                    <button class="btn btn-secondary" onclick="App.showUploadedDocuments()" style="font-size: 0.9rem;">
+                        📋 Dokumente anzeigen
+                    </button>
+                    <button class="btn btn-danger" onclick="App.clearUploadedDocuments()" style="font-size: 0.9rem;">
+                        🗑️ Dokumente löschen
+                    </button>
+                </div>
+            </div>
+            
             <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn btn-primary" onclick="App.exportJsonFile(true)">
-                    💾 <span data-translate="export_file_enc">Export (Verschlüsselt)</span>
+                <button class="btn btn-primary" onclick="App.exportWithDocumentPrompt(true)">
+                    💾 <span data-translate="export_file_enc">Export (Verschlüsselt + Dokumente)</span>
                 </button>
                 <button class="btn btn-secondary" onclick="App.exportJsonFile(false)">
                     💾 <span data-translate="export_file_raw">Export (Roh-JSON)</span>
@@ -1441,8 +1770,8 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                 <button class="btn btn-secondary" onclick="App.exportNFC()">
                     📲 <span data-translate="export_nfc">Export (NFC)</span>
                 </button>
-                <button class="btn btn-secondary" onclick="App.sendEmail()">
-                    📧 <span data-translate="export_email">Export (E-Mail)</span>
+                <button class="btn btn-secondary" onclick="App.sendEmailWithDocuments()">
+                    📧 <span data-translate="export_email">Export (E-Mail + Dokumente)</span>
                 </button>
             </div>
         </div>

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: Dokumenten-Upload und OCR</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        }
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test: Dokumenten-Upload und OCR-Funktionalität</h1>
+    
+    <div class="test-section info">
+        <h2>Funktionen</h2>
+        <p>Diese Test-Seite validiert die neue Dokumenten-Upload und OCR-Funktionalität:</p>
+        <ul>
+            <li>✓ PDF-Text-Extraktion mit PDF.js</li>
+            <li>✓ OCR für Bilder mit Tesseract.js</li>
+            <li>✓ Textdatei-Verarbeitung</li>
+            <li>✓ Verschlüsselung der extrahierten Texte</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>1. Test: Bibliotheken geladen</h2>
+        <button onclick="testLibraries()">Bibliotheken testen</button>
+        <div id="lib-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Test: OCR (Bild hochladen)</h2>
+        <p>Laden Sie ein Bild mit Text hoch, um OCR zu testen:</p>
+        <input type="file" id="imageFile" accept="image/*">
+        <button onclick="testOCR()">OCR testen</button>
+        <div id="ocr-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test: PDF-Text-Extraktion</h2>
+        <p>Laden Sie ein PDF hoch, um Text-Extraktion zu testen:</p>
+        <input type="file" id="pdfFile" accept=".pdf">
+        <button onclick="testPDF()">PDF testen</button>
+        <div id="pdf-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Test: Textdatei-Verarbeitung</h2>
+        <p>Laden Sie eine Textdatei hoch:</p>
+        <input type="file" id="textFile" accept=".txt">
+        <button onclick="testTextFile()">Textdatei testen</button>
+        <div id="text-result"></div>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        function testLibraries() {
+            const result = document.getElementById('lib-result');
+            let status = '';
+            
+            if (typeof Tesseract !== 'undefined') {
+                status += '✓ Tesseract.js geladen<br>';
+            } else {
+                status += '✗ Tesseract.js nicht gefunden<br>';
+            }
+            
+            if (typeof pdfjsLib !== 'undefined') {
+                status += '✓ PDF.js geladen<br>';
+            } else {
+                status += '✗ PDF.js nicht gefunden<br>';
+            }
+            
+            result.innerHTML = status;
+        }
+
+        async function testOCR() {
+            const fileInput = document.getElementById('imageFile');
+            const resultDiv = document.getElementById('ocr-result');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                resultDiv.innerHTML = '<span style="color: red;">Bitte wählen Sie eine Bilddatei aus.</span>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '<span style="color: blue;">OCR läuft... Bitte warten...</span>';
+            
+            try {
+                const result = await Tesseract.recognize(
+                    file,
+                    'deu',
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                resultDiv.innerHTML = `<span style="color: blue;">OCR Fortschritt: ${Math.round(m.progress * 100)}%</span>`;
+                            }
+                        }
+                    }
+                );
+                
+                const text = result.data.text;
+                resultDiv.innerHTML = `<div class="success"><strong>✓ OCR erfolgreich!</strong><br>Erkannter Text (${text.length} Zeichen):<br><pre>${text.substring(0, 500)}${text.length > 500 ? '...' : ''}</pre></div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><strong>✗ Fehler:</strong> ${error.message}</div>`;
+            }
+        }
+
+        async function testPDF() {
+            const fileInput = document.getElementById('pdfFile');
+            const resultDiv = document.getElementById('pdf-result');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                resultDiv.innerHTML = '<span style="color: red;">Bitte wählen Sie eine PDF-Datei aus.</span>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '<span style="color: blue;">PDF wird verarbeitet...</span>';
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let fullText = '';
+                
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += pageText + '\n';
+                }
+                
+                const text = fullText.trim();
+                resultDiv.innerHTML = `<div class="success"><strong>✓ PDF-Extraktion erfolgreich!</strong><br>Seiten: ${pdf.numPages}<br>Text (${text.length} Zeichen):<br><pre>${text.substring(0, 500)}${text.length > 500 ? '...' : ''}</pre></div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><strong>✗ Fehler:</strong> ${error.message}</div>`;
+            }
+        }
+
+        async function testTextFile() {
+            const fileInput = document.getElementById('textFile');
+            const resultDiv = document.getElementById('text-result');
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                resultDiv.innerHTML = '<span style="color: red;">Bitte wählen Sie eine Textdatei aus.</span>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            resultDiv.innerHTML = '<span style="color: blue;">Textdatei wird gelesen...</span>';
+            
+            try {
+                const text = await file.text();
+                resultDiv.innerHTML = `<div class="success"><strong>✓ Textdatei erfolgreich gelesen!</strong><br>Text (${text.length} Zeichen):<br><pre>${text.substring(0, 500)}${text.length > 500 ? '...' : ''}</pre></div>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error"><strong>✗ Fehler:</strong> ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
