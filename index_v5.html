@@ -12312,12 +12312,31 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
 
             renderField(field) {
                 const labelKey = `label_${field.id}`;
-                const label = T(labelKey) !== labelKey ? T(labelKey) : field.label;
                 const required = field.required ? '<span class="required-star">*</span>' : '';
                 const currentValue = AppState.answers[field.id] || '';
                 const fieldId = `field_${field.id}`;
 
                 let html = `<div class="form-group" data-field-id="${field.id}">`;
+                
+                // For checkbox/radio fields without options array, render as individual option
+                // Use field.label directly instead of translation to get the specific option text
+                if ((field.type === 'checkbox' || field.type === 'radio') && !field.options) {
+                    const checkedValues = Array.isArray(currentValue) ? currentValue : (currentValue ? [currentValue] : []);
+                    const checked = field.type === 'checkbox' 
+                        ? (checkedValues.includes(field.label) ? 'checked' : '')
+                        : (currentValue === field.label ? 'checked' : '');
+                    const selected = checked ? 'selected' : '';
+                    
+                    html += `<label class="option-item ${selected}">`;
+                    html += `<input type="${field.type}" name="${field.id}" value="${escapeHtml(field.label)}" ${checked} data-field-id="${field.id}">`;
+                    html += `<span>${escapeHtml(field.label)}</span>`;
+                    html += `</label>`;
+                    html += `</div>`;
+                    return html;
+                }
+                
+                // For other field types, use translation or fallback to field.label
+                const label = T(labelKey) !== labelKey ? T(labelKey) : field.label;
                 html += `<label class="question-label">${escapeHtml(label)}${required}</label>`;
 
                 // Helper for buttons
