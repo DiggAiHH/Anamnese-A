@@ -390,4 +390,4 @@ Die Implementierung in PR #3 verbessert die Sicherheit und Offline-Fähigkeit du
 
 ## Visualisierung
 
-Siehe beigefügtes Diagramm `FRAGEBOGEN_ABLAUFDIAGRAMM.svg` für eine grafische Darstellung des Ablaufs.
+Siehe beigefügtes Dokument [FRAGEBOGEN_ABLAUFDIAGRAMM.md](./FRAGEBOGEN_ABLAUFDIAGRAMM.md) für grafische Darstellungen des Ablaufs mit 12+ Mermaid-Diagrammen.

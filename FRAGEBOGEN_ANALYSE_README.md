@@ -187,12 +187,16 @@ Bedingung erfüllt? ──Ja──> Anzeigen
 
 ### Code-Referenzen
 
-| Funktion | Zeile in index_v5.html | Zweck |
-|----------|------------------------|-------|
-| `checkCondition()` | 86-126 | Bedingungen prüfen |
-| `renderStep()` | 12252-12300 | Abschnitt rendern |
-| `encryptData()` | 499-546 | Verschlüsselung |
-| `decryptData()` | 548-595 | Entschlüsselung |
+Die folgenden Funktionen implementieren die Kernlogik in `index_v5.html`:
+
+| Funktion | Zweck |
+|----------|-------|
+| `checkCondition()` | Bedingungen prüfen |
+| `renderStep()` | Abschnitt rendern und bedingte Logik anwenden |
+| `encryptData()` | Verschlüsselung mit Web Crypto API |
+| `decryptData()` | Entschlüsselung |
+
+*Hinweis: Genaue Zeilennummern können sich durch zukünftige Änderungen verschieben.*
 
 ## 📖 Leseempfehlungen
 
