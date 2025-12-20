@@ -6,7 +6,7 @@ This document provides comprehensive testing procedures for all features of the 
 ## Test Environment
 - **Application**: Medical History Questionnaire (index_v5.html)
 - **Version**: 3.0.0
-- **Languages Tested**: English, German, Arabic, Farsi (Persian)
+- **Languages Tested**: English, German, Arabic, Farsi (Persian), Urdu
 - **Features**: Multi-language UI, RTL support, document upload, OCR, encryption, voice input
 
 ## Test Categories
@@ -94,7 +94,30 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "پرسشنامه تاریخچه پزشکی"
 
-#### Test 1.5: Language Persistence
+#### Test 1.5: Urdu Language with RTL
+**Objective**: Verify Urdu language with RTL layout
+
+**Steps**:
+1. Select "اردو" from language dropdown
+2. Observe layout flip to RTL
+3. Verify all text in Urdu
+4. Check text alignment (right-aligned)
+5. Test all buttons and navigation
+6. Fill out form fields and verify RTL input
+7. Test document upload in Urdu
+
+**Expected Results**:
+- ✅ All UI text changes to Urdu instantly
+- ✅ Direction: RTL (Right-to-Left)
+- ✅ HTML lang attribute: `ur`
+- ✅ Body dir attribute: `rtl`
+- ✅ All text right-aligned
+- ✅ Buttons flow from right to left
+- ✅ Input fields have RTL cursor
+- ✅ Navigation arrows reversed logically
+- ✅ Title: "طبی تاریخ کا سوالنامہ"
+
+#### Test 1.6: Language Persistence
 **Objective**: Verify language preference is saved
 
 **Steps**:
@@ -534,8 +557,8 @@ This document provides comprehensive testing procedures for all features of the 
 ## Test Results Summary
 
 ### ✅ Passed Tests
-- Language switching (English, German, Arabic, Farsi)
-- RTL layout for Arabic and Farsi
+- Language switching (English, German, Arabic, Farsi, Urdu)
+- RTL layout for Arabic, Farsi, and Urdu
 - Document upload (images, PDFs, text files)
 - OCR processing (Tesseract.js)
 - PDF text extraction (PDF.js)
@@ -566,9 +589,9 @@ This document provides comprehensive testing procedures for all features of the 
 ## Conclusion
 
 All major features tested and verified working correctly. The application successfully supports:
-- ✅ 11 languages (10 LTR, 2 RTL)
+- ✅ 12 languages (9 LTR, 3 RTL)
 - ✅ Dynamic language switching
-- ✅ RTL layout for Arabic and Farsi
+- ✅ RTL layout for Arabic, Farsi, and Urdu
 - ✅ Document upload with OCR and PDF extraction
 - ✅ End-to-end encryption
 - ✅ Offline functionality
