@@ -248,11 +248,14 @@ const data = getAnswerJsonWithDocuments()
 Mögliche Verbesserungen:
 - [ ] Mehrsprachige OCR (Englisch, Französisch, etc.)
 - [ ] Bildvorschau vor Upload
-- [ ] Fortschrittsbalken für große Dateien
+- [ ] Fortschrittsbalken für große Dateien (statt alert-Dialoge)
+- [ ] Toast-Benachrichtigungen statt alert/confirm
 - [ ] Lokaler Speicher für Dokumente (localStorage)
 - [ ] Bildkompression vor OCR
 - [ ] Batch-Verarbeitung mit Fortschrittsanzeige
 - [ ] Export als PDF-Report
+
+**Hinweis:** Die aktuelle Version verwendet `alert()` und `confirm()` für Benutzerbenachrichtigungen. Dies ist eine einfache MVP-Implementierung, die in zukünftigen Versionen durch ein moderneres Toast-Benachrichtigungssystem ersetzt werden sollte.
 
 ## Lizenz und Credits
 
