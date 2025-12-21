@@ -210,6 +210,12 @@ async function showGDTExportDialog() {
             <button id="gdtImportFile" class="btn" style="background: #009688; font-size: 12px;">
                 📥 Import
             </button>
+            <button id="gdtEncryptExport" class="btn" style="background: #9C27B0; color: white; font-size: 12px;">
+                🔒 Verschlüsselter Export
+            </button>
+            <button id="gdtDecryptFile" class="btn" style="background: #673AB7; color: white; font-size: 12px;">
+                🔓 Entschlüsseln
+            </button>
             <button id="gdtViewAuditLog" class="btn" style="background: #607D8B; font-size: 12px;">
                 📋 Audit-Log
             </button>
@@ -341,6 +347,36 @@ async function showGDTExportDialog() {
         } else {
             alert('Import-Funktion nicht verfügbar');
         }
+    });
+    
+    // Handle encrypted export
+    document.getElementById('gdtEncryptExport').addEventListener('click', async () => {
+        if (typeof window.GDTEncryptedExport === 'undefined') {
+            alert('Verschlüsselungs-Funktion nicht verfügbar');
+            return;
+        }
+        
+        try {
+            // First generate GDT content
+            const gdtContent = await generateGDTContent(formData);
+            const filename = generateGDTFilename(formData);
+            
+            // Show encryption dialog
+            window.GDTEncryptedExport.showEncryptionDialog(gdtContent, filename);
+        } catch (error) {
+            console.error('Encrypted export error:', error);
+            alert('Fehler beim verschlüsselten Export: ' + error.message);
+        }
+    });
+    
+    // Handle decryption
+    document.getElementById('gdtDecryptFile').addEventListener('click', () => {
+        if (typeof window.GDTEncryptedExport === 'undefined') {
+            alert('Entschlüsselungs-Funktion nicht verfügbar');
+            return;
+        }
+        
+        window.GDTEncryptedExport.showDecryptionDialog();
     });
 }
 
