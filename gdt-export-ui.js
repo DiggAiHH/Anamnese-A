@@ -205,10 +205,16 @@ async function showGDTExportDialog() {
         
         <div style="margin-top: 15px; text-align: center;">
             <button id="gdtViewAuditLog" class="btn" style="background: #607D8B; font-size: 12px;">
-                📋 Audit-Log anzeigen
+                📋 Audit-Log
             </button>
             <button id="gdtShowDocs" class="btn" style="background: #607D8B; font-size: 12px;">
-                📄 DSGVO-Dokumentation
+                📄 DSGVO-Doku
+            </button>
+            <button id="gdtShowFeatures" class="btn" style="background: #607D8B; font-size: 12px;">
+                🔍 Browser-Check
+            </button>
+            <button id="gdtShowPerformance" class="btn" style="background: #607D8B; font-size: 12px;">
+                ⚡ Performance
             </button>
         </div>
     `;
@@ -289,11 +295,28 @@ async function showGDTExportDialog() {
             showAuditLogViewer();
         }
     });
-    });
     
     // Handle documentation
     document.getElementById('gdtShowDocs').addEventListener('click', () => {
         showGDPRDocumentation();
+    });
+    
+    // Handle feature detection
+    document.getElementById('gdtShowFeatures').addEventListener('click', () => {
+        if (typeof showFeatureDetectionDialog !== 'undefined') {
+            showFeatureDetectionDialog();
+        } else {
+            alert('Feature-Detection nicht verfügbar');
+        }
+    });
+    
+    // Handle performance dashboard
+    document.getElementById('gdtShowPerformance').addEventListener('click', () => {
+        if (typeof showPerformanceDashboard !== 'undefined') {
+            showPerformanceDashboard();
+        } else {
+            alert('Performance-Dashboard nicht verfügbar');
+        }
     });
 }
 
