@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Digital Medical History Questionnaire - Offline Medical App">
     <meta name="author" content="DiggAi GmbH">
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; 
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data:; 
+                   connect-src 'self';">
     <title>Medical History Questionnaire v7 (No Voice Recognition)</title>
     
     <!-- Tesseract.js for OCR -->
@@ -390,13 +396,36 @@ function getInputValue(input) {
     return input.value;
 }
 
+/**
+ * Sanitize user input to prevent XSS attacks
+ * @param {string|any} input - The input to sanitize
+ * @returns {string|any} - Sanitized input
+ */
+function sanitizeInput(input) {
+    if (typeof input === 'string') {
+        // Entferne HTML-Tags und gefährliche Zeichen
+        return input
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+            .replace(/\//g, '&#x2F;');
+    }
+    return input;
+}
+
 // Hilfsfunktion zum Speichern der Antwort
 function handleAnswerChange(id, value) {
+    // Sanitize input to prevent XSS
+    const sanitizedValue = Array.isArray(value) 
+        ? value.map(sanitizeInput)
+        : sanitizeInput(value);
+    
     // Entferne die Antwort, wenn sie leer ist
-    if (value === '' || (Array.isArray(value) && value.length === 0)) {
+    if (sanitizedValue === '' || (Array.isArray(sanitizedValue) && sanitizedValue.length === 0)) {
         delete APP_STATE.answers[id];
     } else {
-        APP_STATE.answers[id] = value;
+        APP_STATE.answers[id] = sanitizedValue;
     }
     // Aktualisiere die JSON-Box (wird in Phase 7 implementiert)
     // updateJsonBox(); 
@@ -432,12 +461,72 @@ function handleAnswerChange(id, value) {
  * - "a8f5f167f44f4964e6c998dee827110c" (32 hex characters)
  * - "MySecure32ByteEncryptionKey!!" (32 alphanumeric)
  */
-const ENCRYPTION_KEY = "Your-Secret-Key-Here-Must-Be-32-Bytes"; // ÄNDERN SIE DIES! / CHANGE THIS!
+// =================================================================
+// SECURE ENCRYPTION KEY MANAGEMENT
+// =================================================================
 
-// Sicherheitswarnung für Standard-Schlüssel / Security warning for default key
-if (ENCRYPTION_KEY === "Your-Secret-Key-Here-Must-Be-32-Bytes") {
-    console.warn("⚠️ SECURITY WARNING: Using default encryption key! Please change ENCRYPTION_KEY in production!");
-    console.warn("⚠️ SICHERHEITSWARNUNG: Standard-Verschlüsselungsschlüssel wird verwendet! Bitte ENCRYPTION_KEY in Produktion ändern!");
+/**
+ * Setup encryption key - prompts user for master password on first use
+ * Stores hash of password, never the password itself
+ * @returns {Promise<boolean>} - True if key is set up successfully
+ */
+async function setupEncryptionKey() {
+    let storedKeyHash = localStorage.getItem('encryption_key_hash');
+    
+    if (!storedKeyHash) {
+        // Erste Installation: Admin-Passwort-Setup
+        const adminKey = prompt(
+            'WICHTIG: Erstmalige Einrichtung\n\n' +
+            'Bitte geben Sie ein sicheres Master-Passwort ein (min. 16 Zeichen).\n' +
+            'ACHTUNG: Wenn Sie dieses Passwort vergessen, sind alle Daten unwiederbringlich verloren!'
+        );
+        
+        if (!adminKey || adminKey.length < 16) {
+            alert('Passwort muss mindestens 16 Zeichen lang sein!');
+            return setupEncryptionKey();
+        }
+        
+        // Hash für Verifikation speichern (NICHT das Passwort!)
+        const keyHash = await crypto.subtle.digest(
+            'SHA-256',
+            new TextEncoder().encode(adminKey)
+        );
+        const keyHashHex = Array.from(new Uint8Array(keyHash))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+        
+        localStorage.setItem('encryption_key_hash', keyHashHex);
+        sessionStorage.setItem('derived_key', adminKey);
+        
+        alert('✅ Master-Passwort erfolgreich gesetzt!');
+        return true;
+    } else {
+        // Key existiert: Bei Start erneut abfragen
+        if (!sessionStorage.getItem('derived_key')) {
+            const enteredKey = prompt('Bitte geben Sie Ihr Master-Passwort ein:');
+            
+            if (!enteredKey) {
+                alert('❌ Passwort erforderlich!');
+                return setupEncryptionKey();
+            }
+            
+            const enteredHash = await crypto.subtle.digest(
+                'SHA-256',
+                new TextEncoder().encode(enteredKey)
+            );
+            const enteredHashHex = Array.from(new Uint8Array(enteredHash))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            
+            if (enteredHashHex !== storedKeyHash) {
+                alert('❌ Falsches Passwort!');
+                return setupEncryptionKey();
+            }
+            
+            sessionStorage.setItem('derived_key', enteredKey);
+        }
+        return true;
+    }
 }
 
 /**
@@ -505,11 +594,16 @@ async function deriveKeyFromPassword(password, salt) {
  */
 async function encryptData(data) {
     try {
+        const userKey = sessionStorage.getItem('derived_key');
+        if (!userKey) {
+            throw new Error('Kein Verschlüsselungsschlüssel verfügbar. Bitte Master-Passwort eingeben.');
+        }
+        
         const encoder = new TextEncoder();
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const iv = crypto.getRandomValues(new Uint8Array(12));
         
-        const key = await deriveKeyFromPassword(ENCRYPTION_KEY, salt);
+        const key = await deriveKeyFromPassword(userKey, salt);
         
         const encryptedData = await crypto.subtle.encrypt(
             {
@@ -542,6 +636,11 @@ async function encryptData(data) {
  */
 async function decryptData(encryptedBase64) {
     try {
+        const userKey = sessionStorage.getItem('derived_key');
+        if (!userKey) {
+            throw new Error('Kein Verschlüsselungsschlüssel verfügbar. Bitte Master-Passwort eingeben.');
+        }
+        
         const decoder = new TextDecoder();
         
         // Decode from base64 efficiently
@@ -556,7 +655,7 @@ async function decryptData(encryptedBase64) {
         const iv = encryptedArray.slice(16, 28);
         const data = encryptedArray.slice(28);
 
-        const key = await deriveKeyFromPassword(ENCRYPTION_KEY, salt);
+        const key = await deriveKeyFromPassword(userKey, salt);
 
         const decryptedData = await crypto.subtle.decrypt(
             {
@@ -801,11 +900,16 @@ async function exportNFC() {
 
 // Überschreibe die ursprüngliche `handleAnswerChange` Funktion, um die JSON-Box zu aktualisieren
 function handleAnswerChange(id, value) {
+    // Sanitize input to prevent XSS
+    const sanitizedValue = Array.isArray(value) 
+        ? value.map(sanitizeInput)
+        : sanitizeInput(value);
+    
     // Entferne die Antwort, wenn sie leer ist
-    if (value === '' || (Array.isArray(value) && value.length === 0)) {
+    if (sanitizedValue === '' || (Array.isArray(sanitizedValue) && sanitizedValue.length === 0)) {
         delete APP_STATE.answers[id];
     } else {
-        APP_STATE.answers[id] = value;
+        APP_STATE.answers[id] = sanitizedValue;
     }
     updateJsonBox(); // NEU: Aktualisiere die JSON-Box bei jeder Änderung
 }
@@ -12750,7 +12854,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
         // APP OBJEKT
         // =================================================================
         const App = {
-            init() {
+            async init() {
                 console.log('🏥 Anamnese App v2.0 initialisiert');
                 
                 if (!window.APP_DATA?.sections) {
@@ -12758,6 +12862,9 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         '<p style="color: var(--danger);">❌ Fehler: Daten nicht geladen.</p>';
                     return;
                 }
+                
+                // Setup encryption key before anything else
+                await setupEncryptionKey();
 
                 this.loadFromStorage();
                 this.populateLanguageSelect();
@@ -13096,12 +13203,13 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 
                 if (type === 'checkbox') {
                     const checkboxes = document.querySelectorAll(`input[name="${fieldId}"]:checked`);
-                    AppState.answers[fieldId] = Array.from(checkboxes).map(cb => cb.value);
+                    const values = Array.from(checkboxes).map(cb => cb.value);
+                    AppState.answers[fieldId] = values.map(sanitizeInput);
                 } else if (type === 'radio') {
                     const checked = document.querySelector(`input[name="${fieldId}"]:checked`);
-                    AppState.answers[fieldId] = checked ? checked.value : '';
+                    AppState.answers[fieldId] = checked ? sanitizeInput(checked.value) : '';
                 } else {
-                    AppState.answers[fieldId] = element.value;
+                    AppState.answers[fieldId] = sanitizeInput(element.value);
                 }
                 
                 this.saveToStorage();
