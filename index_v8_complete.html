@@ -470,9 +470,17 @@ function handleAnswerChange(id, value) {
 /**
  * Setup encryption key - prompts user for master password on first use
  * Stores hash of password, never the password itself
+ * @param {number} retryCount - Internal retry counter to prevent infinite recursion
  * @returns {Promise<boolean>} - True if key is set up successfully
  */
-async function setupEncryptionKey() {
+async function setupEncryptionKey(retryCount = 0) {
+    const MAX_RETRIES = 3;
+    
+    if (retryCount >= MAX_RETRIES) {
+        alert('Maximale Anzahl an Versuchen überschritten. Bitte laden Sie die Seite neu.');
+        throw new Error('Max password attempts exceeded');
+    }
+    
     let storedKeyHash = localStorage.getItem('encryption_key_hash');
     
     if (!storedKeyHash) {
@@ -485,7 +493,7 @@ async function setupEncryptionKey() {
         
         if (!adminKey || adminKey.length < 16) {
             alert('Passwort muss mindestens 16 Zeichen lang sein!');
-            return setupEncryptionKey();
+            return setupEncryptionKey(retryCount + 1);
         }
         
         // Hash für Verifikation speichern (NICHT das Passwort!)
@@ -509,7 +517,7 @@ async function setupEncryptionKey() {
             
             if (!enteredKey) {
                 alert('❌ Passwort erforderlich!');
-                return setupEncryptionKey();
+                return setupEncryptionKey(retryCount + 1);
             }
             
             const enteredHash = await crypto.subtle.digest(
@@ -522,7 +530,7 @@ async function setupEncryptionKey() {
             
             if (enteredHashHex !== storedKeyHash) {
                 alert('❌ Falsches Passwort!');
-                return setupEncryptionKey();
+                return setupEncryptionKey(retryCount + 1);
             }
             
             sessionStorage.setItem('derived_key', enteredKey);
@@ -13787,6 +13795,31 @@ function clearUploadedDocuments() {
                     AppState.currentStep = 0;
                     this.saveToStorage();
                     this.renderStep(0);
+                }
+            },
+            
+            // Delegate to global functions for export operations
+            exportJsonFile(encrypted = true) {
+                if (typeof exportJsonFile === 'function') {
+                    exportJsonFile(encrypted);
+                } else {
+                    console.error('exportJsonFile function not found');
+                }
+            },
+            
+            exportNFC() {
+                if (typeof exportNFC === 'function') {
+                    exportNFC();
+                } else {
+                    console.error('exportNFC function not found');
+                }
+            },
+            
+            sendEmailWithDocuments() {
+                if (typeof sendEmailWithDocuments === 'function') {
+                    sendEmailWithDocuments();
+                } else {
+                    console.error('sendEmailWithDocuments function not found');
                 }
             }
         };
