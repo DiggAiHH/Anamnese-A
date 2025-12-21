@@ -2,6 +2,14 @@
 // Implements secure, GDPR-compliant export for Medatixx, CGM, and Quincy systems
 // All exports are local-only (no cloud transfer)
 
+// GDT Format Constants
+const GDT_CONSTANTS = {
+    FIELD_LENGTH_SIZE: 3,        // LLL - 3 digits for field length
+    FIELD_ID_SIZE: 4,            // FKKK - 4 digits for field identifier
+    CRLF_SIZE: 2,                // CR+LF line ending size
+    FIELD_HEADER_SIZE: 7         // LLL + FKKK
+};
+
 // GDT Field Identifiers (Feldkennungen) according to GDT 3.1 specification
 const GDT_FIELDS = {
     // Header and Control Fields
@@ -77,12 +85,15 @@ async function pseudonymizePatientIdAsync(patientData) {
     return hashHex.substring(0, 10).toUpperCase();
 }
 
-// Synchronous version for backward compatibility (uses simple hash)
-// Note: For production, always use pseudonymizePatientIdAsync for better security
+// Synchronous version - WARNING: Uses basic hashing, not cryptographically secure
+// This is ONLY for UI synchronous contexts and testing. Production exports should use async version.
+// For production, modify exportGDT to be async and use pseudonymizePatientIdAsync
 function pseudonymizePatientId(patientData) {
+    // WARNING: This is a fallback for synchronous contexts only
+    // Prefer pseudonymizePatientIdAsync for production use
+    console.warn('Using synchronous pseudonymization. Consider using pseudonymizePatientIdAsync for better security.');
+    
     const input = `${patientData.firstName}-${patientData.lastName}-${patientData.dateOfBirth}`;
-    // Simple hash-based pseudonymization for synchronous contexts
-    // This is acceptable for testing but pseudonymizePatientIdAsync is preferred
     let hash = 0;
     for (let i = 0; i < input.length; i++) {
         const char = input.charCodeAt(i);
@@ -109,6 +120,14 @@ function formatGDTDate(dateString) {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     return `${day}${month}${year}`;
+}
+
+// Format date to GDT timestamp format (YYYYMMDD)
+function formatGDTTimestamp(date = new Date()) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}${month}${day}`;
 }
 
 // Format time to GDT format (HHMMSS)
@@ -201,19 +220,16 @@ function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMDATEN) 
     }
     
     // Timestamps
-    const dateStr = now.getFullYear() + 
-                   (now.getMonth() + 1).toString().padStart(2, '0') + 
-                   now.getDate().toString().padStart(2, '0');
-    lines.push(formatGDTField(GDT_FIELDS.ERSTELLUNGSDATUM, dateStr));
+    lines.push(formatGDTField(GDT_FIELDS.ERSTELLUNGSDATUM, formatGDTTimestamp(now)));
     lines.push(formatGDTField(GDT_FIELDS.ERSTELLUNGSZEIT, formatGDTTime(now)));
     
     // Calculate total record length
-    // Sum all line lengths + CRLF for each line (2 bytes)
-    const contentLength = lines.reduce((sum, line) => sum + line.length + 2, 0);
+    // Sum all line lengths + CRLF for each line
+    const contentLength = lines.reduce((sum, line) => sum + line.length + GDT_CONSTANTS.CRLF_SIZE, 0);
     
     // Create length field - note that the length includes itself
-    // Format: LLL (3) + FKKK (4) + content length
-    const lengthValue = contentLength + 7 + 2; // +7 for "8000XXX" format, +2 for its CRLF
+    // The length field format is: LLL (3) + FKKK (4) + content
+    const lengthValue = contentLength + GDT_CONSTANTS.FIELD_HEADER_SIZE + GDT_CONSTANTS.CRLF_SIZE;
     const lengthField = formatGDTField(GDT_FIELDS.SATZLAENGE, lengthValue.toString());
     
     // Insert length at beginning
