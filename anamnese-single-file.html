@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medizinische Anamnese / Medical History</title>
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin-bottom: 15px;
+}
+
+.language-selector {
+    margin-top: 15px;
+}
+
+.language-selector label {
+    font-size: 1em;
+    margin-right: 10px;
+}
+
+.language-selector select {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    cursor: pointer;
+    background: white;
+    color: #333;
+}
+
+.form-section {
+    padding: 30px;
+    border-bottom: 1px solid #eee;
+}
+
+.form-section:last-of-type {
+    border-bottom: none;
+}
+
+.form-section h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    font-size: 1.8em;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 600;
+    font-size: 1em;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="tel"],
+.form-group input[type="date"],
+.form-group input[type="password"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="email"]:focus,
+.form-group input[type="tel"]:focus,
+.form-group input[type="date"]:focus,
+.form-group input[type="password"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.voice-btn {
+    position: absolute;
+    right: 10px;
+    top: 38px;
+    background: #667eea;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 1.2em;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-btn:hover {
+    background: #5568d3;
+    transform: scale(1.1);
+}
+
+.voice-btn:active {
+    background: #4557c2;
+    transform: scale(0.95);
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+    margin-top: 2px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.button-group {
+    padding: 30px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    background: #f8f9fa;
+}
+
+.btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+}
+
+.voice-status {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #667eea;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 50px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    animation: pulse 2s infinite;
+    z-index: 1000;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+footer {
+    background: #f8f9fa;
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 30px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-content h2 {
+    color: #667eea;
+    margin-bottom: 15px;
+}
+
+.modal-content p {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.modal-content input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1em;
+    margin-bottom: 20px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+}
+
+/* RTL Support for Arabic */
+[lang="ar"] {
+    direction: rtl;
+}
+
+[lang="ar"] .voice-btn {
+    right: auto;
+    left: 10px;
+}
+
+[lang="ar"] .voice-status {
+    right: auto;
+    left: 20px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    header h1 {
+        font-size: 1.8em;
+    }
+
+    .form-section {
+        padding: 20px;
+    }
+
+    .button-group {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+
+    .modal-content {
+        margin: 50% auto;
+        width: 95%;
+    }
+}
+
+/* Print Styles */
+@media print {
+    body {
+        background: white;
+    }
+
+    .container {
+        box-shadow: none;
+    }
+
+    .button-group,
+    .voice-btn,
+    .language-selector {
+        display: none;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 id="title">Medizinische Anamnese</h1>
+            <div class="language-selector">
+                <label for="language" id="lang-label">Sprache / Language:</label>
+                <select id="language" onchange="changeLanguage()">
+                    <option value="de">Deutsch</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                    <option value="it">Italiano</option>
+                    <option value="pt">Português</option>
+                    <option value="nl">Nederlands</option>
+                    <option value="pl">Polski</option>
+                    <option value="tr">Türkçe</option>
+                    <option value="ar">العربية</option>
+                </select>
+            </div>
+        </header>
+
+        <form id="anamneseForm">
+            <!-- Personal Information -->
+            <section class="form-section">
+                <h2 id="section-personal">Persönliche Daten</h2>
+                
+                <div class="form-group">
+                    <label for="firstName" id="label-firstName">Vorname:</label>
+                    <input type="text" id="firstName" name="firstName" required>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('firstName')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="lastName" id="label-lastName">Nachname:</label>
+                    <input type="text" id="lastName" name="lastName" required>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('lastName')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="dateOfBirth" id="label-dateOfBirth">Geburtsdatum:</label>
+                    <input type="date" id="dateOfBirth" name="dateOfBirth" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="gender" id="label-gender">Geschlecht:</label>
+                    <select id="gender" name="gender" required>
+                        <option value="" id="option-select">Bitte wählen</option>
+                        <option value="male" id="option-male">Männlich</option>
+                        <option value="female" id="option-female">Weiblich</option>
+                        <option value="other" id="option-other">Divers</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="address" id="label-address">Adresse:</label>
+                    <textarea id="address" name="address" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('address')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone" id="label-phone">Telefon:</label>
+                    <input type="tel" id="phone" name="phone">
+                </div>
+
+                <div class="form-group">
+                    <label for="email" id="label-email">E-Mail:</label>
+                    <input type="email" id="email" name="email">
+                </div>
+            </section>
+
+            <!-- Medical History -->
+            <section class="form-section">
+                <h2 id="section-medical">Medizinische Vorgeschichte</h2>
+
+                <div class="form-group">
+                    <label for="currentComplaints" id="label-currentComplaints">Aktuelle Beschwerden:</label>
+                    <textarea id="currentComplaints" name="currentComplaints" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('currentComplaints')" title="Spracheingabe">��</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="pastIllnesses" id="label-pastIllnesses">Frühere Erkrankungen:</label>
+                    <textarea id="pastIllnesses" name="pastIllnesses" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('pastIllnesses')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="surgeries" id="label-surgeries">Operationen:</label>
+                    <textarea id="surgeries" name="surgeries" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('surgeries')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="medications" id="label-medications">Aktuelle Medikamente:</label>
+                    <textarea id="medications" name="medications" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('medications')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="allergies" id="label-allergies">Allergien:</label>
+                    <textarea id="allergies" name="allergies" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('allergies')" title="Spracheingabe">🎤</button>
+                </div>
+
+                <div class="form-group">
+                    <label for="familyHistory" id="label-familyHistory">Familienanamnese:</label>
+                    <textarea id="familyHistory" name="familyHistory" rows="3"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('familyHistory')" title="Spracheingabe">🎤</button>
+                </div>
+            </section>
+
+            <!-- Lifestyle -->
+            <section class="form-section">
+                <h2 id="section-lifestyle">Lebensstil</h2>
+
+                <div class="form-group">
+                    <label for="smoking" id="label-smoking">Rauchen:</label>
+                    <select id="smoking" name="smoking">
+                        <option value="never" id="option-never">Nie</option>
+                        <option value="former" id="option-former">Ehemals</option>
+                        <option value="current" id="option-current">Aktuell</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="alcohol" id="label-alcohol">Alkoholkonsum:</label>
+                    <select id="alcohol" name="alcohol">
+                        <option value="never" id="option-alcohol-never">Nie</option>
+                        <option value="occasional" id="option-occasional">Gelegentlich</option>
+                        <option value="regular" id="option-regular">Regelmäßig</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="exercise" id="label-exercise">Körperliche Aktivität:</label>
+                    <textarea id="exercise" name="exercise" rows="2"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('exercise')" title="Spracheingabe">🎤</button>
+                </div>
+            </section>
+
+            <!-- Additional Notes -->
+            <section class="form-section">
+                <h2 id="section-additional">Zusätzliche Informationen</h2>
+
+                <div class="form-group">
+                    <label for="additionalNotes" id="label-additionalNotes">Weitere Anmerkungen:</label>
+                    <textarea id="additionalNotes" name="additionalNotes" rows="4"></textarea>
+                    <button type="button" class="voice-btn" onclick="startVoiceRecognition('additionalNotes')" title="Spracheingabe">🎤</button>
+                </div>
+            </section>
+
+            <!-- Privacy Consent -->
+            <section class="form-section">
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" id="privacyConsent" name="privacyConsent" required>
+                        <span id="label-privacyConsent">Ich bestätige, dass meine Daten verschlüsselt und nur lokal gespeichert werden. Ich verstehe, dass keine Daten an externe Server übertragen werden.</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button type="button" class="btn btn-primary" onclick="saveEncrypted()" id="btn-save">Verschlüsselt Speichern</button>
+                <button type="button" class="btn btn-secondary" onclick="loadEncrypted()" id="btn-load">Gespeicherte Daten Laden</button>
+                <button type="button" class="btn btn-success" onclick="exportJSON()" id="btn-export">Als JSON Exportieren</button>
+                <button type="button" class="btn btn-danger" onclick="clearForm()" id="btn-clear">Formular Leeren</button>
+            </div>
+        </form>
+
+        <!-- Voice Recognition Status -->
+        <div id="voiceStatus" class="voice-status" style="display: none;">
+            <span id="voiceStatusText">Spracherkennung aktiv...</span>
+        </div>
+
+        <footer>
+            <p id="footer-text">Datenschutzkonforme lokale Anamnese - Alle Daten bleiben auf Ihrem Gerät</p>
+        </footer>
+    </div>
+
+    <!-- Password Modal for Encryption -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Verschlüsselung</h2>
+            <p id="modal-text">Bitte geben Sie ein Passwort ein, um Ihre Daten zu verschlüsseln:</p>
+            <input type="password" id="encryptionPassword" placeholder="Passwort">
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="confirmPassword()" id="modal-confirm">Bestätigen</button>
+                <button class="btn btn-secondary" onclick="closePasswordModal()" id="modal-cancel">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// =============================================================================
+// TRANSLATIONS - Multi-language support for 10 languages
+// =============================================================================
+// Translations for 10 languages
+const translations = {
+    de: {
+        title: "Medizinische Anamnese",
+        langLabel: "Sprache / Language:",
+        sectionPersonal: "Persönliche Daten",
+        sectionMedical: "Medizinische Vorgeschichte",
+        sectionLifestyle: "Lebensstil",
+        sectionAdditional: "Zusätzliche Informationen",
+        labelFirstName: "Vorname:",
+        labelLastName: "Nachname:",
+        labelDateOfBirth: "Geburtsdatum:",
+        labelGender: "Geschlecht:",
+        labelAddress: "Adresse:",
+        labelPhone: "Telefon:",
+        labelEmail: "E-Mail:",
+        labelCurrentComplaints: "Aktuelle Beschwerden:",
+        labelPastIllnesses: "Frühere Erkrankungen:",
+        labelSurgeries: "Operationen:",
+        labelMedications: "Aktuelle Medikamente:",
+        labelAllergies: "Allergien:",
+        labelFamilyHistory: "Familienanamnese:",
+        labelSmoking: "Rauchen:",
+        labelAlcohol: "Alkoholkonsum:",
+        labelExercise: "Körperliche Aktivität:",
+        labelAdditionalNotes: "Weitere Anmerkungen:",
+        labelPrivacyConsent: "Ich bestätige, dass meine Daten verschlüsselt und nur lokal gespeichert werden. Ich verstehe, dass keine Daten an externe Server übertragen werden.",
+        optionSelect: "Bitte wählen",
+        optionMale: "Männlich",
+        optionFemale: "Weiblich",
+        optionOther: "Divers",
+        optionNever: "Nie",
+        optionFormer: "Ehemals",
+        optionCurrent: "Aktuell",
+        optionAlcoholNever: "Nie",
+        optionOccasional: "Gelegentlich",
+        optionRegular: "Regelmäßig",
+        btnSave: "Verschlüsselt Speichern",
+        btnLoad: "Gespeicherte Daten Laden",
+        btnExport: "Als JSON Exportieren",
+        btnClear: "Formular Leeren",
+        footerText: "Datenschutzkonforme lokale Anamnese - Alle Daten bleiben auf Ihrem Gerät",
+        modalTitle: "Verschlüsselung",
+        modalText: "Bitte geben Sie ein Passwort ein, um Ihre Daten zu verschlüsseln:",
+        modalConfirm: "Bestätigen",
+        modalCancel: "Abbrechen",
+        voiceStatusText: "Spracherkennung aktiv...",
+        alertSaved: "Daten erfolgreich verschlüsselt und gespeichert!",
+        alertLoaded: "Daten erfolgreich geladen!",
+        alertExported: "JSON-Datei wurde heruntergeladen!",
+        alertCleared: "Formular wurde geleert!",
+        alertPassword: "Bitte geben Sie ein Passwort ein!",
+        alertError: "Fehler beim Laden der Daten. Falsches Passwort?",
+        alertNoData: "Keine gespeicherten Daten gefunden!"
+    },
+    en: {
+        title: "Medical History",
+        langLabel: "Language:",
+        sectionPersonal: "Personal Information",
+        sectionMedical: "Medical History",
+        sectionLifestyle: "Lifestyle",
+        sectionAdditional: "Additional Information",
+        labelFirstName: "First Name:",
+        labelLastName: "Last Name:",
+        labelDateOfBirth: "Date of Birth:",
+        labelGender: "Gender:",
+        labelAddress: "Address:",
+        labelPhone: "Phone:",
+        labelEmail: "Email:",
+        labelCurrentComplaints: "Current Complaints:",
+        labelPastIllnesses: "Past Illnesses:",
+        labelSurgeries: "Surgeries:",
+        labelMedications: "Current Medications:",
+        labelAllergies: "Allergies:",
+        labelFamilyHistory: "Family History:",
+        labelSmoking: "Smoking:",
+        labelAlcohol: "Alcohol Consumption:",
+        labelExercise: "Physical Activity:",
+        labelAdditionalNotes: "Additional Notes:",
+        labelPrivacyConsent: "I confirm that my data is encrypted and stored only locally. I understand that no data is transmitted to external servers.",
+        optionSelect: "Please select",
+        optionMale: "Male",
+        optionFemale: "Female",
+        optionOther: "Other",
+        optionNever: "Never",
+        optionFormer: "Former",
+        optionCurrent: "Current",
+        optionAlcoholNever: "Never",
+        optionOccasional: "Occasional",
+        optionRegular: "Regular",
+        btnSave: "Save Encrypted",
+        btnLoad: "Load Saved Data",
+        btnExport: "Export as JSON",
+        btnClear: "Clear Form",
+        footerText: "Privacy-compliant local medical history - All data remains on your device",
+        modalTitle: "Encryption",
+        modalText: "Please enter a password to encrypt your data:",
+        modalConfirm: "Confirm",
+        modalCancel: "Cancel",
+        voiceStatusText: "Voice recognition active...",
+        alertSaved: "Data successfully encrypted and saved!",
+        alertLoaded: "Data successfully loaded!",
+        alertExported: "JSON file has been downloaded!",
+        alertCleared: "Form has been cleared!",
+        alertPassword: "Please enter a password!",
+        alertError: "Error loading data. Wrong password?",
+        alertNoData: "No saved data found!"
+    },
+    fr: {
+        title: "Antécédents Médicaux",
+        langLabel: "Langue:",
+        sectionPersonal: "Informations Personnelles",
+        sectionMedical: "Antécédents Médicaux",
+        sectionLifestyle: "Mode de Vie",
+        sectionAdditional: "Informations Supplémentaires",
+        labelFirstName: "Prénom:",
+        labelLastName: "Nom:",
+        labelDateOfBirth: "Date de Naissance:",
+        labelGender: "Genre:",
+        labelAddress: "Adresse:",
+        labelPhone: "Téléphone:",
+        labelEmail: "Email:",
+        labelCurrentComplaints: "Plaintes Actuelles:",
+        labelPastIllnesses: "Maladies Antérieures:",
+        labelSurgeries: "Chirurgies:",
+        labelMedications: "Médicaments Actuels:",
+        labelAllergies: "Allergies:",
+        labelFamilyHistory: "Antécédents Familiaux:",
+        labelSmoking: "Tabagisme:",
+        labelAlcohol: "Consommation d'Alcool:",
+        labelExercise: "Activité Physique:",
+        labelAdditionalNotes: "Notes Supplémentaires:",
+        labelPrivacyConsent: "Je confirme que mes données sont cryptées et stockées uniquement localement. Je comprends qu'aucune donnée n'est transmise à des serveurs externes.",
+        optionSelect: "Veuillez sélectionner",
+        optionMale: "Homme",
+        optionFemale: "Femme",
+        optionOther: "Autre",
+        optionNever: "Jamais",
+        optionFormer: "Ancien",
+        optionCurrent: "Actuel",
+        optionAlcoholNever: "Jamais",
+        optionOccasional: "Occasionnel",
+        optionRegular: "Régulier",
+        btnSave: "Enregistrer Crypté",
+        btnLoad: "Charger les Données",
+        btnExport: "Exporter en JSON",
+        btnClear: "Effacer le Formulaire",
+        footerText: "Antécédents médicaux locaux conformes à la confidentialité - Toutes les données restent sur votre appareil",
+        modalTitle: "Cryptage",
+        modalText: "Veuillez entrer un mot de passe pour crypter vos données:",
+        modalConfirm: "Confirmer",
+        modalCancel: "Annuler",
+        voiceStatusText: "Reconnaissance vocale active...",
+        alertSaved: "Données cryptées et enregistrées avec succès!",
+        alertLoaded: "Données chargées avec succès!",
+        alertExported: "Le fichier JSON a été téléchargé!",
+        alertCleared: "Le formulaire a été effacé!",
+        alertPassword: "Veuillez entrer un mot de passe!",
+        alertError: "Erreur lors du chargement des données. Mauvais mot de passe?",
+        alertNoData: "Aucune donnée enregistrée trouvée!"
+    },
+    es: {
+        title: "Historia Médica",
+        langLabel: "Idioma:",
+        sectionPersonal: "Información Personal",
+        sectionMedical: "Historia Médica",
+        sectionLifestyle: "Estilo de Vida",
+        sectionAdditional: "Información Adicional",
+        labelFirstName: "Nombre:",
+        labelLastName: "Apellido:",
+        labelDateOfBirth: "Fecha de Nacimiento:",
+        labelGender: "Género:",
+        labelAddress: "Dirección:",
+        labelPhone: "Teléfono:",
+        labelEmail: "Correo Electrónico:",
+        labelCurrentComplaints: "Quejas Actuales:",
+        labelPastIllnesses: "Enfermedades Anteriores:",
+        labelSurgeries: "Cirugías:",
+        labelMedications: "Medicamentos Actuales:",
+        labelAllergies: "Alergias:",
+        labelFamilyHistory: "Historia Familiar:",
+        labelSmoking: "Fumar:",
+        labelAlcohol: "Consumo de Alcohol:",
+        labelExercise: "Actividad Física:",
+        labelAdditionalNotes: "Notas Adicionales:",
+        labelPrivacyConsent: "Confirmo que mis datos están encriptados y almacenados solo localmente. Entiendo que no se transmiten datos a servidores externos.",
+        optionSelect: "Por favor seleccione",
+        optionMale: "Masculino",
+        optionFemale: "Femenino",
+        optionOther: "Otro",
+        optionNever: "Nunca",
+        optionFormer: "Anterior",
+        optionCurrent: "Actual",
+        optionAlcoholNever: "Nunca",
+        optionOccasional: "Ocasional",
+        optionRegular: "Regular",
+        btnSave: "Guardar Encriptado",
+        btnLoad: "Cargar Datos Guardados",
+        btnExport: "Exportar como JSON",
+        btnClear: "Limpiar Formulario",
+        footerText: "Historia médica local conforme a la privacidad - Todos los datos permanecen en su dispositivo",
+        modalTitle: "Encriptación",
+        modalText: "Por favor ingrese una contraseña para encriptar sus datos:",
+        modalConfirm: "Confirmar",
+        modalCancel: "Cancelar",
+        voiceStatusText: "Reconocimiento de voz activo...",
+        alertSaved: "¡Datos encriptados y guardados con éxito!",
+        alertLoaded: "¡Datos cargados con éxito!",
+        alertExported: "¡El archivo JSON ha sido descargado!",
+        alertCleared: "¡El formulario ha sido limpiado!",
+        alertPassword: "¡Por favor ingrese una contraseña!",
+        alertError: "Error al cargar los datos. ¿Contraseña incorrecta?",
+        alertNoData: "¡No se encontraron datos guardados!"
+    },
+    it: {
+        title: "Storia Medica",
+        langLabel: "Lingua:",
+        sectionPersonal: "Informazioni Personali",
+        sectionMedical: "Storia Medica",
+        sectionLifestyle: "Stile di Vita",
+        sectionAdditional: "Informazioni Aggiuntive",
+        labelFirstName: "Nome:",
+        labelLastName: "Cognome:",
+        labelDateOfBirth: "Data di Nascita:",
+        labelGender: "Genere:",
+        labelAddress: "Indirizzo:",
+        labelPhone: "Telefono:",
+        labelEmail: "Email:",
+        labelCurrentComplaints: "Reclami Attuali:",
+        labelPastIllnesses: "Malattie Precedenti:",
+        labelSurgeries: "Interventi Chirurgici:",
+        labelMedications: "Farmaci Attuali:",
+        labelAllergies: "Allergie:",
+        labelFamilyHistory: "Storia Familiare:",
+        labelSmoking: "Fumo:",
+        labelAlcohol: "Consumo di Alcol:",
+        labelExercise: "Attività Fisica:",
+        labelAdditionalNotes: "Note Aggiuntive:",
+        labelPrivacyConsent: "Confermo che i miei dati sono crittografati e memorizzati solo localmente. Capisco che nessun dato viene trasmesso a server esterni.",
+        optionSelect: "Per favore seleziona",
+        optionMale: "Maschio",
+        optionFemale: "Femmina",
+        optionOther: "Altro",
+        optionNever: "Mai",
+        optionFormer: "Precedente",
+        optionCurrent: "Attuale",
+        optionAlcoholNever: "Mai",
+        optionOccasional: "Occasionale",
+        optionRegular: "Regolare",
+        btnSave: "Salva Crittografato",
+        btnLoad: "Carica Dati Salvati",
+        btnExport: "Esporta come JSON",
+        btnClear: "Cancella Modulo",
+        footerText: "Storia medica locale conforme alla privacy - Tutti i dati rimangono sul tuo dispositivo",
+        modalTitle: "Crittografia",
+        modalText: "Per favore inserisci una password per crittografare i tuoi dati:",
+        modalConfirm: "Conferma",
+        modalCancel: "Annulla",
+        voiceStatusText: "Riconoscimento vocale attivo...",
+        alertSaved: "Dati crittografati e salvati con successo!",
+        alertLoaded: "Dati caricati con successo!",
+        alertExported: "Il file JSON è stato scaricato!",
+        alertCleared: "Il modulo è stato cancellato!",
+        alertPassword: "Per favore inserisci una password!",
+        alertError: "Errore nel caricamento dei dati. Password errata?",
+        alertNoData: "Nessun dato salvato trovato!"
+    },
+    pt: {
+        title: "História Médica",
+        langLabel: "Idioma:",
+        sectionPersonal: "Informações Pessoais",
+        sectionMedical: "História Médica",
+        sectionLifestyle: "Estilo de Vida",
+        sectionAdditional: "Informações Adicionais",
+        labelFirstName: "Primeiro Nome:",
+        labelLastName: "Sobrenome:",
+        labelDateOfBirth: "Data de Nascimento:",
+        labelGender: "Gênero:",
+        labelAddress: "Endereço:",
+        labelPhone: "Telefone:",
+        labelEmail: "Email:",
+        labelCurrentComplaints: "Queixas Atuais:",
+        labelPastIllnesses: "Doenças Anteriores:",
+        labelSurgeries: "Cirurgias:",
+        labelMedications: "Medicamentos Atuais:",
+        labelAllergies: "Alergias:",
+        labelFamilyHistory: "História Familiar:",
+        labelSmoking: "Fumar:",
+        labelAlcohol: "Consumo de Álcool:",
+        labelExercise: "Atividade Física:",
+        labelAdditionalNotes: "Notas Adicionais:",
+        labelPrivacyConsent: "Confirmo que meus dados estão criptografados e armazenados apenas localmente. Entendo que nenhum dado é transmitido para servidores externos.",
+        optionSelect: "Por favor selecione",
+        optionMale: "Masculino",
+        optionFemale: "Feminino",
+        optionOther: "Outro",
+        optionNever: "Nunca",
+        optionFormer: "Anterior",
+        optionCurrent: "Atual",
+        optionAlcoholNever: "Nunca",
+        optionOccasional: "Ocasional",
+        optionRegular: "Regular",
+        btnSave: "Salvar Criptografado",
+        btnLoad: "Carregar Dados Salvos",
+        btnExport: "Exportar como JSON",
+        btnClear: "Limpar Formulário",
+        footerText: "História médica local em conformidade com privacidade - Todos os dados permanecem no seu dispositivo",
+        modalTitle: "Criptografia",
+        modalText: "Por favor, insira uma senha para criptografar seus dados:",
+        modalConfirm: "Confirmar",
+        modalCancel: "Cancelar",
+        voiceStatusText: "Reconhecimento de voz ativo...",
+        alertSaved: "Dados criptografados e salvos com sucesso!",
+        alertLoaded: "Dados carregados com sucesso!",
+        alertExported: "O arquivo JSON foi baixado!",
+        alertCleared: "O formulário foi limpo!",
+        alertPassword: "Por favor, insira uma senha!",
+        alertError: "Erro ao carregar os dados. Senha incorreta?",
+        alertNoData: "Nenhum dado salvo encontrado!"
+    },
+    nl: {
+        title: "Medische Geschiedenis",
+        langLabel: "Taal:",
+        sectionPersonal: "Persoonlijke Informatie",
+        sectionMedical: "Medische Geschiedenis",
+        sectionLifestyle: "Levensstijl",
+        sectionAdditional: "Aanvullende Informatie",
+        labelFirstName: "Voornaam:",
+        labelLastName: "Achternaam:",
+        labelDateOfBirth: "Geboortedatum:",
+        labelGender: "Geslacht:",
+        labelAddress: "Adres:",
+        labelPhone: "Telefoon:",
+        labelEmail: "Email:",
+        labelCurrentComplaints: "Huidige Klachten:",
+        labelPastIllnesses: "Eerdere Ziekten:",
+        labelSurgeries: "Operaties:",
+        labelMedications: "Huidige Medicijnen:",
+        labelAllergies: "Allergieën:",
+        labelFamilyHistory: "Familiegeschiedenis:",
+        labelSmoking: "Roken:",
+        labelAlcohol: "Alcoholgebruik:",
+        labelExercise: "Lichaamsbeweging:",
+        labelAdditionalNotes: "Aanvullende Opmerkingen:",
+        labelPrivacyConsent: "Ik bevestig dat mijn gegevens versleuteld en alleen lokaal opgeslagen worden. Ik begrijp dat er geen gegevens naar externe servers worden verzonden.",
+        optionSelect: "Selecteer alstublieft",
+        optionMale: "Mannelijk",
+        optionFemale: "Vrouwelijk",
+        optionOther: "Anders",
+        optionNever: "Nooit",
+        optionFormer: "Voormalig",
+        optionCurrent: "Huidig",
+        optionAlcoholNever: "Nooit",
+        optionOccasional: "Af en toe",
+        optionRegular: "Regelmatig",
+        btnSave: "Versleuteld Opslaan",
+        btnLoad: "Opgeslagen Gegevens Laden",
+        btnExport: "Exporteren als JSON",
+        btnClear: "Formulier Wissen",
+        footerText: "Privacy-conforme lokale medische geschiedenis - Alle gegevens blijven op uw apparaat",
+        modalTitle: "Versleuteling",
+        modalText: "Voer een wachtwoord in om uw gegevens te versleutelen:",
+        modalConfirm: "Bevestigen",
+        modalCancel: "Annuleren",
+        voiceStatusText: "Spraakherkenning actief...",
+        alertSaved: "Gegevens succesvol versleuteld en opgeslagen!",
+        alertLoaded: "Gegevens succesvol geladen!",
+        alertExported: "JSON-bestand is gedownload!",
+        alertCleared: "Formulier is gewist!",
+        alertPassword: "Voer alstublieft een wachtwoord in!",
+        alertError: "Fout bij het laden van gegevens. Verkeerd wachtwoord?",
+        alertNoData: "Geen opgeslagen gegevens gevonden!"
+    },
+    pl: {
+        title: "Historia Medyczna",
+        langLabel: "Język:",
+        sectionPersonal: "Dane Osobowe",
+        sectionMedical: "Historia Medyczna",
+        sectionLifestyle: "Styl Życia",
+        sectionAdditional: "Dodatkowe Informacje",
+        labelFirstName: "Imię:",
+        labelLastName: "Nazwisko:",
+        labelDateOfBirth: "Data Urodzenia:",
+        labelGender: "Płeć:",
+        labelAddress: "Adres:",
+        labelPhone: "Telefon:",
+        labelEmail: "Email:",
+        labelCurrentComplaints: "Obecne Dolegliwości:",
+        labelPastIllnesses: "Przebyte Choroby:",
+        labelSurgeries: "Operacje:",
+        labelMedications: "Aktualne Leki:",
+        labelAllergies: "Alergie:",
+        labelFamilyHistory: "Historia Rodzinna:",
+        labelSmoking: "Palenie:",
+        labelAlcohol: "Spożycie Alkoholu:",
+        labelExercise: "Aktywność Fizyczna:",
+        labelAdditionalNotes: "Dodatkowe Uwagi:",
+        labelPrivacyConsent: "Potwierdzam, że moje dane są szyfrowane i przechowywane tylko lokalnie. Rozumiem, że żadne dane nie są przesyłane na zewnętrzne serwery.",
+        optionSelect: "Proszę wybrać",
+        optionMale: "Mężczyzna",
+        optionFemale: "Kobieta",
+        optionOther: "Inne",
+        optionNever: "Nigdy",
+        optionFormer: "Dawniej",
+        optionCurrent: "Obecnie",
+        optionAlcoholNever: "Nigdy",
+        optionOccasional: "Okazjonalnie",
+        optionRegular: "Regularnie",
+        btnSave: "Zapisz Zaszyfrowane",
+        btnLoad: "Wczytaj Zapisane Dane",
+        btnExport: "Eksportuj jako JSON",
+        btnClear: "Wyczyść Formularz",
+        footerText: "Zgodna z prywatnością lokalna historia medyczna - Wszystkie dane pozostają na Twoim urządzeniu",
+        modalTitle: "Szyfrowanie",
+        modalText: "Proszę wprowadzić hasło, aby zaszyfrować dane:",
+        modalConfirm: "Potwierdź",
+        modalCancel: "Anuluj",
+        voiceStatusText: "Rozpoznawanie mowy aktywne...",
+        alertSaved: "Dane zostały zaszyfrowane i zapisane pomyślnie!",
+        alertLoaded: "Dane zostały wczytane pomyślnie!",
+        alertExported: "Plik JSON został pobrany!",
+        alertCleared: "Formularz został wyczyszczony!",
+        alertPassword: "Proszę wprowadzić hasło!",
+        alertError: "Błąd podczas wczytywania danych. Nieprawidłowe hasło?",
+        alertNoData: "Nie znaleziono zapisanych danych!"
+    },
+    tr: {
+        title: "Tıbbi Geçmiş",
+        langLabel: "Dil:",
+        sectionPersonal: "Kişisel Bilgiler",
+        sectionMedical: "Tıbbi Geçmiş",
+        sectionLifestyle: "Yaşam Tarzı",
+        sectionAdditional: "Ek Bilgiler",
+        labelFirstName: "Ad:",
+        labelLastName: "Soyad:",
+        labelDateOfBirth: "Doğum Tarihi:",
+        labelGender: "Cinsiyet:",
+        labelAddress: "Adres:",
+        labelPhone: "Telefon:",
+        labelEmail: "E-posta:",
+        labelCurrentComplaints: "Mevcut Şikayetler:",
+        labelPastIllnesses: "Geçmiş Hastalıklar:",
+        labelSurgeries: "Ameliyatlar:",
+        labelMedications: "Mevcut İlaçlar:",
+        labelAllergies: "Alerjiler:",
+        labelFamilyHistory: "Aile Geçmişi:",
+        labelSmoking: "Sigara:",
+        labelAlcohol: "Alkol Tüketimi:",
+        labelExercise: "Fiziksel Aktivite:",
+        labelAdditionalNotes: "Ek Notlar:",
+        labelPrivacyConsent: "Verilerimin şifrelendiğini ve yalnızca yerel olarak saklandığını onaylıyorum. Harici sunuculara veri aktarılmadığını anlıyorum.",
+        optionSelect: "Lütfen seçin",
+        optionMale: "Erkek",
+        optionFemale: "Kadın",
+        optionOther: "Diğer",
+        optionNever: "Hiçbir zaman",
+        optionFormer: "Eskiden",
+        optionCurrent: "Şu anda",
+        optionAlcoholNever: "Hiçbir zaman",
+        optionOccasional: "Ara sıra",
+        optionRegular: "Düzenli",
+        btnSave: "Şifreli Kaydet",
+        btnLoad: "Kayıtlı Verileri Yükle",
+        btnExport: "JSON Olarak Dışa Aktar",
+        btnClear: "Formu Temizle",
+        footerText: "Gizlilik uyumlu yerel tıbbi geçmiş - Tüm veriler cihazınızda kalır",
+        modalTitle: "Şifreleme",
+        modalText: "Verilerinizi şifrelemek için lütfen bir parola girin:",
+        modalConfirm: "Onayla",
+        modalCancel: "İptal",
+        voiceStatusText: "Ses tanıma aktif...",
+        alertSaved: "Veriler başarıyla şifrelendi ve kaydedildi!",
+        alertLoaded: "Veriler başarıyla yüklendi!",
+        alertExported: "JSON dosyası indirildi!",
+        alertCleared: "Form temizlendi!",
+        alertPassword: "Lütfen bir parola girin!",
+        alertError: "Veri yüklenirken hata oluştu. Yanlış parola?",
+        alertNoData: "Kayıtlı veri bulunamadı!"
+    },
+    ar: {
+        title: "التاريخ الطبي",
+        langLabel: "اللغة:",
+        sectionPersonal: "المعلومات الشخصية",
+        sectionMedical: "التاريخ الطبي",
+        sectionLifestyle: "نمط الحياة",
+        sectionAdditional: "معلومات إضافية",
+        labelFirstName: "الاسم الأول:",
+        labelLastName: "اسم العائلة:",
+        labelDateOfBirth: "تاريخ الميلاد:",
+        labelGender: "الجنس:",
+        labelAddress: "العنوان:",
+        labelPhone: "الهاتف:",
+        labelEmail: "البريد الإلكتروني:",
+        labelCurrentComplaints: "الشكاوى الحالية:",
+        labelPastIllnesses: "الأمراض السابقة:",
+        labelSurgeries: "العمليات الجراحية:",
+        labelMedications: "الأدوية الحالية:",
+        labelAllergies: "الحساسية:",
+        labelFamilyHistory: "التاريخ العائلي:",
+        labelSmoking: "التدخين:",
+        labelAlcohol: "استهلاك الكحول:",
+        labelExercise: "النشاط البدني:",
+        labelAdditionalNotes: "ملاحظات إضافية:",
+        labelPrivacyConsent: "أؤكد أن بياناتي مشفرة ومخزنة محليًا فقط. أفهم أنه لا يتم نقل أي بيانات إلى خوادم خارجية.",
+        optionSelect: "يرجى الاختيار",
+        optionMale: "ذكر",
+        optionFemale: "أنثى",
+        optionOther: "آخر",
+        optionNever: "أبداً",
+        optionFormer: "سابقاً",
+        optionCurrent: "حالياً",
+        optionAlcoholNever: "أبداً",
+        optionOccasional: "أحياناً",
+        optionRegular: "بانتظام",
+        btnSave: "حفظ مشفر",
+        btnLoad: "تحميل البيانات المحفوظة",
+        btnExport: "تصدير كـ JSON",
+        btnClear: "مسح النموذج",
+        footerText: "تاريخ طبي محلي متوافق مع الخصوصية - جميع البيانات تبقى على جهازك",
+        modalTitle: "التشفير",
+        modalText: "يرجى إدخال كلمة مرور لتشفير بياناتك:",
+        modalConfirm: "تأكيد",
+        modalCancel: "إلغاء",
+        voiceStatusText: "التعرف على الصوت نشط...",
+        alertSaved: "تم تشفير البيانات وحفظها بنجاح!",
+        alertLoaded: "تم تحميل البيانات بنجاح!",
+        alertExported: "تم تنزيل ملف JSON!",
+        alertCleared: "تم مسح النموذج!",
+        alertPassword: "يرجى إدخال كلمة مرور!",
+        alertError: "خطأ في تحميل البيانات. كلمة مرور خاطئة؟",
+        alertNoData: "لم يتم العثور على بيانات محفوظة!"
+    }
+};
+
+function changeLanguage() {
+    const lang = document.getElementById('language').value;
+    const t = translations[lang];
+    
+    // Update HTML lang attribute
+    document.documentElement.lang = lang;
+    
+    // Update all text elements
+    document.getElementById('title').textContent = t.title;
+    document.getElementById('lang-label').textContent = t.langLabel;
+    
+    // Sections
+    document.getElementById('section-personal').textContent = t.sectionPersonal;
+    document.getElementById('section-medical').textContent = t.sectionMedical;
+    document.getElementById('section-lifestyle').textContent = t.sectionLifestyle;
+    document.getElementById('section-additional').textContent = t.sectionAdditional;
+    
+    // Labels
+    document.getElementById('label-firstName').textContent = t.labelFirstName;
+    document.getElementById('label-lastName').textContent = t.labelLastName;
+    document.getElementById('label-dateOfBirth').textContent = t.labelDateOfBirth;
+    document.getElementById('label-gender').textContent = t.labelGender;
+    document.getElementById('label-address').textContent = t.labelAddress;
+    document.getElementById('label-phone').textContent = t.labelPhone;
+    document.getElementById('label-email').textContent = t.labelEmail;
+    document.getElementById('label-currentComplaints').textContent = t.labelCurrentComplaints;
+    document.getElementById('label-pastIllnesses').textContent = t.labelPastIllnesses;
+    document.getElementById('label-surgeries').textContent = t.labelSurgeries;
+    document.getElementById('label-medications').textContent = t.labelMedications;
+    document.getElementById('label-allergies').textContent = t.labelAllergies;
+    document.getElementById('label-familyHistory').textContent = t.labelFamilyHistory;
+    document.getElementById('label-smoking').textContent = t.labelSmoking;
+    document.getElementById('label-alcohol').textContent = t.labelAlcohol;
+    document.getElementById('label-exercise').textContent = t.labelExercise;
+    document.getElementById('label-additionalNotes').textContent = t.labelAdditionalNotes;
+    document.getElementById('label-privacyConsent').textContent = t.labelPrivacyConsent;
+    
+    // Options
+    document.getElementById('option-select').textContent = t.optionSelect;
+    document.getElementById('option-male').textContent = t.optionMale;
+    document.getElementById('option-female').textContent = t.optionFemale;
+    document.getElementById('option-other').textContent = t.optionOther;
+    document.getElementById('option-never').textContent = t.optionNever;
+    document.getElementById('option-former').textContent = t.optionFormer;
+    document.getElementById('option-current').textContent = t.optionCurrent;
+    document.getElementById('option-alcohol-never').textContent = t.optionAlcoholNever;
+    document.getElementById('option-occasional').textContent = t.optionOccasional;
+    document.getElementById('option-regular').textContent = t.optionRegular;
+    
+    // Buttons
+    document.getElementById('btn-save').textContent = t.btnSave;
+    document.getElementById('btn-load').textContent = t.btnLoad;
+    document.getElementById('btn-export').textContent = t.btnExport;
+    document.getElementById('btn-clear').textContent = t.btnClear;
+    
+    // Footer
+    document.getElementById('footer-text').textContent = t.footerText;
+    
+    // Modal
+    document.getElementById('modal-title').textContent = t.modalTitle;
+    document.getElementById('modal-text').textContent = t.modalText;
+    document.getElementById('modal-confirm').textContent = t.modalConfirm;
+    document.getElementById('modal-cancel').textContent = t.modalCancel;
+    
+    // Voice status
+    document.getElementById('voiceStatusText').textContent = t.voiceStatusText;
+    
+    // Store current language
+    currentLanguage = lang;
+}
+
+// Current language variable
+let currentLanguage = 'de';
+
+// =============================================================================
+// ENCRYPTION - AES-256 encryption using Web Crypto API
+// =============================================================================
+
+let currentAction = null;
+
+// Derive key from password using PBKDF2
+async function deriveKey(password, salt) {
+    const encoder = new TextEncoder();
+    const passwordKey = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveBits', 'deriveKey']
+    );
+
+    return crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 100000,
+            hash: 'SHA-256'
+        },
+        passwordKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+    );
+}
+
+// Encrypt data with AES-256-GCM
+async function encryptData(data, password) {
+    const encoder = new TextEncoder();
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    const key = await deriveKey(password, salt);
+    
+    const encryptedData = await crypto.subtle.encrypt(
+        {
+            name: 'AES-GCM',
+            iv: iv
+        },
+        key,
+        encoder.encode(data)
+    );
+
+    // Combine salt, iv, and encrypted data
+    const result = new Uint8Array(salt.length + iv.length + encryptedData.byteLength);
+    result.set(salt, 0);
+    result.set(iv, salt.length);
+    result.set(new Uint8Array(encryptedData), salt.length + iv.length);
+
+    // Convert to base64 for storage
+    return btoa(String.fromCharCode.apply(null, result));
+}
+
+// Decrypt data with AES-256-GCM
+async function decryptData(encryptedBase64, password) {
+    const decoder = new TextDecoder();
+    
+    // Decode from base64
+    const encryptedArray = new Uint8Array(
+        atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
+    );
+
+    // Extract salt, iv, and encrypted data
+    const salt = encryptedArray.slice(0, 16);
+    const iv = encryptedArray.slice(16, 28);
+    const data = encryptedArray.slice(28);
+
+    const key = await deriveKey(password, salt);
+
+    try {
+        const decryptedData = await crypto.subtle.decrypt(
+            {
+                name: 'AES-GCM',
+                iv: iv
+            },
+            key,
+            data
+        );
+
+        return decoder.decode(decryptedData);
+    } catch (e) {
+        throw new Error('Decryption failed - incorrect password');
+    }
+}
+
+// Show password modal
+function showPasswordModal(action) {
+    currentAction = action;
+    document.getElementById('passwordModal').style.display = 'block';
+    document.getElementById('encryptionPassword').value = '';
+    document.getElementById('encryptionPassword').focus();
+}
+
+// Close password modal
+function closePasswordModal() {
+    document.getElementById('passwordModal').style.display = 'none';
+    currentAction = null;
+}
+
+// Confirm password and execute action
+async function confirmPassword() {
+    const password = document.getElementById('encryptionPassword').value;
+    
+    if (!password) {
+        alert(translations[currentLanguage].alertPassword);
+        return;
+    }
+
+    closePasswordModal();
+
+    if (currentAction === 'save') {
+        await performSave(password);
+    } else if (currentAction === 'load') {
+        await performLoad(password);
+    }
+}
+
+// Get form data
+function getFormData() {
+    const form = document.getElementById('anamneseForm');
+    const formData = new FormData(form);
+    const data = {};
+    
+    for (let [key, value] of formData.entries()) {
+        if (key === 'privacyConsent') {
+            data[key] = form.elements[key].checked;
+        } else {
+            data[key] = value;
+        }
+    }
+    
+    // Add timestamp and language
+    data.timestamp = new Date().toISOString();
+    data.language = currentLanguage;
+    
+    return data;
+}
+
+// Set form data
+function setFormData(data) {
+    const form = document.getElementById('anamneseForm');
+    
+    for (let key in data) {
+        if (key === 'timestamp' || key === 'language') continue;
+        
+        const element = form.elements[key];
+        if (element) {
+            if (element.type === 'checkbox') {
+                element.checked = data[key];
+            } else {
+                element.value = data[key] || '';
+            }
+        }
+    }
+    
+    // Set language if available
+    if (data.language) {
+        document.getElementById('language').value = data.language;
+        changeLanguage();
+    }
+}
+
+// Perform save with encryption
+async function performSave(password) {
+    try {
+        const formData = getFormData();
+        const jsonData = JSON.stringify(formData);
+        
+        const encryptedData = await encryptData(jsonData, password);
+        
+        // Save to localStorage
+        localStorage.setItem('anamneseData', encryptedData);
+        
+        alert(translations[currentLanguage].alertSaved);
+    } catch (error) {
+        console.error('Save error:', error);
+        alert('Error saving data: ' + error.message);
+    }
+}
+
+// Perform load with decryption
+async function performLoad(password) {
+    try {
+        const encryptedData = localStorage.getItem('anamneseData');
+        
+        if (!encryptedData) {
+            alert(translations[currentLanguage].alertNoData);
+            return;
+        }
+        
+        const jsonData = await decryptData(encryptedData, password);
+        const formData = JSON.parse(jsonData);
+        
+        setFormData(formData);
+        
+        alert(translations[currentLanguage].alertLoaded);
+    } catch (error) {
+        console.error('Load error:', error);
+        alert(translations[currentLanguage].alertError);
+    }
+}
+
+// Save encrypted (called from button)
+function saveEncrypted() {
+    showPasswordModal('save');
+}
+
+// Load encrypted (called from button)
+function loadEncrypted() {
+    showPasswordModal('load');
+}
+
+// Export as JSON (unencrypted)
+function exportJSON() {
+    const formData = getFormData();
+    const jsonData = JSON.stringify(formData, null, 2);
+    
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `anamnese_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    alert(translations[currentLanguage].alertExported);
+}
+
+// Clear form
+function clearForm() {
+    if (confirm('Are you sure you want to clear all form data?')) {
+        document.getElementById('anamneseForm').reset();
+        alert(translations[currentLanguage].alertCleared);
+    }
+}
+
+// =============================================================================
+// SPEECH RECOGNITION - Browser-based speech recognition
+// =============================================================================
+
+let currentRecognition = null;
+let currentInputField = null;
+
+// Start voice recognition for a specific field
+function startVoiceRecognition(fieldId) {
+    currentInputField = fieldId;
+    
+    // Check if browser supports speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+        alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+        return;
+    }
+    
+    // Show voice status
+    const voiceStatus = document.getElementById('voiceStatus');
+    voiceStatus.style.display = 'block';
+    updateVoiceStatus(translations[currentLanguage].voiceStatusText);
+    
+    try {
+        const recognition = new SpeechRecognition();
+        
+        // Set language based on current language
+        recognition.lang = currentLanguage === 'de' ? 'de-DE' : 
+                           currentLanguage === 'en' ? 'en-US' :
+                           currentLanguage === 'fr' ? 'fr-FR' :
+                           currentLanguage === 'es' ? 'es-ES' :
+                           currentLanguage === 'it' ? 'it-IT' :
+                           currentLanguage === 'pt' ? 'pt-PT' :
+                           currentLanguage === 'nl' ? 'nl-NL' :
+                           currentLanguage === 'pl' ? 'pl-PL' :
+                           currentLanguage === 'tr' ? 'tr-TR' :
+                           currentLanguage === 'ar' ? 'ar-SA' : 'de-DE';
+        
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        
+        recognition.onresult = function(event) {
+            let finalTranscript = '';
+            let interimTranscript = '';
+            
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript + ' ';
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            
+            if (finalTranscript && currentInputField) {
+                const field = document.getElementById(currentInputField);
+                if (field) {
+                    if (field.value) {
+                        field.value += ' ' + finalTranscript.trim();
+                    } else {
+                        field.value = finalTranscript.trim();
+                    }
+                }
+            }
+            
+            if (interimTranscript) {
+                updateVoiceStatus('🎤 ' + interimTranscript);
+            }
+        };
+        
+        recognition.onerror = function(event) {
+            console.error('Speech recognition error:', event.error);
+            stopVoiceRecognition();
+        };
+        
+        recognition.onend = function() {
+            stopVoiceRecognition();
+        };
+        
+        recognition.start();
+        currentRecognition = recognition;
+        
+        // Add click listener to stop recording
+        voiceStatus.onclick = stopVoiceRecognition;
+        voiceStatus.style.cursor = 'pointer';
+        updateVoiceStatus('🎤 ' + translations[currentLanguage].voiceStatusText + ' (Click to stop)');
+        
+    } catch (error) {
+        console.error('Voice recognition error:', error);
+        alert('Error starting voice recognition: ' + error.message);
+        stopVoiceRecognition();
+    }
+}
+
+// Stop voice recognition
+function stopVoiceRecognition() {
+    if (currentRecognition) {
+        currentRecognition.stop();
+        currentRecognition = null;
+    }
+    
+    const voiceStatus = document.getElementById('voiceStatus');
+    voiceStatus.style.display = 'none';
+    voiceStatus.onclick = null;
+    voiceStatus.style.cursor = 'default';
+    
+    currentInputField = null;
+}
+
+// Update voice status text
+function updateVoiceStatus(text) {
+    const statusText = document.getElementById('voiceStatusText');
+    if (statusText) {
+        statusText.textContent = text;
+    }
+}
+
+// =============================================================================
+// MAIN APPLICATION LOGIC
+// =============================================================================
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial language
+    changeLanguage();
+    
+    // Add form validation
+    const form = document.getElementById('anamneseForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+        });
+    }
+    
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+S to save
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            saveEncrypted();
+        }
+        // Ctrl+L to load
+        if (e.ctrlKey && e.key === 'l') {
+            e.preventDefault();
+            loadEncrypted();
+        }
+        // Ctrl+E to export
+        if (e.ctrlKey && e.key === 'e') {
+            e.preventDefault();
+            exportJSON();
+        }
+        // ESC to close modal
+        if (e.key === 'Escape') {
+            closePasswordModal();
+            stopVoiceRecognition();
+        }
+    });
+    
+    // Check for saved language preference
+    const savedLang = localStorage.getItem('preferredLanguage');
+    if (savedLang) {
+        document.getElementById('language').value = savedLang;
+        changeLanguage();
+    }
+    
+    // Save language preference when changed
+    document.getElementById('language').addEventListener('change', function() {
+        localStorage.setItem('preferredLanguage', this.value);
+    });
+    
+    // Handle Enter key in password field
+    const passwordInput = document.getElementById('encryptionPassword');
+    if (passwordInput) {
+        passwordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                confirmPassword();
+            }
+        });
+    }
+    
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('passwordModal');
+        if (event.target === modal) {
+            closePasswordModal();
+        }
+    }
+    
+    console.log('Anamnese Application initialized successfully');
+    console.log('Features: 10 languages, AES-256 encryption, browser speech recognition, offline operation');
+});
+
+// Validate form fields
+function validateForm() {
+    const form = document.getElementById('anamneseForm');
+    const requiredFields = form.querySelectorAll('[required]');
+    let isValid = true;
+    
+    requiredFields.forEach(field => {
+        if (!field.value) {
+            field.style.borderColor = 'red';
+            isValid = false;
+        } else {
+            field.style.borderColor = '';
+        }
+    });
+    
+    return isValid;
+}
+
+// Check browser compatibility
+function checkBrowserCompatibility() {
+    const features = {
+        webCrypto: !!window.crypto && !!window.crypto.subtle,
+        localStorage: !!window.localStorage,
+        speechRecognition: !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+    };
+    
+    console.log('Browser compatibility:', features);
+    
+    if (!features.webCrypto) {
+        console.warn('Web Crypto API not available - encryption may not work');
+    }
+    
+    if (!features.localStorage) {
+        console.warn('LocalStorage not available - data persistence may not work');
+    }
+    
+    if (!features.speechRecognition) {
+        console.warn('Speech Recognition not available - voice input will not work');
+    }
+    
+    return features;
+}
+
+// Check compatibility on load
+checkBrowserCompatibility();
+
+console.log('Single-file Anamnese Application loaded - All features ready');
+    </script>
+</body>
+</html>
