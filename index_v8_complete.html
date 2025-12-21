@@ -427,6 +427,8 @@ function handleAnswerChange(id, value) {
     } else {
         APP_STATE.answers[id] = sanitizedValue;
     }
+    // Schedule auto-save after changes
+    scheduleAutoSave();
     // Aktualisiere die JSON-Box (wird in Phase 7 implementiert)
     // updateJsonBox(); 
 }
@@ -712,6 +714,151 @@ function getTranslation(key) {
     return trans?.[labelKey] || trans?.[key] || key;
 }
 
+// =================================================================
+// AUTO-SAVE FUNCTIONALITY
+// =================================================================
+
+let autoSaveTimer = null;
+let lastSaveTime = null;
+
+/**
+ * Schedule an auto-save after user stops typing for 2 seconds
+ */
+function scheduleAutoSave() {
+    if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+    }
+    
+    showSaveIndicator('saving');
+    
+    autoSaveTimer = setTimeout(async () => {
+        try {
+            await saveToLocalStorage();
+            lastSaveTime = new Date();
+            showSaveIndicator('saved');
+        } catch (e) {
+            showSaveIndicator('error');
+            console.error('Auto-save failed:', e);
+        }
+    }, 2000);
+}
+
+/**
+ * Save current state to localStorage
+ */
+function saveToLocalStorage() {
+    return new Promise((resolve, reject) => {
+        try {
+            const answers = (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
+                ? APP_STATE.answers 
+                : (typeof AppState !== 'undefined' && AppState.answers) 
+                    ? AppState.answers 
+                    : {};
+            const currentSection = (typeof APP_STATE !== 'undefined' && APP_STATE.currentSectionIndex !== undefined) 
+                ? APP_STATE.currentSectionIndex 
+                : (typeof AppState !== 'undefined' && AppState.currentStep !== undefined) 
+                    ? AppState.currentStep 
+                    : 0;
+            
+            const saveData = {
+                answers: answers,
+                currentSection: currentSection,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('anamnese_autosave', JSON.stringify(saveData));
+            resolve();
+        } catch (e) {
+            reject(new Error('LocalStorage full or unavailable'));
+        }
+    });
+}
+
+/**
+ * Show save indicator with status
+ * @param {string} status - 'saving', 'saved', or 'error'
+ */
+function showSaveIndicator(status) {
+    let indicator = document.getElementById('save-indicator');
+    
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'save-indicator';
+        indicator.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            z-index: 10000;
+        `;
+        document.body.appendChild(indicator);
+    }
+    
+    switch (status) {
+        case 'saving':
+            indicator.textContent = '💾 Speichert...';
+            indicator.style.backgroundColor = '#3b82f6';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '1';
+            break;
+        case 'saved':
+            indicator.textContent = '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+            indicator.style.backgroundColor = '#10b981';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '1';
+            setTimeout(() => {
+                indicator.style.opacity = '0';
+            }, 2000);
+            break;
+        case 'error':
+            indicator.textContent = '⚠️ Speichern fehlgeschlagen';
+            indicator.style.backgroundColor = '#ef4444';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '1';
+            break;
+    }
+}
+
+/**
+ * Restore auto-saved data on page load
+ */
+function restoreAutoSave() {
+    try {
+        const savedData = localStorage.getItem('anamnese_autosave');
+        if (savedData) {
+            const { answers, currentSection, timestamp } = JSON.parse(savedData);
+            const savedDate = new Date(timestamp);
+            const hoursSinceSave = (new Date() - savedDate) / 1000 / 3600;
+            
+            if (hoursSinceSave < 24) {
+                const restore = confirm(
+                    `Es wurde eine unvollständige Anamnese gefunden vom ${savedDate.toLocaleString('de-DE')}.\n\n` +
+                    'Möchten Sie diese fortsetzen?'
+                );
+                
+                if (restore) {
+                    if (typeof APP_STATE !== 'undefined') {
+                        APP_STATE.answers = answers;
+                        APP_STATE.currentSectionIndex = currentSection;
+                    }
+                    if (typeof AppState !== 'undefined') {
+                        AppState.answers = answers;
+                        AppState.currentStep = currentSection;
+                    }
+                    return true;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Failed to restore auto-save:', e);
+    }
+    return false;
+}
+
 /**
  * Findet ein Fragenobjekt anhand seiner ID.
  * @param {string} questionId - Die ID der Frage.
@@ -911,6 +1058,8 @@ function handleAnswerChange(id, value) {
     } else {
         APP_STATE.answers[id] = sanitizedValue;
     }
+    // Schedule auto-save after changes
+    scheduleAutoSave();
     updateJsonBox(); // NEU: Aktualisiere die JSON-Box bei jeder Änderung
 }
 
@@ -12867,6 +13016,15 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 await setupEncryptionKey();
 
                 this.loadFromStorage();
+                
+                // Try to restore auto-saved data
+                const restored = restoreAutoSave();
+                if (restored) {
+                    // Data was restored, re-render
+                    this.renderStep(AppState.currentStep);
+                    this.updateProgress();
+                }
+                
                 this.populateLanguageSelect();
                 
                 // Set RTL for Arabic, Farsi, and Urdu on initial load
@@ -13212,6 +13370,8 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                     AppState.answers[fieldId] = sanitizeInput(element.value);
                 }
                 
+                // Schedule auto-save after changes
+                scheduleAutoSave();
                 this.saveToStorage();
                 this.updateNavButtons();
                 this.updateJsonBox();
@@ -13290,13 +13450,46 @@ App.clearUploadedDocuments = clearUploadedDocuments;
 
             // ----- NAVIGATION -----
             updateProgress() {
-                const total = window.APP_DATA.sections.length;
-                const current = AppState.currentStep + 1;
-                const percent = Math.round((current / total) * 100);
+                const progressBar = document.getElementById('progress-fill');
+                const progressText = document.getElementById('progress-text');
                 
-                document.getElementById('progress-text').textContent = 
-                    T('step_of').replace('{current}', current).replace('{total}', total);
-                document.getElementById('progress-fill').style.width = `${percent}%`;
+                if (!progressBar || !progressText) return;
+                
+                const totalSections = window.APP_DATA.sections.length;
+                const currentSection = AppState.currentStep;
+                
+                let totalQuestions = 0;
+                let answeredQuestions = 0;
+                
+                window.APP_DATA.sections.forEach((section, idx) => {
+                    if (section.fields) {
+                        section.fields.forEach(field => {
+                            // Count all visible questions
+                            totalQuestions++;
+                            // Count answered questions up to current section
+                            if (idx < currentSection || (idx === currentSection && AppState.answers[field.id] !== undefined && AppState.answers[field.id] !== '')) {
+                                answeredQuestions++;
+                            }
+                        });
+                    }
+                });
+                
+                const progressPercent = totalQuestions > 0 ? (answeredQuestions / totalQuestions * 100) : 0;
+                
+                progressBar.style.width = progressPercent + '%';
+                progressBar.setAttribute('aria-valuenow', Math.round(progressPercent));
+                
+                // Enhanced text with percentage and counts
+                progressText.textContent = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                
+                // Color coding based on progress
+                if (progressPercent < 33) {
+                    progressBar.style.backgroundColor = '#ef4444'; // red
+                } else if (progressPercent < 66) {
+                    progressBar.style.backgroundColor = '#f59e0b'; // orange
+                } else {
+                    progressBar.style.backgroundColor = '#10b981'; // green
+                }
             },
 
             updateNavButtons() {
