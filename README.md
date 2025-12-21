@@ -6,6 +6,7 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 
 ## ✨ Features
 
+### Core Features
 - **🌍 Multi-Language Support**: 10 languages (German, English, French, Spanish, Italian, Portuguese, Dutch, Polish, Turkish, Arabic)
 - **🔒 AES-256 Encryption**: All data encrypted with Web Crypto API using AES-256-GCM
 - **💾 Local Storage**: All data stored only on your device (localStorage)
@@ -14,6 +15,28 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **🔐 Privacy-Compliant**: GDPR/DSGVO compliant - no external server communication
 - **📱 Responsive Design**: Works on desktop, tablet, and mobile devices
 - **🌐 Fully Offline**: No internet connection required
+
+### Production Features (index_v8_complete.html)
+
+#### 🔐 Enhanced Security
+- **Master Password System**: User-defined encryption keys (16+ characters required)
+- **Secure Key Storage**: Only password hashes stored, never actual passwords
+- **Input Sanitization**: All user inputs sanitized to prevent XSS attacks
+- **Content Security Policy**: Restrictive CSP headers for added protection
+- **Session-based Encryption**: Keys cleared when browser closes
+
+#### ✨ UX Improvements
+- **Real-time Validation**: Instant feedback on required fields and data ranges
+- **Visual Feedback**: Color-coded validation (✓ green for valid, ⚠️ red for errors)
+- **Auto-Save**: Automatic saving every 2 seconds after changes
+- **Save Indicator**: Visual indicator shows save status (💾 Speichert... → ✓ Gespeichert)
+- **Auto-Restore**: Prompts to restore unfinished forms (within 24 hours)
+- **Enhanced Progress Bar**: 
+  - Percentage display (e.g., "67%")
+  - Question counter (e.g., "15 von 42 Fragen beantwortet")
+  - Color-coded progress (🔴 Red 0-33% → 🟠 Orange 33-66% → 🟢 Green 66-100%)
+- **Smart Navigation**: Next button disabled until all required fields are valid
+- **Field-level Help**: Contextual error messages for invalid inputs
 
 ## 🚀 Quick Start
 
@@ -74,6 +97,86 @@ Anamnese-/
 - No cookies or tracking
 - No data transmission over network
 - User has full control over data
+
+## 🔒 Production Security Setup (index_v8_complete.html)
+
+### Master Password Configuration
+
+The production version (`index_v8_complete.html`) implements secure encryption key management with a master password system.
+
+#### First-Time Setup
+
+1. **Open the application** - Navigate to `index_v8_complete.html` in your web browser
+2. **Accept Privacy Notice** - Click "Accept & Start" on the privacy modal
+3. **Set Master Password** - You will be prompted to create a master password
+   - Minimum length: **16 characters**
+   - Use a strong, memorable password
+   - ⚠️ **CRITICAL**: If you forget this password, all encrypted data will be permanently lost!
+
+4. **Confirm Setup** - After entering a valid password, you'll see: ✅ Master-Passwort erfolgreich gesetzt!
+
+#### Subsequent Uses
+
+When you reopen the application after closing your browser:
+
+1. **Open application** - Navigate to `index_v8_complete.html`
+2. **Accept Privacy Notice** - Click "Accept & Start"
+3. **Enter Master Password** - You'll be prompted for your existing master password
+4. **Access Application** - After correct password entry, your previous session data will be restored
+
+### Security Best Practices
+
+#### For Individual Users
+- **Never share** your master password
+- **Document password securely** - Store in a password manager or secure location
+- **Test recovery** - Verify you can reopen the app with your password before closing
+- **Regular backups** - Export encrypted data files as backups
+
+#### For Healthcare Institutions
+- **IT Administrator Setup**: Consider having IT set up a facility-wide master password
+- **Password Documentation**: Maintain secure documentation of master passwords
+- **Staff Training**: Train staff on password entry and data security
+- **Backup Procedures**: Implement regular backup procedures for encrypted exports
+- **Access Control**: Use separate passwords for different departments/roles if needed
+
+### What Gets Encrypted
+
+- All patient answers and form data
+- Exported JSON files (when using "Export Encrypted" option)
+- Auto-saved session data in browser storage
+
+### What Is NOT Encrypted
+
+- Master password hash (used only for verification, not decryption)
+- Application UI and translations
+- Form structure and questions
+
+### Technical Security Details
+
+- **Encryption Algorithm**: AES-256-GCM (Web Crypto API)
+- **Key Derivation**: PBKDF2 with 100,000 iterations
+- **Storage**: 
+  - Master password hash in `localStorage` (persistent)
+  - Actual encryption key in `sessionStorage` (cleared on browser close)
+- **Input Sanitization**: All user inputs sanitized to prevent XSS attacks
+- **Content Security Policy**: Restrictive CSP meta tag limits external resources
+
+### Password Recovery
+
+⚠️ **IMPORTANT**: There is NO password recovery mechanism by design for maximum security.
+
+- If you forget your master password, encrypted data cannot be recovered
+- Consider implementing a backup administrator password for enterprise deployments
+- Regular unencrypted backups (if security policy allows) can prevent data loss
+
+### Enterprise Considerations
+
+For healthcare institutions requiring password recovery:
+
+1. **Option 1**: Maintain a secure vault of master passwords accessible only to authorized IT personnel
+2. **Option 2**: Implement a custom key escrow system (requires code modification)
+3. **Option 3**: Use device/browser management to pre-configure master passwords
+4. **Option 4**: Regular automated backups of encrypted data with IT-managed decryption keys
 
 ## 🌍 Supported Languages
 

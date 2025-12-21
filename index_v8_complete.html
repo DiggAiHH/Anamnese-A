@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Digital Medical History Questionnaire - Offline Medical App">
     <meta name="author" content="DiggAi GmbH">
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; 
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data:; 
+                   connect-src 'self';">
     <title>Medical History Questionnaire v7 (No Voice Recognition)</title>
     
     <!-- Tesseract.js for OCR -->
@@ -390,14 +396,39 @@ function getInputValue(input) {
     return input.value;
 }
 
+/**
+ * Sanitize user input to prevent XSS attacks
+ * @param {string|any} input - The input to sanitize
+ * @returns {string|any} - Sanitized input
+ */
+function sanitizeInput(input) {
+    if (typeof input === 'string') {
+        // Entferne HTML-Tags und gefährliche Zeichen
+        return input
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+            .replace(/\//g, '&#x2F;');
+    }
+    return input;
+}
+
 // Hilfsfunktion zum Speichern der Antwort
 function handleAnswerChange(id, value) {
+    // Sanitize input to prevent XSS
+    const sanitizedValue = Array.isArray(value) 
+        ? value.map(sanitizeInput)
+        : sanitizeInput(value);
+    
     // Entferne die Antwort, wenn sie leer ist
-    if (value === '' || (Array.isArray(value) && value.length === 0)) {
+    if (sanitizedValue === '' || (Array.isArray(sanitizedValue) && sanitizedValue.length === 0)) {
         delete APP_STATE.answers[id];
     } else {
-        APP_STATE.answers[id] = value;
+        APP_STATE.answers[id] = sanitizedValue;
     }
+    // Schedule auto-save after changes
+    scheduleAutoSave();
     // Aktualisiere die JSON-Box (wird in Phase 7 implementiert)
     // updateJsonBox(); 
 }
@@ -432,12 +463,80 @@ function handleAnswerChange(id, value) {
  * - "a8f5f167f44f4964e6c998dee827110c" (32 hex characters)
  * - "MySecure32ByteEncryptionKey!!" (32 alphanumeric)
  */
-const ENCRYPTION_KEY = "Your-Secret-Key-Here-Must-Be-32-Bytes"; // ÄNDERN SIE DIES! / CHANGE THIS!
+// =================================================================
+// SECURE ENCRYPTION KEY MANAGEMENT
+// =================================================================
 
-// Sicherheitswarnung für Standard-Schlüssel / Security warning for default key
-if (ENCRYPTION_KEY === "Your-Secret-Key-Here-Must-Be-32-Bytes") {
-    console.warn("⚠️ SECURITY WARNING: Using default encryption key! Please change ENCRYPTION_KEY in production!");
-    console.warn("⚠️ SICHERHEITSWARNUNG: Standard-Verschlüsselungsschlüssel wird verwendet! Bitte ENCRYPTION_KEY in Produktion ändern!");
+/**
+ * Setup encryption key - prompts user for master password on first use
+ * Stores hash of password, never the password itself
+ * @param {number} retryCount - Internal retry counter to prevent infinite recursion
+ * @returns {Promise<boolean>} - True if key is set up successfully
+ */
+async function setupEncryptionKey(retryCount = 0) {
+    const MAX_RETRIES = 3;
+    
+    if (retryCount >= MAX_RETRIES) {
+        alert('Maximale Anzahl an Versuchen überschritten. Bitte laden Sie die Seite neu.');
+        throw new Error('Max password attempts exceeded');
+    }
+    
+    let storedKeyHash = localStorage.getItem('encryption_key_hash');
+    
+    if (!storedKeyHash) {
+        // Erste Installation: Admin-Passwort-Setup
+        const adminKey = prompt(
+            'WICHTIG: Erstmalige Einrichtung\n\n' +
+            'Bitte geben Sie ein sicheres Master-Passwort ein (min. 16 Zeichen).\n' +
+            'ACHTUNG: Wenn Sie dieses Passwort vergessen, sind alle Daten unwiederbringlich verloren!'
+        );
+        
+        if (!adminKey || adminKey.length < 16) {
+            alert('Passwort muss mindestens 16 Zeichen lang sein!');
+            return setupEncryptionKey(retryCount + 1);
+        }
+        
+        // Hash für Verifikation speichern (NICHT das Passwort!)
+        const keyHash = await crypto.subtle.digest(
+            'SHA-256',
+            new TextEncoder().encode(adminKey)
+        );
+        const keyHashHex = Array.from(new Uint8Array(keyHash))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+        
+        localStorage.setItem('encryption_key_hash', keyHashHex);
+        sessionStorage.setItem('derived_key', adminKey);
+        
+        alert('✅ Master-Passwort erfolgreich gesetzt!');
+        return true;
+    } else {
+        // Key existiert: Bei Start erneut abfragen
+        if (!sessionStorage.getItem('derived_key')) {
+            const enteredKey = prompt('Bitte geben Sie Ihr Master-Passwort ein:');
+            
+            if (!enteredKey) {
+                alert('❌ Passwort erforderlich!');
+                return setupEncryptionKey(retryCount + 1);
+            }
+            
+            const enteredHash = await crypto.subtle.digest(
+                'SHA-256',
+                new TextEncoder().encode(enteredKey)
+            );
+            const enteredHashHex = Array.from(new Uint8Array(enteredHash))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            
+            if (enteredHashHex !== storedKeyHash) {
+                alert('❌ Falsches Passwort!');
+                return setupEncryptionKey(retryCount + 1);
+            }
+            
+            sessionStorage.setItem('derived_key', enteredKey);
+        }
+        return true;
+    }
 }
 
 /**
@@ -505,11 +604,16 @@ async function deriveKeyFromPassword(password, salt) {
  */
 async function encryptData(data) {
     try {
+        const userKey = sessionStorage.getItem('derived_key');
+        if (!userKey) {
+            throw new Error('Kein Verschlüsselungsschlüssel verfügbar. Bitte Master-Passwort eingeben.');
+        }
+        
         const encoder = new TextEncoder();
         const salt = crypto.getRandomValues(new Uint8Array(16));
         const iv = crypto.getRandomValues(new Uint8Array(12));
         
-        const key = await deriveKeyFromPassword(ENCRYPTION_KEY, salt);
+        const key = await deriveKeyFromPassword(userKey, salt);
         
         const encryptedData = await crypto.subtle.encrypt(
             {
@@ -542,6 +646,11 @@ async function encryptData(data) {
  */
 async function decryptData(encryptedBase64) {
     try {
+        const userKey = sessionStorage.getItem('derived_key');
+        if (!userKey) {
+            throw new Error('Kein Verschlüsselungsschlüssel verfügbar. Bitte Master-Passwort eingeben.');
+        }
+        
         const decoder = new TextDecoder();
         
         // Decode from base64 efficiently
@@ -556,7 +665,7 @@ async function decryptData(encryptedBase64) {
         const iv = encryptedArray.slice(16, 28);
         const data = encryptedArray.slice(28);
 
-        const key = await deriveKeyFromPassword(ENCRYPTION_KEY, salt);
+        const key = await deriveKeyFromPassword(userKey, salt);
 
         const decryptedData = await crypto.subtle.decrypt(
             {
@@ -611,6 +720,151 @@ function getTranslation(key) {
     const trans = window.APP_DATA.translations[lang];
     const labelKey = `label_${key}`;
     return trans?.[labelKey] || trans?.[key] || key;
+}
+
+// =================================================================
+// AUTO-SAVE FUNCTIONALITY
+// =================================================================
+
+let autoSaveTimer = null;
+let lastSaveTime = null;
+
+/**
+ * Schedule an auto-save after user stops typing for 2 seconds
+ */
+function scheduleAutoSave() {
+    if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+    }
+    
+    showSaveIndicator('saving');
+    
+    autoSaveTimer = setTimeout(async () => {
+        try {
+            await saveToLocalStorage();
+            lastSaveTime = new Date();
+            showSaveIndicator('saved');
+        } catch (e) {
+            showSaveIndicator('error');
+            console.error('Auto-save failed:', e);
+        }
+    }, 2000);
+}
+
+/**
+ * Save current state to localStorage
+ */
+function saveToLocalStorage() {
+    return new Promise((resolve, reject) => {
+        try {
+            const answers = (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
+                ? APP_STATE.answers 
+                : (typeof AppState !== 'undefined' && AppState.answers) 
+                    ? AppState.answers 
+                    : {};
+            const currentSection = (typeof APP_STATE !== 'undefined' && APP_STATE.currentSectionIndex !== undefined) 
+                ? APP_STATE.currentSectionIndex 
+                : (typeof AppState !== 'undefined' && AppState.currentStep !== undefined) 
+                    ? AppState.currentStep 
+                    : 0;
+            
+            const saveData = {
+                answers: answers,
+                currentSection: currentSection,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('anamnese_autosave', JSON.stringify(saveData));
+            resolve();
+        } catch (e) {
+            reject(new Error('LocalStorage full or unavailable'));
+        }
+    });
+}
+
+/**
+ * Show save indicator with status
+ * @param {string} status - 'saving', 'saved', or 'error'
+ */
+function showSaveIndicator(status) {
+    let indicator = document.getElementById('save-indicator');
+    
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'save-indicator';
+        indicator.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            z-index: 10000;
+        `;
+        document.body.appendChild(indicator);
+    }
+    
+    switch (status) {
+        case 'saving':
+            indicator.textContent = '💾 Speichert...';
+            indicator.style.backgroundColor = '#3b82f6';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '1';
+            break;
+        case 'saved':
+            indicator.textContent = '✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
+            indicator.style.backgroundColor = '#10b981';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '1';
+            setTimeout(() => {
+                indicator.style.opacity = '0';
+            }, 2000);
+            break;
+        case 'error':
+            indicator.textContent = '⚠️ Speichern fehlgeschlagen';
+            indicator.style.backgroundColor = '#ef4444';
+            indicator.style.color = 'white';
+            indicator.style.opacity = '1';
+            break;
+    }
+}
+
+/**
+ * Restore auto-saved data on page load
+ */
+function restoreAutoSave() {
+    try {
+        const savedData = localStorage.getItem('anamnese_autosave');
+        if (savedData) {
+            const { answers, currentSection, timestamp } = JSON.parse(savedData);
+            const savedDate = new Date(timestamp);
+            const hoursSinceSave = (new Date() - savedDate) / 1000 / 3600;
+            
+            if (hoursSinceSave < 24) {
+                const restore = confirm(
+                    `Es wurde eine unvollständige Anamnese gefunden vom ${savedDate.toLocaleString('de-DE')}.\n\n` +
+                    'Möchten Sie diese fortsetzen?'
+                );
+                
+                if (restore) {
+                    if (typeof APP_STATE !== 'undefined') {
+                        APP_STATE.answers = answers;
+                        APP_STATE.currentSectionIndex = currentSection;
+                    }
+                    if (typeof AppState !== 'undefined') {
+                        AppState.answers = answers;
+                        AppState.currentStep = currentSection;
+                    }
+                    return true;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Failed to restore auto-save:', e);
+    }
+    return false;
 }
 
 /**
@@ -801,12 +1055,19 @@ async function exportNFC() {
 
 // Überschreibe die ursprüngliche `handleAnswerChange` Funktion, um die JSON-Box zu aktualisieren
 function handleAnswerChange(id, value) {
+    // Sanitize input to prevent XSS
+    const sanitizedValue = Array.isArray(value) 
+        ? value.map(sanitizeInput)
+        : sanitizeInput(value);
+    
     // Entferne die Antwort, wenn sie leer ist
-    if (value === '' || (Array.isArray(value) && value.length === 0)) {
+    if (sanitizedValue === '' || (Array.isArray(sanitizedValue) && sanitizedValue.length === 0)) {
         delete APP_STATE.answers[id];
     } else {
-        APP_STATE.answers[id] = value;
+        APP_STATE.answers[id] = sanitizedValue;
     }
+    // Schedule auto-save after changes
+    scheduleAutoSave();
     updateJsonBox(); // NEU: Aktualisiere die JSON-Box bei jeder Änderung
 }
 
@@ -1121,19 +1382,19 @@ function clearUploadedDocuments() {
 }
 
 
-// Füge die neuen Funktionen zum App-Objekt hinzu
-App.exportJsonFile = exportJsonFile;
-App.sendEmail = sendEmail;
-App.exportNFC = exportNFC;
-App.jumpToQuestion = jumpToQuestion;
-App.showDecryptionModal = showDecryptionModal;
-App.updateJsonBox = updateJsonBox; // Für die Initialisierung
-// Neue Dokumenten-Upload-Funktionen
-App.exportWithDocumentPrompt = exportWithDocumentPrompt;
-App.sendEmailWithDocuments = sendEmailWithDocuments;
-App.showDocumentUploadDialog = showDocumentUploadDialog;
-App.showUploadedDocuments = showUploadedDocuments;
-App.clearUploadedDocuments = clearUploadedDocuments;
+// NOTE: These function assignments have been commented out because App object
+// is defined later in the file. The functions are already accessible globally.
+// App.exportJsonFile = exportJsonFile;
+// App.sendEmail = sendEmail;
+// App.exportNFC = exportNFC;
+// App.jumpToQuestion = jumpToQuestion;
+// App.showDecryptionModal = showDecryptionModal;
+// App.updateJsonBox = updateJsonBox;
+// App.exportWithDocumentPrompt = exportWithDocumentPrompt;
+// App.sendEmailWithDocuments = sendEmailWithDocuments;
+// App.showDocumentUploadDialog = showDocumentUploadDialog;
+// App.showUploadedDocuments = showUploadedDocuments;
+// App.clearUploadedDocuments = clearUploadedDocuments;
 // ... (Rest des Original-Codes)
 </script>
 
@@ -1584,6 +1845,79 @@ App.clearUploadedDocuments = clearUploadedDocuments;
             .date-select-wrapper {
                 grid-template-columns: 1fr;
             }
+        }
+
+        /* =================================================================
+           VALIDATION FEEDBACK & ENHANCED UX STYLES
+           ================================================================= */
+        
+        /* Validation feedback styles */
+        .validation-feedback {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            min-height: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .validation-feedback.error {
+            color: #dc2626;
+            font-weight: 500;
+        }
+
+        .validation-feedback.success {
+            color: #059669;
+            font-weight: 500;
+        }
+
+        /* Question card enhanced states */
+        .form-group {
+            transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+        }
+
+        .form-group:has(.validation-feedback.error) {
+            border-left: 4px solid #dc2626;
+            background-color: #fef2f2;
+        }
+
+        .form-group:has(.validation-feedback.success) {
+            border-left: 4px solid #059669;
+        }
+
+        /* Dark mode adjustments for validation */
+        .dark .form-group:has(.validation-feedback.error) {
+            background-color: rgba(220, 38, 38, 0.1);
+        }
+
+        /* Save indicator animation */
+        #save-indicator {
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Progress bar transitions */
+        #progress-fill {
+            transition: width 0.3s ease, background-color 0.5s ease;
+        }
+
+        /* Enhanced button states */
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn:disabled:hover {
+            transform: none;
+            box-shadow: 0 2px 4px var(--shadow);
         }
     </style>
 </head>
@@ -2775,7 +3109,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         "label_0003_jahr": "年",
                         "app_title": "病历问卷",
                         "privacy_notice": "隐私声明",
-                        "privacy_text": "本应用程序仅在您的设备上本地处理您的健康数据。不会将任何数据传输到外部服务器（除了一次性加载语言模型，如果在线的话）。点击"接受并开始"即表示您同意本地处理。",
+                        "privacy_text": "本应用程序仅在您的设备上本地处理您的健康数据。不会将任何数据传输到外部服务器（除了一次性加载语言模型，如果在线的话）。点击'接受并开始'即表示您同意本地处理。",
                         "accept_start": "接受并开始",
                         "disclaimer_medical": "这是一个数字病历工具，不能替代医学检查。",
                         "disclaimer_privacy": "您的输入将在本地存储，仅作为文件传输。",
@@ -12745,12 +13079,70 @@ App.clearUploadedDocuments = clearUploadedDocuments;
             return /^[\d\s\+\-\(\)]*$/.test(phone);
         }
 
+        /**
+         * Validate a field and show feedback
+         * @param {string} fieldId - The field ID to validate
+         * @param {object} field - The field definition from APP_DATA
+         * @returns {boolean} - True if valid, false otherwise
+         */
+        function validateField(fieldId, field) {
+            const value = AppState.answers[fieldId];
+            const feedbackElement = document.getElementById(`feedback_${fieldId}`);
+            
+            if (!feedbackElement) return true;
+            
+            // Check required fields
+            if (field.required) {
+                if (!value || value === '' || (Array.isArray(value) && value.length === 0)) {
+                    feedbackElement.innerHTML = '⚠️ Dieses Feld ist erforderlich';
+                    feedbackElement.className = 'validation-feedback error';
+                    return false;
+                }
+            }
+            
+            // Check number field ranges
+            if (field.type === 'number' && value) {
+                const num = parseFloat(value);
+                if (field.min !== undefined && num < field.min) {
+                    feedbackElement.innerHTML = `⚠️ Wert muss mindestens ${field.min} sein`;
+                    feedbackElement.className = 'validation-feedback error';
+                    return false;
+                }
+                if (field.max !== undefined && num > field.max) {
+                    feedbackElement.innerHTML = `⚠️ Wert darf maximal ${field.max} sein`;
+                    feedbackElement.className = 'validation-feedback error';
+                    return false;
+                }
+            }
+            
+            // All validations passed
+            if (value) {
+                feedbackElement.innerHTML = '✓ Gültig';
+                feedbackElement.className = 'validation-feedback success';
+            } else {
+                feedbackElement.innerHTML = '';
+                feedbackElement.className = 'validation-feedback';
+            }
+            return true;
+        }
+
+        /**
+         * Clear validation feedback when user starts typing
+         * @param {string} fieldId - The field ID
+         */
+        function clearValidationFeedback(fieldId) {
+            const feedbackElement = document.getElementById(`feedback_${fieldId}`);
+            if (feedbackElement && feedbackElement.classList.contains('error')) {
+                feedbackElement.innerHTML = '';
+                feedbackElement.className = 'validation-feedback';
+            }
+        }
 
         // =================================================================
         // APP OBJEKT
         // =================================================================
         const App = {
-            init() {
+            async init() {
                 console.log('🏥 Anamnese App v2.0 initialisiert');
                 
                 if (!window.APP_DATA?.sections) {
@@ -12758,8 +13150,20 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         '<p style="color: var(--danger);">❌ Fehler: Daten nicht geladen.</p>';
                     return;
                 }
+                
+                // Setup encryption key before anything else
+                await setupEncryptionKey();
 
                 this.loadFromStorage();
+                
+                // Try to restore auto-saved data
+                const restored = restoreAutoSave();
+                if (restored) {
+                    // Data was restored, re-render
+                    this.renderStep(AppState.currentStep);
+                    this.updateProgress();
+                }
+                
                 this.populateLanguageSelect();
                 
                 // Set RTL for Arabic, Farsi, and Urdu on initial load
@@ -12972,9 +13376,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                     case 'number':
                         html += `<div class="input-wrapper">`;
                         html += `<input type="${field.type}" id="${fieldId}" value="${escapeHtml(currentValue)}" 
-                                 data-field-id="${field.id}" ${field.required ? 'required' : ''}>`;
+                                 data-field-id="${field.id}" ${field.required ? 'required' : ''}
+                                 ${field.min !== undefined ? `min="${field.min}"` : ''}
+                                 ${field.max !== undefined ? `max="${field.max}"` : ''}>`;
                         html += `</div>`;
-                        html += `<div class="error-message" id="error_${field.id}"></div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'textarea':
@@ -12982,6 +13388,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         html += `<textarea id="${fieldId}" rows="3" data-field-id="${field.id}" 
                                  ${field.required ? 'required' : ''}>${escapeHtml(currentValue)}</textarea>`;
                         html += `</div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'select':
@@ -13022,6 +13429,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                             }
                         }
                         html += `</select>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'radio':
@@ -13039,6 +13447,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                             });
                         }
                         html += `</div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'checkbox':
@@ -13057,6 +13466,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                             });
                         }
                         html += `</div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
                 }
 
@@ -13067,18 +13477,29 @@ App.clearUploadedDocuments = clearUploadedDocuments;
             attachFieldListeners() {
                 const qa = document.getElementById('question-area');
                 
+                // Input event - clear errors and save
                 qa.addEventListener('input', (e) => {
                     const fieldId = e.target.dataset.fieldId;
                     if (fieldId) {
+                        // Clear validation feedback when user starts typing
+                        clearValidationFeedback(fieldId);
                         this.saveFieldValue(fieldId, e.target);
-                        this.validateField(fieldId, e.target);
                     }
                 });
 
+                // Change event - save and validate for selects, radio, checkbox
                 qa.addEventListener('change', (e) => {
                     const fieldId = e.target.dataset.fieldId;
                     if (fieldId) {
                         this.saveFieldValue(fieldId, e.target);
+                        
+                        // Validate after change for select, radio, checkbox
+                        const section = window.APP_DATA.sections[AppState.currentStep];
+                        const field = section?.fields?.find(f => f.id === fieldId);
+                        if (field) {
+                            validateField(fieldId, field);
+                        }
+                        
                         // Update selected state for options
                         const parent = e.target.closest('.option-item');
                         if (parent) {
@@ -13089,6 +13510,18 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         }
                     }
                 });
+                
+                // Blur event - validate text/number/textarea fields
+                qa.addEventListener('blur', (e) => {
+                    const fieldId = e.target.dataset.fieldId;
+                    if (fieldId && ['text', 'number', 'textarea', 'email', 'tel', 'date'].includes(e.target.type)) {
+                        const section = window.APP_DATA.sections[AppState.currentStep];
+                        const field = section?.fields?.find(f => f.id === fieldId);
+                        if (field) {
+                            validateField(fieldId, field);
+                        }
+                    }
+                }, true);
             },
 
             saveFieldValue(fieldId, element) {
@@ -13096,14 +13529,17 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 
                 if (type === 'checkbox') {
                     const checkboxes = document.querySelectorAll(`input[name="${fieldId}"]:checked`);
-                    AppState.answers[fieldId] = Array.from(checkboxes).map(cb => cb.value);
+                    const values = Array.from(checkboxes).map(cb => cb.value);
+                    AppState.answers[fieldId] = values.map(sanitizeInput);
                 } else if (type === 'radio') {
                     const checked = document.querySelector(`input[name="${fieldId}"]:checked`);
-                    AppState.answers[fieldId] = checked ? checked.value : '';
+                    AppState.answers[fieldId] = checked ? sanitizeInput(checked.value) : '';
                 } else {
-                    AppState.answers[fieldId] = element.value;
+                    AppState.answers[fieldId] = sanitizeInput(element.value);
                 }
                 
+                // Schedule auto-save after changes
+                scheduleAutoSave();
                 this.saveToStorage();
                 this.updateNavButtons();
                 this.updateJsonBox();
@@ -13168,27 +13604,59 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 const section = window.APP_DATA.sections[AppState.currentStep];
                 if (!section?.fields) return true;
 
+                let allValid = true;
                 for (const field of section.fields) {
-                    if (field.required) {
-                        const val = AppState.answers[field.id];
-                        if (!val || (Array.isArray(val) && val.length === 0) || 
-                            (typeof val === 'string' && val.trim() === '')) {
-                            return false;
-                        }
+                    // Validate each field and get result
+                    const isFieldValid = validateField(field.id, field);
+                    if (!isFieldValid) {
+                        allValid = false;
                     }
                 }
-                return true;
+                return allValid;
             },
 
             // ----- NAVIGATION -----
             updateProgress() {
-                const total = window.APP_DATA.sections.length;
-                const current = AppState.currentStep + 1;
-                const percent = Math.round((current / total) * 100);
+                const progressBar = document.getElementById('progress-fill');
+                const progressText = document.getElementById('progress-text');
                 
-                document.getElementById('progress-text').textContent = 
-                    T('step_of').replace('{current}', current).replace('{total}', total);
-                document.getElementById('progress-fill').style.width = `${percent}%`;
+                if (!progressBar || !progressText) return;
+                
+                const totalSections = window.APP_DATA.sections.length;
+                const currentSection = AppState.currentStep;
+                
+                let totalQuestions = 0;
+                let answeredQuestions = 0;
+                
+                window.APP_DATA.sections.forEach((section, idx) => {
+                    if (section.fields) {
+                        section.fields.forEach(field => {
+                            // Count all visible questions
+                            totalQuestions++;
+                            // Count answered questions up to current section
+                            if (idx < currentSection || (idx === currentSection && AppState.answers[field.id] !== undefined && AppState.answers[field.id] !== '')) {
+                                answeredQuestions++;
+                            }
+                        });
+                    }
+                });
+                
+                const progressPercent = totalQuestions > 0 ? (answeredQuestions / totalQuestions * 100) : 0;
+                
+                progressBar.style.width = progressPercent + '%';
+                progressBar.setAttribute('aria-valuenow', Math.round(progressPercent));
+                
+                // Enhanced text with percentage and counts
+                progressText.textContent = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                
+                // Color coding based on progress
+                if (progressPercent < 33) {
+                    progressBar.style.backgroundColor = '#ef4444'; // red
+                } else if (progressPercent < 66) {
+                    progressBar.style.backgroundColor = '#f59e0b'; // orange
+                } else {
+                    progressBar.style.backgroundColor = '#10b981'; // green
+                }
             },
 
             updateNavButtons() {
@@ -13327,6 +13795,31 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                     AppState.currentStep = 0;
                     this.saveToStorage();
                     this.renderStep(0);
+                }
+            },
+            
+            // Delegate to global functions for export operations
+            exportJsonFile(encrypted = true) {
+                if (typeof exportJsonFile === 'function') {
+                    exportJsonFile(encrypted);
+                } else {
+                    console.error('exportJsonFile function not found');
+                }
+            },
+            
+            exportNFC() {
+                if (typeof exportNFC === 'function') {
+                    exportNFC();
+                } else {
+                    console.error('exportNFC function not found');
+                }
+            },
+            
+            sendEmailWithDocuments() {
+                if (typeof sendEmailWithDocuments === 'function') {
+                    sendEmailWithDocuments();
+                } else {
+                    console.error('sendEmailWithDocuments function not found');
                 }
             }
         };
