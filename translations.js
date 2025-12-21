@@ -38,6 +38,7 @@ const translations = {
         btnSave: "Verschlüsselt Speichern",
         btnLoad: "Gespeicherte Daten Laden",
         btnExport: "Als JSON Exportieren",
+        btnGdtExport: "GDT-Export (DSGVO)",
         btnClear: "Formular Leeren",
         footerText: "Datenschutzkonforme lokale Anamnese - Alle Daten bleiben auf Ihrem Gerät",
         modalTitle: "Verschlüsselung",
@@ -51,7 +52,10 @@ const translations = {
         alertCleared: "Formular wurde geleert!",
         alertPassword: "Bitte geben Sie ein Passwort ein!",
         alertError: "Fehler beim Laden der Daten. Falsches Passwort?",
-        alertNoData: "Keine gespeicherten Daten gefunden!"
+        alertNoData: "Keine gespeicherten Daten gefunden!",
+        // GDT Export translations
+        consentTitle: "Einwilligung zur Datenverarbeitung",
+        consentIntro: "Gemäß Art. 6 und Art. 9 DSGVO benötigen wir Ihre ausdrückliche Einwilligung für die folgenden Datenverarbeitungen:"
     },
     en: {
         title: "Medical History",
@@ -91,6 +95,7 @@ const translations = {
         btnSave: "Save Encrypted",
         btnLoad: "Load Saved Data",
         btnExport: "Export as JSON",
+        btnGdtExport: "GDT-Export (GDPR)",
         btnClear: "Clear Form",
         footerText: "Privacy-compliant local medical history - All data remains on your device",
         modalTitle: "Encryption",
@@ -104,6 +109,10 @@ const translations = {
         alertCleared: "Form has been cleared!",
         alertPassword: "Please enter a password!",
         alertError: "Error loading data. Wrong password?",
+        alertNoData: "No saved data found!",
+        // GDT Export translations
+        consentTitle: "Consent to Data Processing",
+        consentIntro: "According to Art. 6 and Art. 9 GDPR, we require your explicit consent for the following data processing:"
         alertNoData: "No saved data found!"
     },
     fr: {
@@ -585,6 +594,7 @@ function changeLanguage() {
     document.getElementById('btn-save').textContent = t.btnSave;
     document.getElementById('btn-load').textContent = t.btnLoad;
     document.getElementById('btn-export').textContent = t.btnExport;
+    document.getElementById('btn-gdt-export').textContent = t.btnGdtExport;
     document.getElementById('btn-clear').textContent = t.btnClear;
     
     // Footer
