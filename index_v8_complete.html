@@ -4565,6 +4565,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 {
                         "id": "q1010",
                         "title": "Welche angiologischen Beschwerden haben Sie?",
+                        "condition": {
+                                "field": "1006",
+                                "value": "Angiologische Beschwerden - Durchblutungsprobleme (Blut und Lymphgefäße)",
+                                "operator": "includes"
+                        },
                         "fields": [
                                 {
                                         "id": "1010",
@@ -4619,6 +4624,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 {
                         "id": "q1020",
                         "title": "Welche Atembeschwerden haben Sie?",
+                        "condition": {
+                                "field": "1006",
+                                "value": "Atemwegs- und Lungenbeschwerden",
+                                "operator": "includes"
+                        },
                         "fields": [
                                 {
                                         "id": "1020",
@@ -5320,6 +5330,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 {
                         "id": "q1110",
                         "title": "Gehleistung",
+                        "condition": {
+                                "field": "1010",
+                                "value": "Einschränkung der Gehstrecke",
+                                "operator": "includes"
+                        },
                         "fields": [
                                 {
                                         "id": "1110_select",
@@ -5332,6 +5347,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 {
                         "id": "q1111",
                         "title": "Welche der folgenden Venenbeschwerden haben Sie?",
+                        "condition": {
+                                "field": "1010",
+                                "value": "Venenerkrankungen und Gefäßfehlbildungen",
+                                "operator": "includes"
+                        },
                         "fields": [
                                 {
                                         "id": "1111",
@@ -5374,6 +5394,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 {
                         "id": "q1112",
                         "title": "Wo treten die Ödeme auf?",
+                        "condition": {
+                                "field": "1010",
+                                "value": "Ödeme",
+                                "operator": "includes"
+                        },
                         "fields": [
                                 {
                                         "id": "1112",
@@ -5578,6 +5603,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 {
                         "id": "q1121",
                         "title": "Belastungsbezug der Atemnot",
+                        "condition": {
+                                "field": "1020",
+                                "value": "Atemnot",
+                                "operator": "includes"
+                        },
                         "fields": [
                                 {
                                         "id": "1121",
