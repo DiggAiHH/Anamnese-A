@@ -1,41 +1,101 @@
-# Medizinische Anamnese - Einzeldatei-Anwendung
+# Medizinische Anamnese - Vollständige Einzeldatei-Anwendung
 
 ## 📄 Übersicht
 
-Dies ist eine **Einzeldatei-HTML-Anwendung**, die alle Funktionen der medizinischen Anamnese-Anwendung in einer einzigen, eigenständigen Datei enthält: `anamnese-single-file.html`
+Dies ist eine **vollständige Einzeldatei-HTML-Anwendung**, die ALLE Funktionen des umfassenden medizinischen Fragebogens in einer einzigen, eigenständigen Datei enthält: `anamnese-single-file.html`
 
-## ✅ Vollständig getestet
+## ✅ Vollständig mit allen Funktionen
 
-Die Anwendung wurde umfassend getestet, indem ich selbst alle Fragen beantwortet und den gesamten Workflow durchlaufen habe:
+Die Anwendung enthält das KOMPLETTE Fragenbogensystem mit:
 
-### Test-Durchlauf
-1. ✅ **Formular ausgefüllt** - Alle Felder mit Testdaten ausgefüllt
-2. ✅ **Verschlüsselt gespeichert** - Daten mit Passwort verschlüsselt (AES-256)
-3. ✅ **Formular geleert** - Alle Felder erfolgreich gelöscht
-4. ✅ **Daten geladen** - Verschlüsselte Daten mit Passwort entschlüsselt und geladen
-5. ✅ **Sprache gewechselt** - Deutsch → Englisch → Deutsch getestet
-6. ✅ **Daten verifiziert** - Alle Daten korrekt gespeichert und wiederhergestellt
-
-**Ergebnis: Alle Funktionen arbeiten einwandfrei!**
-
-## ✨ Funktionen
-
-- 🌍 **10 Sprachen** - Deutsch, Englisch, Französisch, Spanisch, Italienisch, Portugiesisch, Niederländisch, Polnisch, Türkisch, Arabisch
-- 🔒 **AES-256 Verschlüsselung** - Alle Daten lokal mit Web Crypto API verschlüsselt
-- 💾 **Lokale Speicherung** - Daten werden nur auf Ihrem Gerät gespeichert
-- 🎤 **Spracherkennung** - Browser-basierte Spracheingabe (Chrome, Edge, Safari)
-- 📤 **JSON Export** - Exportieren Sie Ihre Daten als JSON zur Sicherung
-- 🔐 **Datenschutz** - DSGVO-konform, keine externen Server
+### Umfang
+- 🏥 **250+ medizinische Fragen** - Umfassender Fragebogen über alle medizinischen Fachgebiete
+- 🌍 **10 Sprachen** - Deutsch, Englisch, Französisch, Spanisch, Italienisch, Türkisch, Polnisch, Russisch, Arabisch, Chinesisch
+- 🔀 **Bedingte Logik** - Dynamische Fragen basierend auf vorherigen Antworten
+- 📧 **E-Mail-Export** - Daten per E-Mail versenden (mailto-Funktionalität)
+- 🔒 **AES-256 Verschlüsselung** - Alle Daten lokal mit Web Crypto API verschlüsselt (PBKDF2-Schlüsselableitung)
+- 💾 **Lokale Speicherung** - Daten werden nur auf Ihrem Gerät mit Persistenz gespeichert
+- 🎤 **VOSK Spracherkennung** - Offline-Spracheingabe mit VOSK-Bibliothek
+- 📤 **JSON Import/Export** - Vollständige Datenimport- und -exportfunktionen
+- 📊 **Fortschrittsverfolgung** - Visueller Fortschritt durch Fragebogenabschnitte
+- 📋 **Antwort-Zusammenfassung** - Überprüfen Sie alle Antworten in einer Übersicht
+- 🔐 **Datenschutz** - DSGVO-konform, keine externe Datenübertragung
 - 📱 **Responsiv** - Funktioniert auf Desktop, Tablet und Handy
-- 🌐 **Vollständig Offline** - Keine Internetverbindung erforderlich
+- 🌐 **Größtenteils Offline** - Benötigt nur CDN für VOSK-Bibliothek (optional)
 
 ## 🚀 Schnellstart
 
 1. **Herunterladen** - Laden Sie `anamnese-single-file.html` herunter
 2. **Öffnen** - Öffnen Sie die Datei in Ihrem Webbrowser
-3. **Verwenden** - Keine Installation oder Einrichtung erforderlich!
+3. **Verwenden** - Keine Installation erforderlich!
 
-So einfach ist das! Die Anwendung läuft vollständig in Ihrem Browser.
+**Hinweis**: Die Anwendung lädt die VOSK-Spracherkennungsbibliothek von einem CDN. Für vollständige Offline-Nutzung können Sie ohne Spracherkennung arbeiten oder die VOSK-Bibliothek lokal hosten.
+
+## 📊 Umfassende medizinische Abdeckung
+
+### Enthaltene medizinische Fachgebiete
+
+1. **Basisdaten des Patienten**
+   - Persönliche Informationen
+   - Kontaktdaten
+   - Geburtsdatum und Demografie
+
+2. **Augenheilkunde** (Augenbeschwerden)
+   - Sehstörungen
+   - Augenkrankheiten
+   - Sehprobleme
+
+3. **HNO** (Hals, Nasen, Ohren)
+   - Hörstörungen
+   - Nasenbeschwerden
+   - Hals- und Stimmprobleme
+   - Ohrprobleme
+   - Schluckbeschwerden
+
+4. **Psychologie/Psychiatrie**
+   - Depressions-Screening
+   - Angststörungen
+   - Schlafstörungen
+   - Konzentrationsprobleme
+   - Substanzgebrauchsbewertung
+   - Suizidalitäts-Screening
+
+5. **Pädiatrie** (Kinder- und Jugendmedizin)
+   - Geburtsdaten und Neugeborenengeschichte
+   - Wachstum und Entwicklung
+   - Impfstatus
+   - Chronische pädiatrische Erkrankungen
+   - Soziale und psychische Aspekte
+   - **Spezialmodule**:
+     - Neonatologie
+     - Adoleszenz
+     - Allergologie
+
+6. **Innere Medizin**
+   - Kardiovaskuläre Symptome
+   - Atemwegserkrankungen
+   - Magen-Darm-Probleme
+   - Stoffwechselstörungen
+
+7. **Medikamentenverwaltung**
+   - Detaillierte Medikamentenkategorien
+   - Arzneimittelwechselwirkungen
+   - Aktuelle Medikamente
+
+8. **Und viele weitere Fachgebiete...**
+
+### Fragetypen
+- Texteingabe
+- Zahleneingabe
+- Einfachauswahl (Radiobuttons)
+- Mehrfachauswahl (Checkboxen)
+- Datumsauswahl (Tag/Monat/Jahr-Dropdowns)
+- Textarea für detaillierte Antworten
+
+### Beispiele für bedingte Logik
+- Fragen erscheinen nur, wenn relevant (z.B. pädiatrische Fragen nur für Kinder)
+- Folgefragen basierend auf vorherigen Antworten
+- Dynamische Abschnitte basierend auf Alter, Geschlecht oder spezifischen Bedingungen
 
 ## 📋 Bedienungsanleitung
 

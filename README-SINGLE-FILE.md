@@ -1,36 +1,125 @@
-# Medizinische Anamnese - Single File Application
+# Medizinische Anamnese - Complete Single File Application
 
-## 📄 Standalone Version
+## 📄 Comprehensive Standalone Version
 
-This is a **single-file HTML application** that contains all the functionality of the medical history (Anamnese) application in one standalone file: `anamnese-single-file.html`
+This is a **complete single-file HTML application** that contains ALL the functionality of the comprehensive medical questionnaire system in one standalone file: `anamnese-single-file.html`
 
-## ✨ Features
+## ✨ Complete Features
 
-- 🌍 **10 Languages** - Deutsch, English, Français, Español, Italiano, Português, Nederlands, Polski, Türkçe, العربية
-- 🔒 **AES-256 Encryption** - All data encrypted locally with Web Crypto API
-- 💾 **Local Storage** - Data stored only on your device
-- 🎤 **Speech Recognition** - Browser-based voice input (Chrome, Edge, Safari)
-- 📤 **JSON Export** - Export your data as JSON for backup
-- 🔐 **Privacy-First** - GDPR/DSGVO compliant, no external servers
+- 🏥 **250+ Medical Questions** - Comprehensive questionnaire across all medical specialties
+- 🌍 **10 Languages** - Deutsch, English, Français, Español, Italiano, Türkçe, Polski, Русский, العربية, 中文
+- 🔀 **Conditional Logic** - Dynamic questions based on previous answers
+- 📧 **Email Export** - Send data via email (mailto functionality)
+- 🔒 **AES-256 Encryption** - All data encrypted locally with Web Crypto API (PBKDF2 key derivation)
+- 💾 **Local Storage** - Data stored only on your device with persistence
+- 🎤 **VOSK Speech Recognition** - Offline voice input with VOSK library
+- 📤 **JSON Import/Export** - Full data import and export capabilities
+- 📊 **Progress Tracking** - Visual progress through questionnaire sections
+- 📋 **Answer Summary** - Review all answers in a summary view
+- 🔐 **Privacy-First** - GDPR/DSGVO compliant, no external data transmission
 - 📱 **Responsive** - Works on desktop, tablet, and mobile
-- 🌐 **Fully Offline** - No internet connection required
+- 🌐 **Mostly Offline** - Only requires CDN for VOSK library (optional)
 
 ## 🚀 Quick Start
 
 1. **Download** `anamnese-single-file.html` 
 2. **Open** the file in your web browser (Chrome, Firefox, Safari, or Edge)
-3. **Start using** - No installation or setup required!
+3. **Start using** - No installation required!
 
-That's it! The application runs entirely in your browser.
+**Note**: The application loads the VOSK speech recognition library from a CDN. For full offline use, you can work without speech recognition or host the VOSK library locally.
+
+## 📊 Comprehensive Medical Coverage
+
+### Included Medical Specialties
+
+1. **Basic Patient Data**
+   - Personal information
+   - Contact details
+   - Birth date and demographics
+
+2. **Ophthalmology** (Eye Complaints)
+   - Visual disturbances
+   - Eye conditions
+   - Vision problems
+
+3. **ENT** (Ear, Nose, Throat)
+   - Hearing disorders
+   - Nasal conditions
+   - Throat and voice problems
+   - Ear issues
+   - Swallowing difficulties
+
+4. **Psychology/Psychiatry**
+   - Depression screening
+   - Anxiety disorders
+   - Sleep disorders
+   - Concentration issues
+   - Substance use assessment
+   - Suicidal ideation screening
+
+5. **Pediatrics**
+   - Birth data and neonatal history
+   - Growth and development
+   - Vaccination status
+   - Chronic pediatric conditions
+   - Social and psychological aspects
+   - **Specialized Modules**:
+     - Neonatology
+     - Adolescence
+     - Allergology
+
+6. **Internal Medicine**
+   - Cardiovascular symptoms
+   - Respiratory conditions
+   - Gastrointestinal issues
+   - Metabolic disorders
+
+7. **Medication Management**
+   - Detailed medication categories
+   - Drug interactions
+   - Current medications
+
+8. **And Many More Specialties...**
+
+### Question Types
+- Text input
+- Number input
+- Single choice (radio buttons)
+- Multiple choice (checkboxes)
+- Date selection (day/month/year dropdowns)
+- Textarea for detailed responses
+
+### Conditional Logic Examples
+- Questions appear only if relevant (e.g., pediatric questions only for children)
+- Follow-up questions based on previous answers
+- Dynamic sections based on age, gender, or specific conditions
 
 ## 📋 Usage Instructions
 
-### Filling the Form
+### Navigating the Questionnaire
 1. Select your preferred language from the dropdown
-2. Fill in your personal information
-3. Complete the medical history sections
-4. Add lifestyle information
-5. Check the privacy consent checkbox
+2. Answer questions section by section
+3. Use "Next" button to proceed to next section
+4. Use "Previous" button to go back
+5. Track progress with the progress bar at the top
+
+### Key Features
+
+#### Conditional Questions
+- Some questions only appear based on your previous answers
+- This makes the questionnaire more relevant and efficient
+- Example: Pediatric questions only show for younger patients
+
+#### Answer Summary
+- View all your answers in the summary box
+- Click on any answer to jump to that question
+- Review and edit answers easily
+
+#### Voice Input (VOSK)
+1. Click the microphone button next to text fields
+2. Allow microphone access when prompted
+3. Speak clearly in your selected language
+4. VOSK processes speech locally (privacy-focused)
 
 ### Saving Your Data (Encrypted)
 1. Click **"Verschlüsselt Speichern"** (Save Encrypted)
@@ -43,14 +132,23 @@ That's it! The application runs entirely in your browser.
 3. Your form is populated with decrypted data
 
 ### Exporting Data
-1. Click **"Als JSON Exportieren"** (Export as JSON)
-2. Download the unencrypted JSON file for backup
 
-### Voice Input
-1. Click the 🎤 microphone button next to any text field
-2. Allow microphone access when prompted
-3. Speak clearly in your selected language
-4. Click the status indicator to stop recording
+#### JSON Export
+1. Click "Exportieren" button
+2. Download the JSON file with all your answers
+3. Use for backup or transfer to another device
+
+#### Email Export
+1. Click "Per E-Mail senden" button
+2. Your default email client opens with the data
+3. Add recipient and send
+4. Data is included in the email body (encrypted option available)
+
+### Importing Data
+1. Click "Importieren" button
+2. Select a previously exported JSON file
+3. All answers are restored
+4. Continue where you left off
 
 ## ⌨️ Keyboard Shortcuts
 
@@ -113,24 +211,39 @@ That's it! The application runs entirely in your browser.
 ## 📝 File Information
 
 - **Filename:** `anamnese-single-file.html`
-- **Size:** ~60 KB
-- **Lines:** 1,674
-- **Dependencies:** None (completely self-contained)
+- **Size:** ~619 KB
+- **Lines:** 12,769
+- **Dependencies:** VOSK library from CDN (optional, for speech recognition)
+- **Version:** 3.0.0 (Complete Single-File Edition)
 
-## 🔄 Differences from Multi-File Version
+## 🔄 Complete Feature Set
 
-### What's Different
-- **Single file** instead of multiple HTML/CSS/JS files
-- **Browser Speech API** instead of VOSK (simpler, works in more browsers)
-- **No external dependencies** - everything embedded
+### What's Included (Full Version)
+- **250+ medical questions** across all specialties
+- **444+ field labels** translated in 10 languages
+- **Conditional logic** for dynamic question display
+- **Email export** functionality (mailto links)
+- **VOSK speech recognition** integration
+- **Progress tracking** and section navigation
+- **Answer summary** with jump-to-question
+- **AES-256 encryption** for data storage
+- **JSON import/export** for backup/restore
+- **Form validation** and error handling
+- **Responsive design** for all devices
+- **RTL support** for Arabic
 
-### What's the Same
-- All 10 languages
-- AES-256 encryption
-- All form fields and functionality
-- LocalStorage persistence
-- JSON export
-- Responsive design
+### Translations Coverage
+All 250+ questions and 444+ field labels are fully translated in:
+- 🇩🇪 Deutsch (German)
+- 🇬🇧 English
+- 🇫🇷 Français (French)
+- 🇪🇸 Español (Spanish)
+- 🇮🇹 Italiano (Italian)
+- 🇹🇷 Türkçe (Turkish)
+- 🇵🇱 Polski (Polish)
+- 🇷🇺 Русский (Russian)
+- 🇸🇦 العربية (Arabic)
+- 🇨🇳 中文 (Chinese)
 
 ## 🆘 Troubleshooting
 
