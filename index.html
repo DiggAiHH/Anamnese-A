@@ -172,7 +172,16 @@
                 <button type="button" class="btn btn-primary" onclick="saveEncrypted()" id="btn-save">Verschlüsselt Speichern</button>
                 <button type="button" class="btn btn-secondary" onclick="loadEncrypted()" id="btn-load">Gespeicherte Daten Laden</button>
                 <button type="button" class="btn btn-success" onclick="exportJSON()" id="btn-export">Als JSON Exportieren</button>
+                <button type="button" class="btn btn-info" onclick="showGDTExportDialog()" id="btn-gdt-export">GDT-Export (DSGVO)</button>
                 <button type="button" class="btn btn-danger" onclick="clearForm()" id="btn-clear">Formular Leeren</button>
+            </div>
+            
+            <!-- GDT Export Info -->
+            <div style="margin-top: 15px; padding: 10px; background: #e3f2fd; border-left: 4px solid #2196F3; border-radius: 4px;">
+                <p style="margin: 0; font-size: 13px; color: #1565C0;">
+                    <strong>GDT-Export:</strong> Sichere, DSGVO-konforme Schnittstelle für Medatixx, CGM, Quincy. 
+                    Alle Daten bleiben lokal, Pseudonymisierung möglich, Einwilligung erforderlich.
+                </p>
             </div>
         </form>
 
@@ -202,6 +211,16 @@
     <script src="vosk-integration.js"></script>
     <script src="encryption.js"></script>
     <script src="translations.js"></script>
+    <script src="gdpr-compliance.js"></script>
+    <script src="gdt-export.js"></script>
+    <script src="gdt-export-templates.js"></script>
+    <script src="gdt-batch-export.js"></script>
+    <script src="gdt-import.js"></script>
+    <script src="gdt-encrypted-export.js"></script>
+    <script src="gdt-audit-enhanced.js"></script>
+    <script src="gdt-feature-detection.js"></script>
+    <script src="gdt-performance.js"></script>
+    <script src="gdt-export-ui.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
