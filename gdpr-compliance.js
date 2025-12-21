@@ -67,7 +67,7 @@ function createConsentRecord(patientId, consentType, granted = false, details = 
 
 // Generate unique consent ID
 function generateConsentId() {
-    return `CONSENT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `CONSENT-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
 // Request consent from patient

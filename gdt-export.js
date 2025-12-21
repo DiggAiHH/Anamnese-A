@@ -65,9 +65,24 @@ const gdtExportConfig = {
 };
 
 // Pseudonymization function - creates consistent pseudonym from patient ID
+// Uses Web Crypto API SHA-256 for secure hashing
+async function pseudonymizePatientIdAsync(patientData) {
+    const input = `${patientData.firstName}-${patientData.lastName}-${patientData.dateOfBirth}`;
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // Take first 10 digits from hex hash for 10-digit patient ID
+    return hashHex.substring(0, 10).toUpperCase();
+}
+
+// Synchronous version for backward compatibility (uses simple hash)
+// Note: For production, always use pseudonymizePatientIdAsync for better security
 function pseudonymizePatientId(patientData) {
     const input = `${patientData.firstName}-${patientData.lastName}-${patientData.dateOfBirth}`;
-    // Simple hash-based pseudonymization (in production, use proper crypto hash)
+    // Simple hash-based pseudonymization for synchronous contexts
+    // This is acceptable for testing but pseudonymizePatientIdAsync is preferred
     let hash = 0;
     for (let i = 0; i < input.length; i++) {
         const char = input.charCodeAt(i);
@@ -193,8 +208,13 @@ function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMDATEN) 
     lines.push(formatGDTField(GDT_FIELDS.ERSTELLUNGSZEIT, formatGDTTime(now)));
     
     // Calculate total record length
-    const contentLength = lines.reduce((sum, line) => sum + line.length + 2, 0); // +2 for CRLF
-    const lengthField = formatGDTField(GDT_FIELDS.SATZLAENGE, contentLength + 15); // +15 for length field itself
+    // Sum all line lengths + CRLF for each line (2 bytes)
+    const contentLength = lines.reduce((sum, line) => sum + line.length + 2, 0);
+    
+    // Create length field - note that the length includes itself
+    // Format: LLL (3) + FKKK (4) + content length
+    const lengthValue = contentLength + 7 + 2; // +7 for "8000XXX" format, +2 for its CRLF
+    const lengthField = formatGDTField(GDT_FIELDS.SATZLAENGE, lengthValue.toString());
     
     // Insert length at beginning
     lines.unshift(lengthField);

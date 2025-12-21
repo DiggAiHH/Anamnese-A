@@ -8,8 +8,8 @@ function testGDTFieldFormatting() {
     console.log('Test 1: GDT Field Formatting');
     
     const testCases = [
-        { fieldId: '3000', content: '1234567890', expected: '0173000' },
-        { fieldId: '3101', content: 'Mustermann', expected: '021310 1Mustermann' },
+        { fieldId: '3000', content: '1234567890', expected: '01730001234567890' },
+        { fieldId: '3101', content: 'Mustermann', expected: '0213101Mustermann' },
         { fieldId: '8418', content: '20251221', expected: '015841820251221' }
     ];
     

@@ -112,7 +112,7 @@ const translations = {
         alertNoData: "No saved data found!",
         // GDT Export translations
         consentTitle: "Consent to Data Processing",
-        consentIntro: "According to Art. 6 and Art. 9 GDPR, we require your explicit consent for the following data processing:"
+        consentIntro: "According to Art. 6 and Art. 9 GDPR, we require your explicit consent for the following data processing:",
         alertNoData: "No saved data found!"
     },
     fr: {
