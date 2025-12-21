@@ -34,6 +34,37 @@ async function showGDTExportDialog() {
             Datenschutzbeauftragten geprüft werden!
         </div>
         
+        <!-- Template Selection -->
+        <div style="margin: 20px 0; padding: 15px; background: #e8f5e9; border-left: 4px solid #4CAF50; border-radius: 4px;">
+            <h3 style="font-size: 16px; margin-top: 0;">Export-Vorlagen</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 10px;">
+                Wählen Sie eine vorkonfigurierte Vorlage für Ihr PVS oder Ihren Anwendungsfall:
+            </p>
+            <select id="gdtTemplateSelect" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
+                <option value="">-- Keine Vorlage / Manuelle Konfiguration --</option>
+                <optgroup label="PVS-Systeme">
+                    <option value="medatixx_standard">Medatixx Standard</option>
+                    <option value="cgm_standard">CGM Standard</option>
+                    <option value="quincy_standard">Quincy Standard</option>
+                </optgroup>
+                <optgroup label="Anwendungsfälle">
+                    <option value="complete_export">Vollständiger Export</option>
+                    <option value="basic_export">Basis Export</option>
+                    <option value="privacy_maximum">Datenschutz Maximal</option>
+                    <option value="research_anonymous">Forschung/Statistik</option>
+                    <option value="emergency_transfer">Notfall-Übermittlung</option>
+                </optgroup>
+            </select>
+            <button id="gdtLoadTemplate" class="btn" style="background: #4CAF50; color: white; font-size: 13px;">
+                Vorlage laden
+            </button>
+            <button id="gdtSaveTemplate" class="btn" style="background: #2196F3; color: white; font-size: 13px;">
+                Aktuelle Einstellungen speichern
+            </button>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+        
         <!-- Basic Configuration -->
         <div style="margin: 20px 0;">
             <h3 style="font-size: 16px; margin-bottom: 10px;">Grundeinstellungen</h3>
@@ -188,6 +219,40 @@ async function showGDTExportDialog() {
     // Handle cancel
     document.getElementById('gdtExportCancel').addEventListener('click', () => {
         document.body.removeChild(modal);
+    });
+    
+    // Handle template loading
+    document.getElementById('gdtLoadTemplate').addEventListener('click', () => {
+        const templateId = document.getElementById('gdtTemplateSelect').value;
+        if (!templateId) {
+            alert('Bitte wählen Sie eine Vorlage aus.');
+            return;
+        }
+        
+        const result = loadGDTTemplate(templateId);
+        if (result.success) {
+            // Reload dialog to show updated values
+            document.body.removeChild(modal);
+            showGDTExportDialog();
+            alert(result.message);
+        } else {
+            alert(result.message);
+        }
+    });
+    
+    // Handle template saving
+    document.getElementById('gdtSaveTemplate').addEventListener('click', () => {
+        const name = prompt('Name der Vorlage:');
+        if (!name) return;
+        
+        const description = prompt('Beschreibung (optional):') || '';
+        const result = saveCustomTemplate(name, description);
+        
+        if (result.success) {
+            alert(result.message);
+        } else {
+            alert(result.message);
+        }
     });
     
     // Handle continue to consent
