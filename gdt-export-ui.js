@@ -81,7 +81,7 @@ async function showGDTExportDialog() {
                 <label style="display: flex; align-items: center; cursor: pointer;">
                     <input type="checkbox" id="gdtIncludeAddress" ${gdtExportConfig.includeAddress ? 'checked' : ''}
                         style="margin-right: 10px;">
-                    <span>Adressdaten (Straße, PLZ, Ort)</span>
+                    <span>Adressdaten (Straße, PLZ, Ort, Land)</span>
                 </label>
             </div>
             
@@ -90,6 +90,60 @@ async function showGDTExportDialog() {
                     <input type="checkbox" id="gdtIncludeContact" ${gdtExportConfig.includeContactData ? 'checked' : ''}
                         style="margin-right: 10px;">
                     <span>Kontaktdaten (Telefon, E-Mail)</span>
+                </label>
+            </div>
+            
+            <div style="margin: 10px 0;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="gdtIncludeInsurance" ${gdtExportConfig.includeInsuranceData ? 'checked' : ''}
+                        style="margin-right: 10px;">
+                    <span>Versicherungsdaten (Krankenkasse, Versichertennummer)</span>
+                </label>
+            </div>
+            
+            <div style="margin: 10px 0;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="gdtIncludeMedicalCodes" ${gdtExportConfig.includeMedicalCodes ? 'checked' : ''}
+                        style="margin-right: 10px;">
+                    <span>Medizinische Codes (ICD-10 Diagnose-Codes)</span>
+                </label>
+            </div>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+        
+        <!-- Advanced Settings -->
+        <div style="margin: 20px 0;">
+            <h3 style="font-size: 16px; margin-bottom: 10px;">Erweiterte Einstellungen</h3>
+            
+            <div style="margin: 10px 0;">
+                <label style="display: block; margin-bottom: 5px;">
+                    <strong>BSNR (Betriebsstättennummer):</strong>
+                </label>
+                <input type="text" id="gdtBsnr" placeholder="z.B. 123456789 (9 Ziffern)" 
+                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                    value="${gdtExportConfig.bsnr || ''}" maxlength="9">
+                <small style="color: #666;">9-stellige Nummer der Betriebsstätte</small>
+            </div>
+            
+            <div style="margin: 10px 0;">
+                <label style="display: block; margin-bottom: 5px;">
+                    <strong>LANR (Lebenslange Arztnummer):</strong>
+                </label>
+                <input type="text" id="gdtLanr" placeholder="z.B. 123456789 (9 Ziffern)" 
+                    style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;"
+                    value="${gdtExportConfig.lanr || ''}" maxlength="9">
+                <small style="color: #666;">9-stellige Arztnummer mit Prüfziffer</small>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <label style="display: flex; align-items: center; cursor: pointer;">
+                    <input type="checkbox" id="gdtValidateBeforeExport" ${gdtExportConfig.validateBeforeExport ? 'checked' : ''}
+                        style="margin-right: 10px;">
+                    <span>
+                        <strong>Daten vor Export validieren</strong>
+                        <br><small style="color: #666;">Prüft Format und Plausibilität der Daten</small>
+                    </span>
                 </label>
             </div>
         </div>
@@ -144,7 +198,12 @@ async function showGDTExportDialog() {
             pseudonymizeData: document.getElementById('gdtPseudonymize').checked,
             includeFullName: document.getElementById('gdtIncludeFullName').checked,
             includeAddress: document.getElementById('gdtIncludeAddress').checked,
-            includeContactData: document.getElementById('gdtIncludeContact').checked
+            includeContactData: document.getElementById('gdtIncludeContact').checked,
+            includeInsuranceData: document.getElementById('gdtIncludeInsurance').checked,
+            includeMedicalCodes: document.getElementById('gdtIncludeMedicalCodes').checked,
+            bsnr: document.getElementById('gdtBsnr').value,
+            lanr: document.getElementById('gdtLanr').value,
+            validateBeforeExport: document.getElementById('gdtValidateBeforeExport').checked
         };
         
         updateGDTConfig(config);
@@ -187,6 +246,12 @@ async function showGDTConsentAndExport(formData) {
         }
         if (gdtExportConfig.includeContactData) {
             consentTypes.push(CONSENT_TYPES.CONTACT_DATA);
+        }
+        if (gdtExportConfig.includeInsuranceData) {
+            consentTypes.push(CONSENT_TYPES.INSURANCE_DATA);
+        }
+        if (gdtExportConfig.includeMedicalCodes) {
+            consentTypes.push(CONSENT_TYPES.MEDICAL_CODES);
         }
         
         // Request consent

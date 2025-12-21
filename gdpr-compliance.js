@@ -9,7 +9,9 @@ const CONSENT_TYPES = {
     FULL_NAME: 'full_name',
     ADDRESS: 'address',
     CONTACT_DATA: 'contact_data',
-    MEDICAL_HISTORY: 'medical_history'
+    MEDICAL_HISTORY: 'medical_history',
+    INSURANCE_DATA: 'insurance_data',
+    MEDICAL_CODES: 'medical_codes'
 };
 
 // Consent storage
@@ -216,7 +218,9 @@ function getConsentLabel(type, translations) {
         [CONSENT_TYPES.FULL_NAME]: 'Verwendung von Name und Vorname',
         [CONSENT_TYPES.ADDRESS]: 'Verwendung von Adressdaten',
         [CONSENT_TYPES.CONTACT_DATA]: 'Verwendung von Kontaktdaten',
-        [CONSENT_TYPES.MEDICAL_HISTORY]: 'Export medizinischer Anamnese-Daten'
+        [CONSENT_TYPES.MEDICAL_HISTORY]: 'Export medizinischer Anamnese-Daten',
+        [CONSENT_TYPES.INSURANCE_DATA]: 'Verwendung von Versicherungsdaten',
+        [CONSENT_TYPES.MEDICAL_CODES]: 'Export von ICD-10 Diagnose-Codes'
     };
     return labels[type] || type;
 }
@@ -227,9 +231,11 @@ function getConsentDescription(type, translations) {
         [CONSENT_TYPES.DATA_EXPORT]: 'Export Ihrer Daten im GDT-Format zur Übernahme in das Praxisverwaltungssystem (Medatixx, CGM, Quincy). Alle Daten verbleiben lokal.',
         [CONSENT_TYPES.PATIENT_SYNC]: 'Verknüpfung Ihrer Anamnese-Daten mit Ihrer Patientenakte im Praxisverwaltungssystem.',
         [CONSENT_TYPES.FULL_NAME]: 'Ihr vollständiger Name wird in der exportierten Datei gespeichert. Alternativ: Pseudonymisierung.',
-        [CONSENT_TYPES.ADDRESS]: 'Ihre Adressdaten (Straße, PLZ, Ort) werden exportiert.',
+        [CONSENT_TYPES.ADDRESS]: 'Ihre Adressdaten (Straße, PLZ, Ort, Land) werden exportiert.',
         [CONSENT_TYPES.CONTACT_DATA]: 'Ihre Kontaktdaten (Telefon, E-Mail) werden exportiert.',
-        [CONSENT_TYPES.MEDICAL_HISTORY]: 'Ihre medizinischen Daten (Anamnese, Medikation, Allergien) werden exportiert.'
+        [CONSENT_TYPES.MEDICAL_HISTORY]: 'Ihre medizinischen Daten (Anamnese, Medikation, Allergien) werden exportiert.',
+        [CONSENT_TYPES.INSURANCE_DATA]: 'Ihre Versicherungsdaten (Krankenkasse, Versichertennummer, Status) werden exportiert.',
+        [CONSENT_TYPES.MEDICAL_CODES]: 'ICD-10 Diagnose-Codes werden im Export enthalten.'
     };
     return descriptions[type] || '';
 }

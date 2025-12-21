@@ -23,6 +23,10 @@ const GDT_FIELDS = {
     PATIENT_VORNAME: '3102',     // Patient first name
     PATIENT_GEBURTSDATUM: '3103',// Patient date of birth
     PATIENT_GESCHLECHT: '3110',  // Patient gender (1=male, 2=female)
+    PATIENT_TITEL: '3104',       // Patient title (Dr., Prof., etc.)
+    KRANKENKASSE: '3105',        // Health insurance company
+    VERSICHERTENNR: '3108',      // Insurance number
+    VERSICHERTENSTATUS: '3109',  // Insurance status (1=member, 3=family, 5=pensioner)
     
     // Address Data
     PATIENT_STRASSE: '3107',     // Street
@@ -30,13 +34,18 @@ const GDT_FIELDS = {
     PATIENT_ORT: '3106',         // City
     PATIENT_TELEFON: '3622',     // Phone number
     PATIENT_EMAIL: '3626',       // Email address
+    PATIENT_LAND: '3114',        // Country code
     
     // Medical Data
     ANAMNESE: '6200',            // Medical history text
     DIAGNOSE: '6205',            // Diagnosis
+    DIAGNOSE_ICD10: '6001',      // ICD-10 diagnosis code
     MEDIKATION: '6210',          // Current medication
     ALLERGIEN: '6220',           // Allergies
     BEFUND: '6300',              // Medical findings
+    LABOR_WERT: '8410',          // Laboratory value
+    LABOR_KENNUNG: '8411',       // Laboratory identifier
+    VORBEFUND: '6220',           // Previous findings
     
     // Timestamps
     ERSTELLUNGSDATUM: '8418',    // Creation date (YYYYMMDD)
@@ -44,11 +53,79 @@ const GDT_FIELDS = {
     
     // System and Practice Information
     PRAXIS_ID: '0201',           // Practice identification
+    BSNR: '0203',                // Practice BSNR (Betriebsstättennummer)
+    LANR: '0212',                // Physician LANR (Lebenslange Arztnummer)
     ARZT_NAME: '0211',           // Physician name
     SOFTWARE_ID: '0102',         // Software identification
     
     // End of record
     ENDE_KENNZEICHEN: '8205'     // End marker
+};
+
+// Validation functions for GDT fields
+const GDT_VALIDATORS = {
+    // Validate date format (DDMMYYYY)
+    validateDate: function(dateStr) {
+        if (!dateStr || dateStr.length !== 8) return false;
+        const day = parseInt(dateStr.substring(0, 2));
+        const month = parseInt(dateStr.substring(2, 4));
+        const year = parseInt(dateStr.substring(4, 8));
+        
+        if (month < 1 || month > 12) return false;
+        if (day < 1 || day > 31) return false;
+        if (year < 1900 || year > 2100) return false;
+        
+        // Validate actual date
+        const date = new Date(year, month - 1, day);
+        return date.getFullYear() === year && 
+               date.getMonth() === month - 1 && 
+               date.getDate() === day;
+    },
+    
+    // Validate LANR (9 digits with check digit)
+    validateLANR: function(lanr) {
+        if (!lanr || lanr.length !== 9) return false;
+        if (!/^\d{9}$/.test(lanr)) return false;
+        
+        // Calculate check digit (Modulo 11 method)
+        const digits = lanr.split('').map(d => parseInt(d));
+        let sum = 0;
+        for (let i = 0; i < 8; i++) {
+            sum += digits[i] * (i + 2);
+        }
+        const checkDigit = sum % 11;
+        return checkDigit === digits[8];
+    },
+    
+    // Validate BSNR (9 digits)
+    validateBSNR: function(bsnr) {
+        return bsnr && /^\d{9}$/.test(bsnr);
+    },
+    
+    // Validate postal code (5 digits for Germany)
+    validatePLZ: function(plz) {
+        return plz && /^\d{5}$/.test(plz);
+    },
+    
+    // Validate insurance number (10 characters)
+    validateVersichertenNr: function(nr) {
+        return nr && /^[A-Z]\d{9}$/.test(nr);
+    },
+    
+    // Validate ICD-10 code
+    validateICD10: function(code) {
+        return code && /^[A-Z]\d{2}(\.\d{1,2})?$/.test(code);
+    },
+    
+    // Validate gender code (1=male, 2=female, 3=unknown, 4=diverse)
+    validateGender: function(gender) {
+        return ['1', '2', '3', '4'].includes(gender);
+    },
+    
+    // Validate insurance status
+    validateVersichertenStatus: function(status) {
+        return ['1', '3', '5'].includes(status); // 1=member, 3=family, 5=pensioner
+    }
 };
 
 // GDT Record Types (Satzarten)
@@ -66,10 +143,15 @@ const gdtExportConfig = {
     includeFullName: false,      // Default: don't include full name
     includeAddress: false,       // Default: don't include address
     includeContactData: false,   // Default: don't include contact data
+    includeInsuranceData: false, // Default: don't include insurance data
+    includeMedicalCodes: false,  // Default: don't include ICD-10 codes
     practiceId: '',              // To be configured by practice
+    bsnr: '',                    // Practice BSNR (Betriebsstättennummer)
+    lanr: '',                    // Physician LANR (Lebenslange Arztnummer)
     softwareId: 'Anamnese-A-v1.0', // Software identification
     consentGiven: false,         // Patient consent for export
-    auditLogging: true           // Enable audit logging
+    auditLogging: true,          // Enable audit logging
+    validateBeforeExport: true   // Validate data before export
 };
 
 // Pseudonymization function - creates consistent pseudonym from patient ID
@@ -138,6 +220,54 @@ function formatGDTTime(date = new Date()) {
     return `${hours}${minutes}${seconds}`;
 }
 
+// Validate form data before GDT export
+function validateFormData(formData) {
+    const errors = [];
+    
+    // Validate date of birth
+    if (formData.dateOfBirth) {
+        const gdtDate = formatGDTDate(formData.dateOfBirth);
+        if (!GDT_VALIDATORS.validateDate(gdtDate)) {
+            errors.push('Ungültiges Geburtsdatum');
+        }
+    }
+    
+    // Validate LANR if provided
+    if (gdtExportConfig.lanr && !GDT_VALIDATORS.validateLANR(gdtExportConfig.lanr)) {
+        errors.push('Ungültige LANR (Lebenslange Arztnummer)');
+    }
+    
+    // Validate BSNR if provided
+    if (gdtExportConfig.bsnr && !GDT_VALIDATORS.validateBSNR(gdtExportConfig.bsnr)) {
+        errors.push('Ungültige BSNR (Betriebsstättennummer)');
+    }
+    
+    // Validate postal code if provided
+    if (formData.postalCode && !GDT_VALIDATORS.validatePLZ(formData.postalCode)) {
+        errors.push('Ungültige Postleitzahl (muss 5 Ziffern sein)');
+    }
+    
+    // Validate insurance number if provided
+    if (formData.insuranceNumber && !GDT_VALIDATORS.validateVersichertenNr(formData.insuranceNumber)) {
+        errors.push('Ungültige Versichertennummer (Format: Buchstabe + 9 Ziffern)');
+    }
+    
+    // Validate ICD-10 codes if provided
+    if (formData.icd10Codes) {
+        const codes = formData.icd10Codes.split(',').map(c => c.trim());
+        codes.forEach(code => {
+            if (code && !GDT_VALIDATORS.validateICD10(code)) {
+                errors.push(`Ungültiger ICD-10 Code: ${code}`);
+            }
+        });
+    }
+    
+    return {
+        isValid: errors.length === 0,
+        errors: errors
+    };
+}
+
 // Generate GDT file content from form data
 async function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMDATEN) {
     const lines = [];
@@ -176,10 +306,35 @@ async function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMD
         lines.push(formatGDTField(GDT_FIELDS.PATIENT_GEBURTSDATUM, formatGDTDate(formData.dateOfBirth)));
     }
     
-    // Gender (1=male, 2=female)
+    // Gender (1=male, 2=female, 3=unknown, 4=diverse)
     if (formData.gender) {
-        const genderCode = formData.gender.toLowerCase() === 'male' || formData.gender.toLowerCase() === 'männlich' ? '1' : '2';
-        lines.push(formatGDTField(GDT_FIELDS.PATIENT_GESCHLECHT, genderCode));
+        let genderCode = '3'; // default unknown
+        const genderLower = formData.gender.toLowerCase();
+        if (genderLower === 'male' || genderLower === 'männlich') genderCode = '1';
+        else if (genderLower === 'female' || genderLower === 'weiblich') genderCode = '2';
+        else if (genderLower === 'diverse' || genderLower === 'divers') genderCode = '4';
+        
+        if (GDT_VALIDATORS.validateGender(genderCode)) {
+            lines.push(formatGDTField(GDT_FIELDS.PATIENT_GESCHLECHT, genderCode));
+        }
+    }
+    
+    // Insurance data (only if consent given and configured)
+    if (gdtExportConfig.includeInsuranceData && gdtExportConfig.consentGiven) {
+        if (formData.insuranceCompany) {
+            lines.push(formatGDTField(GDT_FIELDS.KRANKENKASSE, formData.insuranceCompany));
+        }
+        if (formData.insuranceNumber) {
+            lines.push(formatGDTField(GDT_FIELDS.VERSICHERTENNR, formData.insuranceNumber));
+        }
+        if (formData.insuranceStatus && GDT_VALIDATORS.validateVersichertenStatus(formData.insuranceStatus)) {
+            lines.push(formatGDTField(GDT_FIELDS.VERSICHERTENSTATUS, formData.insuranceStatus));
+        }
+    }
+    
+    // Title (if provided)
+    if (formData.title) {
+        lines.push(formatGDTField(GDT_FIELDS.PATIENT_TITEL, formData.title));
     }
     
     // Address data (only if consent given and configured)
@@ -193,6 +348,9 @@ async function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMD
         if (formData.city) {
             lines.push(formatGDTField(GDT_FIELDS.PATIENT_ORT, formData.city));
         }
+        if (formData.country) {
+            lines.push(formatGDTField(GDT_FIELDS.PATIENT_LAND, formData.country));
+        }
     }
     
     // Contact data (only if consent given and configured)
@@ -203,6 +361,14 @@ async function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMD
         if (formData.email) {
             lines.push(formatGDTField(GDT_FIELDS.PATIENT_EMAIL, formData.email));
         }
+    }
+    
+    // Practice information
+    if (gdtExportConfig.bsnr) {
+        lines.push(formatGDTField(GDT_FIELDS.BSNR, gdtExportConfig.bsnr));
+    }
+    if (gdtExportConfig.lanr) {
+        lines.push(formatGDTField(GDT_FIELDS.LANR, gdtExportConfig.lanr));
     }
     
     // Medical data
@@ -217,6 +383,16 @@ async function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMD
     }
     if (formData.allergies) {
         lines.push(formatGDTField(GDT_FIELDS.ALLERGIEN, formData.allergies));
+    }
+    
+    // ICD-10 diagnosis codes (if configured and available)
+    if (gdtExportConfig.includeMedicalCodes && formData.icd10Codes) {
+        const codes = formData.icd10Codes.split(',').map(c => c.trim());
+        codes.forEach(code => {
+            if (code && GDT_VALIDATORS.validateICD10(code)) {
+                lines.push(formatGDTField(GDT_FIELDS.DIAGNOSE_ICD10, code));
+            }
+        });
     }
     
     // Timestamps
@@ -261,6 +437,20 @@ async function exportGDT(formData, consent = null) {
     }
     
     try {
+        // Validate form data before export (if enabled)
+        if (gdtExportConfig.validateBeforeExport) {
+            const validation = validateFormData(formData);
+            if (!validation.isValid) {
+                const errorMsg = 'Validierungsfehler:\n' + validation.errors.join('\n');
+                console.error('GDT Export Validation Failed:', validation.errors);
+                return { 
+                    success: false, 
+                    message: errorMsg,
+                    validationErrors: validation.errors
+                };
+            }
+        }
+        
         // Generate GDT content - now using secure async pseudonymization
         const gdtContent = await generateGDTContent(formData);
         const filename = await generateGDTFilename(formData);
