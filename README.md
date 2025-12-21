@@ -11,7 +11,10 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **💾 Local Storage**: All data stored only on your device (localStorage)
 - **🎤 Speech Recognition**: VOSK-based local speech recognition (German 50 MB model) with browser fallback
 - **📤 JSON Export**: Export your medical history as JSON file
+- **🏥 GDT-Export**: GDPR-compliant export interface for practice management systems (Medatixx, CGM, Quincy)
 - **🔐 Privacy-Compliant**: GDPR/DSGVO compliant - no external server communication
+- **📋 Consent Management**: Granular consent tracking according to GDPR Art. 6, 7
+- **📊 Audit Logging**: Comprehensive logging according to GDPR Art. 30, 32
 - **📱 Responsive Design**: Works on desktop, tablet, and mobile devices
 - **🌐 Fully Offline**: No internet connection required
 
@@ -165,6 +168,21 @@ Anamnese-/
 4. Click the status indicator to stop recording
 5. Text is automatically inserted into the field
 
+### GDT Export (for Practice Management Systems)
+1. Fill in the medical history form
+2. Click "GDT-Export (DSGVO)"
+3. Configure export settings (Practice ID, pseudonymization, data selection)
+4. Grant required consents according to GDPR
+5. Select destination folder for GDT file
+6. The file can be imported into Medatixx, CGM, or Quincy
+
+**Important**: GDT export requires review by a Data Protection Officer (DSB) before production use.
+
+For detailed GDT export documentation, see:
+- 📄 [GDT_EXPORT_README.md](GDT_EXPORT_README.md) - Quick start guide
+- 📄 [GDPR_EXPORT_DOCUMENTATION.md](GDPR_EXPORT_DOCUMENTATION.md) - Comprehensive GDPR documentation
+- 🧪 [test-gdt-export.html](test-gdt-export.html) - Test suite
+
 ## 🔒 Data Protection Compliance
 
 ### GDPR/DSGVO Compliance
@@ -176,6 +194,11 @@ Anamnese-/
 - ✅ User rights: Full control over data (export, delete)
 - ✅ No third-party data sharing
 - ✅ Transparent processing: Open source code
+- ✅ **GDT Export**: GDPR-compliant interface with consent management
+- ✅ **Pseudonymization**: Optional anonymization of patient identifiers
+- ✅ **Audit Logging**: Complete tracking according to GDPR Art. 30, 32
+- ✅ **DPIA Template**: Data Protection Impact Assessment (Art. 35 GDPR)
+- ✅ **Processing Record**: Documentation according to § 30 GDPR
 
 ## 🛠️ Development
 
