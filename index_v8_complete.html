@@ -1374,19 +1374,19 @@ function clearUploadedDocuments() {
 }
 
 
-// Füge die neuen Funktionen zum App-Objekt hinzu
-App.exportJsonFile = exportJsonFile;
-App.sendEmail = sendEmail;
-App.exportNFC = exportNFC;
-App.jumpToQuestion = jumpToQuestion;
-App.showDecryptionModal = showDecryptionModal;
-App.updateJsonBox = updateJsonBox; // Für die Initialisierung
-// Neue Dokumenten-Upload-Funktionen
-App.exportWithDocumentPrompt = exportWithDocumentPrompt;
-App.sendEmailWithDocuments = sendEmailWithDocuments;
-App.showDocumentUploadDialog = showDocumentUploadDialog;
-App.showUploadedDocuments = showUploadedDocuments;
-App.clearUploadedDocuments = clearUploadedDocuments;
+// NOTE: These function assignments have been commented out because App object
+// is defined later in the file. The functions are already accessible globally.
+// App.exportJsonFile = exportJsonFile;
+// App.sendEmail = sendEmail;
+// App.exportNFC = exportNFC;
+// App.jumpToQuestion = jumpToQuestion;
+// App.showDecryptionModal = showDecryptionModal;
+// App.updateJsonBox = updateJsonBox;
+// App.exportWithDocumentPrompt = exportWithDocumentPrompt;
+// App.sendEmailWithDocuments = sendEmailWithDocuments;
+// App.showDocumentUploadDialog = showDocumentUploadDialog;
+// App.showUploadedDocuments = showUploadedDocuments;
+// App.clearUploadedDocuments = clearUploadedDocuments;
 // ... (Rest des Original-Codes)
 </script>
 
@@ -3101,7 +3101,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         "label_0003_jahr": "年",
                         "app_title": "病历问卷",
                         "privacy_notice": "隐私声明",
-                        "privacy_text": "本应用程序仅在您的设备上本地处理您的健康数据。不会将任何数据传输到外部服务器（除了一次性加载语言模型，如果在线的话）。点击"接受并开始"即表示您同意本地处理。",
+                        "privacy_text": "本应用程序仅在您的设备上本地处理您的健康数据。不会将任何数据传输到外部服务器（除了一次性加载语言模型，如果在线的话）。点击'接受并开始'即表示您同意本地处理。",
                         "accept_start": "接受并开始",
                         "disclaimer_medical": "这是一个数字病历工具，不能替代医学检查。",
                         "disclaimer_privacy": "您的输入将在本地存储，仅作为文件传输。",
