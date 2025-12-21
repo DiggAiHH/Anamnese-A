@@ -6,7 +6,7 @@ This document provides comprehensive testing procedures for all features of the 
 ## Test Environment
 - **Application**: Medical History Questionnaire (index_v5.html)
 - **Version**: 3.0.0
-- **Languages Tested**: English, German, French, Spanish, Italian, Polish, Turkish, Russian, Ukrainian, Arabic, Farsi (Persian), Urdu
+- **Languages Tested**: English, German, French, Spanish, Italian, Polish, Turkish, Russian, Ukrainian, Chinese, Arabic, Farsi (Persian), Urdu
 - **Features**: Multi-language UI, RTL support, document upload, OCR, encryption, voice input
 
 ## Test Categories
@@ -200,7 +200,31 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Privacy notice: "Повідомлення про Конфіденційність"
 - ✅ Summary: "Зведення Вашої Інформації"
 
-#### Test 1.10: Arabic Language with RTL
+#### Test 1.10: Chinese Language Switch
+**Objective**: Verify Chinese language switch works correctly
+
+**Steps**:
+1. From English, select "中文" from language dropdown
+2. Observe all text elements update
+3. Verify section titles, field labels, buttons
+4. Navigate through questionnaire sections
+5. Test export functionality
+6. Test document management section in Chinese
+7. Test switching between Chinese and RTL languages (Arabic/Farsi/Urdu)
+
+**Expected Results**:
+- ✅ All UI text changes to Chinese instantly
+- ✅ Direction remains LTR
+- ✅ HTML lang attribute changes to: `zh`
+- ✅ Buttons: "保存", "加载", "重新开始", "返回", "下一步"
+- ✅ Export buttons: "导出（加密 + 文档）"
+- ✅ Document section: "附加文档", "上传文档", "查看文档"
+- ✅ Title: "病历问卷"
+- ✅ Privacy notice: "隐私声明"
+- ✅ Summary: "您的信息摘要"
+- ✅ Footer: "医学概念：Dr. Christian Klapproth", "技术实现：DiggAi GmbH"
+
+#### Test 1.11: Arabic Language with RTL
 **Objective**: Verify Arabic language with RTL layout
 
 **Steps**:
@@ -223,7 +247,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "استبيان التاريخ الطبي"
 
-#### Test 1.11: Farsi (Persian) Language with RTL
+#### Test 1.12: Farsi (Persian) Language with RTL
 **Objective**: Verify Farsi language with RTL layout
 
 **Steps**:
@@ -246,7 +270,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "پرسشنامه تاریخچه پزشکی"
 
-#### Test 1.12: Urdu Language with RTL
+#### Test 1.13: Urdu Language with RTL
 **Objective**: Verify Urdu language with RTL layout
 
 **Steps**:
@@ -269,7 +293,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "طبی تاریخ کا سوالنامہ"
 
-#### Test 1.13: Language Persistence
+#### Test 1.14: Language Persistence
 **Objective**: Verify language preference is saved
 
 **Steps**:
@@ -741,7 +765,7 @@ This document provides comprehensive testing procedures for all features of the 
 ## Conclusion
 
 All major features tested and verified working correctly. The application successfully supports:
-- ✅ 12 languages (9 LTR, 3 RTL)
+- ✅ 13 languages (10 LTR, 3 RTL)
 - ✅ Dynamic language switching
 - ✅ RTL layout for Arabic, Farsi, and Urdu
 - ✅ Document upload with OCR and PDF extraction
