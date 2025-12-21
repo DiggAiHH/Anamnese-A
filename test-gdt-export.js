@@ -264,7 +264,7 @@ function testDPIATemplate() {
 // Run all tests
 function runAllTests() {
     console.log('Starting GDT Export & GDPR Compliance Test Suite...\n');
-    console.log('=' .repeat(60) + '\n');
+    console.log('='.repeat(60) + '\n');
     
     const results = {
         'GDT Field Formatting': testGDTFieldFormatting(),
@@ -278,7 +278,7 @@ function runAllTests() {
         'DPIA Template': testDPIATemplate()
     };
     
-    console.log('=' .repeat(60));
+    console.log('='.repeat(60));
     console.log('\n=== Test Summary ===\n');
     
     let passed = 0;
