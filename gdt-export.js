@@ -139,7 +139,7 @@ function formatGDTTime(date = new Date()) {
 }
 
 // Generate GDT file content from form data
-function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMDATEN) {
+async function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMDATEN) {
     const lines = [];
     const now = new Date();
     
@@ -154,14 +154,14 @@ function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMDATEN) 
         lines.push(formatGDTField(GDT_FIELDS.PRAXIS_ID, gdtExportConfig.practiceId));
     }
     
-    // Patient identification
+    // Patient identification - use secure async pseudonymization
     let patientId;
     if (gdtExportConfig.pseudonymizeData) {
-        patientId = pseudonymizePatientId(formData);
+        patientId = await pseudonymizePatientIdAsync(formData);
         lines.push(formatGDTField(GDT_FIELDS.PATIENT_NR, patientId));
     } else {
         // Use actual patient number if available (requires explicit consent)
-        patientId = formData.patientNumber || pseudonymizePatientId(formData);
+        patientId = formData.patientNumber || await pseudonymizePatientIdAsync(formData);
         lines.push(formatGDTField(GDT_FIELDS.PATIENT_NR, patientId));
     }
     
@@ -240,12 +240,12 @@ function generateGDTContent(formData, recordType = GDT_RECORD_TYPES.STAMMDATEN) 
 }
 
 // Generate filename according to GDT convention
-function generateGDTFilename(patientData) {
+async function generateGDTFilename(patientData) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
     let patientId;
     
     if (gdtExportConfig.pseudonymizeData) {
-        patientId = pseudonymizePatientId(patientData);
+        patientId = await pseudonymizePatientIdAsync(patientData);
     } else {
         patientId = patientData.patientNumber || 'UNKNOWN';
     }
@@ -261,13 +261,13 @@ async function exportGDT(formData, consent = null) {
     }
     
     try {
-        // Generate GDT content
-        const gdtContent = generateGDTContent(formData);
-        const filename = generateGDTFilename(formData);
+        // Generate GDT content - now using secure async pseudonymization
+        const gdtContent = await generateGDTContent(formData);
+        const filename = await generateGDTFilename(formData);
         
         // Log export action (GDPR audit requirement)
         if (gdtExportConfig.auditLogging) {
-            logGDTExport(formData, filename, consent);
+            await logGDTExport(formData, filename, consent);
         }
         
         // Use File System Access API for local directory selection
@@ -315,13 +315,13 @@ async function exportGDT(formData, consent = null) {
 }
 
 // Audit logging function (GDPR Art. 30, 32)
-function logGDTExport(formData, filename, consent) {
+async function logGDTExport(formData, filename, consent) {
     const auditEntry = {
         timestamp: new Date().toISOString(),
         action: 'GDT_EXPORT',
         filename: filename,
         patientId: gdtExportConfig.pseudonymizeData 
-            ? pseudonymizePatientId(formData) 
+            ? await pseudonymizePatientIdAsync(formData) 
             : (formData.patientNumber || 'N/A'),
         pseudonymized: gdtExportConfig.pseudonymizeData,
         consentGiven: gdtExportConfig.consentGiven,

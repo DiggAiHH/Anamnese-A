@@ -170,8 +170,8 @@ async function showGDTExportDialog() {
 // Show consent dialog and perform export
 async function showGDTConsentAndExport(formData) {
     try {
-        // Generate patient ID for consent
-        const patientId = pseudonymizePatientId(formData);
+        // Generate patient ID for consent using secure async pseudonymization
+        const patientId = await pseudonymizePatientIdAsync(formData);
         
         // Determine which consent types are needed
         const consentTypes = [
