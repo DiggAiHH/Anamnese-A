@@ -1838,6 +1838,79 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 grid-template-columns: 1fr;
             }
         }
+
+        /* =================================================================
+           VALIDATION FEEDBACK & ENHANCED UX STYLES
+           ================================================================= */
+        
+        /* Validation feedback styles */
+        .validation-feedback {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            min-height: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .validation-feedback.error {
+            color: #dc2626;
+            font-weight: 500;
+        }
+
+        .validation-feedback.success {
+            color: #059669;
+            font-weight: 500;
+        }
+
+        /* Question card enhanced states */
+        .form-group {
+            transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+        }
+
+        .form-group:has(.validation-feedback.error) {
+            border-left: 4px solid #dc2626;
+            background-color: #fef2f2;
+        }
+
+        .form-group:has(.validation-feedback.success) {
+            border-left: 4px solid #059669;
+        }
+
+        /* Dark mode adjustments for validation */
+        .dark .form-group:has(.validation-feedback.error) {
+            background-color: rgba(220, 38, 38, 0.1);
+        }
+
+        /* Save indicator animation */
+        #save-indicator {
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Progress bar transitions */
+        #progress-fill {
+            transition: width 0.3s ease, background-color 0.5s ease;
+        }
+
+        /* Enhanced button states */
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn:disabled:hover {
+            transform: none;
+            box-shadow: 0 2px 4px var(--shadow);
+        }
     </style>
 </head>
 <body>
@@ -12998,6 +13071,64 @@ App.clearUploadedDocuments = clearUploadedDocuments;
             return /^[\d\s\+\-\(\)]*$/.test(phone);
         }
 
+        /**
+         * Validate a field and show feedback
+         * @param {string} fieldId - The field ID to validate
+         * @param {object} field - The field definition from APP_DATA
+         * @returns {boolean} - True if valid, false otherwise
+         */
+        function validateField(fieldId, field) {
+            const value = AppState.answers[fieldId];
+            const feedbackElement = document.getElementById(`feedback_${fieldId}`);
+            
+            if (!feedbackElement) return true;
+            
+            // Check required fields
+            if (field.required) {
+                if (!value || value === '' || (Array.isArray(value) && value.length === 0)) {
+                    feedbackElement.innerHTML = '⚠️ Dieses Feld ist erforderlich';
+                    feedbackElement.className = 'validation-feedback error';
+                    return false;
+                }
+            }
+            
+            // Check number field ranges
+            if (field.type === 'number' && value) {
+                const num = parseFloat(value);
+                if (field.min !== undefined && num < field.min) {
+                    feedbackElement.innerHTML = `⚠️ Wert muss mindestens ${field.min} sein`;
+                    feedbackElement.className = 'validation-feedback error';
+                    return false;
+                }
+                if (field.max !== undefined && num > field.max) {
+                    feedbackElement.innerHTML = `⚠️ Wert darf maximal ${field.max} sein`;
+                    feedbackElement.className = 'validation-feedback error';
+                    return false;
+                }
+            }
+            
+            // All validations passed
+            if (value) {
+                feedbackElement.innerHTML = '✓ Gültig';
+                feedbackElement.className = 'validation-feedback success';
+            } else {
+                feedbackElement.innerHTML = '';
+                feedbackElement.className = 'validation-feedback';
+            }
+            return true;
+        }
+
+        /**
+         * Clear validation feedback when user starts typing
+         * @param {string} fieldId - The field ID
+         */
+        function clearValidationFeedback(fieldId) {
+            const feedbackElement = document.getElementById(`feedback_${fieldId}`);
+            if (feedbackElement && feedbackElement.classList.contains('error')) {
+                feedbackElement.innerHTML = '';
+                feedbackElement.className = 'validation-feedback';
+            }
+        }
 
         // =================================================================
         // APP OBJEKT
@@ -13237,9 +13368,11 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                     case 'number':
                         html += `<div class="input-wrapper">`;
                         html += `<input type="${field.type}" id="${fieldId}" value="${escapeHtml(currentValue)}" 
-                                 data-field-id="${field.id}" ${field.required ? 'required' : ''}>`;
+                                 data-field-id="${field.id}" ${field.required ? 'required' : ''}
+                                 ${field.min !== undefined ? `min="${field.min}"` : ''}
+                                 ${field.max !== undefined ? `max="${field.max}"` : ''}>`;
                         html += `</div>`;
-                        html += `<div class="error-message" id="error_${field.id}"></div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'textarea':
@@ -13247,6 +13380,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         html += `<textarea id="${fieldId}" rows="3" data-field-id="${field.id}" 
                                  ${field.required ? 'required' : ''}>${escapeHtml(currentValue)}</textarea>`;
                         html += `</div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'select':
@@ -13287,6 +13421,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                             }
                         }
                         html += `</select>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'radio':
@@ -13304,6 +13439,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                             });
                         }
                         html += `</div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'checkbox':
@@ -13322,6 +13458,7 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                             });
                         }
                         html += `</div>`;
+                        html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
                 }
 
@@ -13332,18 +13469,29 @@ App.clearUploadedDocuments = clearUploadedDocuments;
             attachFieldListeners() {
                 const qa = document.getElementById('question-area');
                 
+                // Input event - clear errors and save
                 qa.addEventListener('input', (e) => {
                     const fieldId = e.target.dataset.fieldId;
                     if (fieldId) {
+                        // Clear validation feedback when user starts typing
+                        clearValidationFeedback(fieldId);
                         this.saveFieldValue(fieldId, e.target);
-                        this.validateField(fieldId, e.target);
                     }
                 });
 
+                // Change event - save and validate for selects, radio, checkbox
                 qa.addEventListener('change', (e) => {
                     const fieldId = e.target.dataset.fieldId;
                     if (fieldId) {
                         this.saveFieldValue(fieldId, e.target);
+                        
+                        // Validate after change for select, radio, checkbox
+                        const section = window.APP_DATA.sections[AppState.currentStep];
+                        const field = section?.fields?.find(f => f.id === fieldId);
+                        if (field) {
+                            validateField(fieldId, field);
+                        }
+                        
                         // Update selected state for options
                         const parent = e.target.closest('.option-item');
                         if (parent) {
@@ -13354,6 +13502,18 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                         }
                     }
                 });
+                
+                // Blur event - validate text/number/textarea fields
+                qa.addEventListener('blur', (e) => {
+                    const fieldId = e.target.dataset.fieldId;
+                    if (fieldId && ['text', 'number', 'textarea', 'email', 'tel', 'date'].includes(e.target.type)) {
+                        const section = window.APP_DATA.sections[AppState.currentStep];
+                        const field = section?.fields?.find(f => f.id === fieldId);
+                        if (field) {
+                            validateField(fieldId, field);
+                        }
+                    }
+                }, true);
             },
 
             saveFieldValue(fieldId, element) {
@@ -13436,16 +13596,15 @@ App.clearUploadedDocuments = clearUploadedDocuments;
                 const section = window.APP_DATA.sections[AppState.currentStep];
                 if (!section?.fields) return true;
 
+                let allValid = true;
                 for (const field of section.fields) {
-                    if (field.required) {
-                        const val = AppState.answers[field.id];
-                        if (!val || (Array.isArray(val) && val.length === 0) || 
-                            (typeof val === 'string' && val.trim() === '')) {
-                            return false;
-                        }
+                    // Validate each field and get result
+                    const isFieldValid = validateField(field.id, field);
+                    if (!isFieldValid) {
+                        allValid = false;
                     }
                 }
-                return true;
+                return allValid;
             },
 
             // ----- NAVIGATION -----
