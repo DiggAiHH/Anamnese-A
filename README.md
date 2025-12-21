@@ -261,8 +261,25 @@ A comprehensive offline medical questionnaire application designed for healthcar
 
 ## 📖 Documentation
 
+### User & Setup Documentation
 - **[SETUP.md](SETUP.md)**: Detailed setup guide
+- **[INSTALLATION.md](INSTALLATION.md)**: Installation instructions
+- **[DEPLOYMENT.md](DEPLOYMENT.md)**: Deployment guidelines
 - **[Test Suite](test_anamnese.html)**: Comprehensive tests
+
+### Questionnaire Structure Analysis (German)
+Comprehensive analysis of the questionnaire logic from PR #3:
+- **[FRAGEBOGEN_ANALYSE_README.md](FRAGEBOGEN_ANALYSE_README.md)**: 📚 Navigation guide and overview
+- **[FRAGEBOGEN_STRUKTUR_ANALYSE.md](FRAGEBOGEN_STRUKTUR_ANALYSE.md)**: 📋 Detailed structural analysis
+- **[FRAGEBOGEN_ABLAUFDIAGRAMM.md](FRAGEBOGEN_ABLAUFDIAGRAMM.md)**: 📊 Visual flowcharts and diagrams
+- **[FRAGEBOGEN_DETAILLIERTE_UEBERSICHT.md](FRAGEBOGEN_DETAILLIERTE_UEBERSICHT.md)**: 📑 Tabular reference guide
+
+These documents provide:
+- Complete documentation of all 223 sections and 1,331 fields
+- Conditional logic analysis (gender-specific questions)
+- Visual Mermaid diagrams showing question flow
+- PR #3 security improvements (Web Crypto API migration)
+- Implementation details and code references
 
 ## 🔧 Technical Stack
 
