@@ -204,6 +204,12 @@ async function showGDTExportDialog() {
         </div>
         
         <div style="margin-top: 15px; text-align: center;">
+            <button id="gdtBatchExport" class="btn" style="background: #FF9800; font-size: 12px;">
+                📦 Batch-Export
+            </button>
+            <button id="gdtImportFile" class="btn" style="background: #009688; font-size: 12px;">
+                📥 Import
+            </button>
             <button id="gdtViewAuditLog" class="btn" style="background: #607D8B; font-size: 12px;">
                 📋 Audit-Log
             </button>
@@ -316,6 +322,24 @@ async function showGDTExportDialog() {
             showPerformanceDashboard();
         } else {
             alert('Performance-Dashboard nicht verfügbar');
+        }
+    });
+    
+    // Handle batch export
+    document.getElementById('gdtBatchExport').addEventListener('click', () => {
+        if (typeof showBatchExportDialog !== 'undefined') {
+            showBatchExportDialog();
+        } else {
+            alert('Batch-Export nicht verfügbar');
+        }
+    });
+    
+    // Handle import
+    document.getElementById('gdtImportFile').addEventListener('click', () => {
+        if (typeof showGDTImportDialog !== 'undefined') {
+            showGDTImportDialog();
+        } else {
+            alert('Import-Funktion nicht verfügbar');
         }
     });
 }
@@ -556,3 +580,327 @@ if (typeof document !== 'undefined') {
         document.head.appendChild(style);
     });
 }
+
+// Batch Export Dialog
+function showBatchExportDialog() {
+    // Sample patient data - in real app, this would come from your data store
+    const samplePatients = [
+        { id: 'P001', firstName: 'Max', lastName: 'Mustermann', birthDate: '15051980' },
+        { id: 'P002', firstName: 'Maria', lastName: 'Musterfrau', birthDate: '20031985' },
+        { id: 'P003', firstName: 'Hans', lastName: 'Schmidt', birthDate: '10121975' }
+    ];
+    
+    gdtBatchExport.initialize(samplePatients);
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    content.style.maxWidth = '800px';
+    
+    const stats = gdtBatchExport.getStatistics();
+    
+    content.innerHTML = `
+        <h2>📦 Batch-Export</h2>
+        <p style="color: #666;">Export mehrerer Patienten gleichzeitig (nur mit Einwilligung)</p>
+        
+        <div style="background: #e3f2fd; padding: 15px; margin: 15px 0; border-radius: 4px;">
+            <strong>Statistik:</strong><br>
+            Gesamt: ${stats.totalPatients} | 
+            Mit Einwilligung: ${stats.patientsWithConsent} | 
+            Ausgewählt: <span id="selectedCount">${stats.selectedPatients}</span>
+        </div>
+        
+        <div style="margin: 15px 0;">
+            <button id="selectAll" class="btn" style="background: #4CAF50; font-size: 13px;">
+                ✓ Alle auswählen
+            </button>
+            <button id="selectNone" class="btn" style="background: #f44336; font-size: 13px;">
+                ✗ Keine auswählen
+            </button>
+        </div>
+        
+        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin: 15px 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead style="background: #f5f5f5; position: sticky; top: 0;">
+                    <tr>
+                        <th style="padding: 10px; text-align: left;">Auswahl</th>
+                        <th style="padding: 10px; text-align: left;">Name</th>
+                        <th style="padding: 10px; text-align: left;">Geburtsdatum</th>
+                        <th style="padding: 10px; text-align: left;">Einwilligung</th>
+                    </tr>
+                </thead>
+                <tbody id="patientList">
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="margin: 15px 0;">
+            <label style="display: block; margin-bottom: 10px;">
+                <strong>Export-Modus:</strong>
+            </label>
+            <select id="exportMode" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="separate">Separate Dateien (eine pro Patient)</option>
+                <option value="combined">Kombinierte Datei (alle Patienten)</option>
+            </select>
+        </div>
+        
+        <div id="progressContainer" style="display: none; margin: 15px 0;">
+            <div style="background: #f5f5f5; height: 30px; border-radius: 4px; overflow: hidden;">
+                <div id="progressBar" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
+            </div>
+            <p id="progressText" style="text-align: center; margin-top: 5px;">0 / 0</p>
+        </div>
+        
+        <div style="margin-top: 20px; text-align: right;">
+            <button id="cancelBatch" class="btn" style="background: #ccc;">Abbrechen</button>
+            <button id="startBatchExport" class="btn" style="background: #FF9800; color: white;">
+                Export starten
+            </button>
+        </div>
+    `;
+    
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    // Render patient list
+    function renderPatientList() {
+        const tbody = document.getElementById('patientList');
+        tbody.innerHTML = '';
+        
+        gdtBatchExport.patients.forEach(patient => {
+            const tr = document.createElement('tr');
+            tr.style.background = patient.selected ? '#e8f5e9' : 'white';
+            tr.innerHTML = `
+                <td style="padding: 10px;">
+                    <input type="checkbox" 
+                        ${patient.selected ? 'checked' : ''}
+                        ${!patient.hasConsent ? 'disabled' : ''}
+                        data-patient-id="${patient.id}">
+                </td>
+                <td style="padding: 10px;">${patient.lastName}, ${patient.firstName}</td>
+                <td style="padding: 10px;">${patient.birthDate}</td>
+                <td style="padding: 10px;">
+                    ${patient.hasConsent ? 
+                        '<span style="color: green;">✓ Vorhanden</span>' : 
+                        '<span style="color: red;">✗ Keine Einwilligung</span>'}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        // Update selected count
+        document.getElementById('selectedCount').textContent = gdtBatchExport.getSelectedPatients().length;
+    }
+    
+    renderPatientList();
+    
+    // Event listeners
+    document.getElementById('selectAll').addEventListener('click', () => {
+        gdtBatchExport.selectAll();
+        renderPatientList();
+    });
+    
+    document.getElementById('selectNone').addEventListener('click', () => {
+        gdtBatchExport.selectNone();
+        renderPatientList();
+    });
+    
+    document.getElementById('patientList').addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox') {
+            gdtBatchExport.toggleSelection(e.target.dataset.patientId);
+            renderPatientList();
+        }
+    });
+    
+    document.getElementById('cancelBatch').addEventListener('click', () => {
+        if (gdtBatchExport.exportProgress.total > 0) {
+            gdtBatchExport.cancelExport();
+        }
+        document.body.removeChild(modal);
+    });
+    
+    document.getElementById('startBatchExport').addEventListener('click', async () => {
+        const mode = document.getElementById('exportMode').value;
+        const selected = gdtBatchExport.getSelectedPatients();
+        
+        if (selected.length === 0) {
+            alert('Bitte wählen Sie mindestens einen Patienten aus.');
+            return;
+        }
+        
+        document.getElementById('progressContainer').style.display = 'block';
+        document.getElementById('startBatchExport').disabled = true;
+        
+        try {
+            const results = await gdtBatchExport.executeBatchExport(mode, (progress) => {
+                const percent = (progress.completed / progress.total) * 100;
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('progressText').textContent = 
+                    `${progress.completed} / ${progress.total} (${progress.failed} fehlgeschlagen)`;
+            });
+            
+            alert(`Batch-Export abgeschlossen!\n\nErfolgreich: ${results.successful.length}\nFehlgeschlagen: ${results.failed.length}`);
+            document.body.removeChild(modal);
+        } catch (error) {
+            alert('Fehler beim Batch-Export: ' + error.message);
+            document.getElementById('startBatchExport').disabled = false;
+        }
+    });
+}
+
+// GDT Import Dialog
+function showGDTImportDialog() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'block';
+    
+    const content = document.createElement('div');
+    content.className = 'modal-content';
+    content.style.maxWidth = '800px';
+    
+    content.innerHTML = `
+        <h2>📥 GDT-Import</h2>
+        <p style="color: #666;">Importieren Sie GDT-Dateien von Ihrem Praxisverwaltungssystem</p>
+        
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
+            <strong>Hinweis:</strong> Import erfordert Patienteneinwilligung für Datenverarbeitung.
+        </div>
+        
+        <div style="margin: 20px 0; padding: 20px; border: 2px dashed #ddd; border-radius: 4px; text-align: center;">
+            <input type="file" id="gdtFileInput" accept=".gdt" multiple style="display: none;">
+            <button id="selectFileBtn" class="btn" style="background: #009688; color: white; font-size: 16px;">
+                📁 GDT-Datei auswählen
+            </button>
+            <p style="color: #666; margin-top: 10px; font-size: 13px;">
+                Unterstützt: .gdt Dateien (GDT 3.0/3.1)
+            </p>
+        </div>
+        
+        <div id="importPreview" style="display: none; margin: 20px 0;">
+            <h3 style="font-size: 16px; margin-bottom: 10px;">Import-Vorschau</h3>
+            <div id="previewContent" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; border-radius: 4px; background: #f9f9f9;">
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <label style="display: block; margin-bottom: 5px;"><strong>Import-Modus:</strong></label>
+                <select id="importMode" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="update">Bestehenden Patienten aktualisieren</option>
+                    <option value="create">Neuen Patienten anlegen</option>
+                    <option value="review">Nur prüfen (keine Änderungen)</option>
+                </select>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button id="cancelImport" class="btn" style="background: #ccc;">Abbrechen</button>
+                <button id="executeImport" class="btn" style="background: #009688; color: white;">
+                    Import ausführen
+                </button>
+            </div>
+        </div>
+        
+        <div id="importResults" style="display: none; margin: 20px 0;">
+            <h3 style="font-size: 16px; margin-bottom: 10px;">Import-Ergebnisse</h3>
+            <div id="resultsContent" style="padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px; text-align: right;">
+            <button id="closeImport" class="btn" style="background: #ccc;">Schließen</button>
+        </div>
+    `;
+    
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+    
+    // File selection
+    document.getElementById('selectFileBtn').addEventListener('click', () => {
+        document.getElementById('gdtFileInput').click();
+    });
+    
+    document.getElementById('gdtFileInput').addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if (files.length === 0) return;
+        
+        try {
+            const result = await gdtImporter.importFile(files[0]);
+            
+            if (result.success) {
+                showImportPreview(result);
+            } else {
+                alert('Import-Fehler: ' + result.error);
+            }
+        } catch (error) {
+            alert('Fehler beim Lesen der Datei: ' + error.message);
+        }
+    });
+    
+    function showImportPreview(result) {
+        document.getElementById('importPreview').style.display = 'block';
+        
+        const previewContent = document.getElementById('previewContent');
+        let html = '<table style="width: 100%; border-collapse: collapse;">';
+        
+        for (const [field, value] of Object.entries(result.patient.fields)) {
+            html += `
+                <tr>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">${field}</td>
+                    <td style="padding: 8px; border-bottom: 1px solid #eee;">${value}</td>
+                </tr>
+            `;
+        }
+        
+        html += '</table>';
+        
+        if (result.validation.warnings.length > 0) {
+            html += '<div style="background: #fff3cd; padding: 10px; margin-top: 10px; border-radius: 4px;">';
+            html += '<strong>Warnungen:</strong><ul style="margin: 5px 0;">';
+            result.validation.warnings.forEach(w => {
+                html += `<li>${w}</li>`;
+            });
+            html += '</ul></div>';
+        }
+        
+        previewContent.innerHTML = html;
+    }
+    
+    document.getElementById('cancelImport').addEventListener('click', () => {
+        document.getElementById('importPreview').style.display = 'none';
+        gdtImporter.clearCurrentImport();
+    });
+    
+    document.getElementById('executeImport').addEventListener('click', () => {
+        const mode = document.getElementById('importMode').value;
+        const currentImport = gdtImporter.getCurrentImport();
+        
+        if (!currentImport) {
+            alert('Keine Import-Daten vorhanden');
+            return;
+        }
+        
+        try {
+            const result = gdtImporter.applyImport(currentImport, mode);
+            
+            document.getElementById('importResults').style.display = 'block';
+            document.getElementById('resultsContent').innerHTML = `
+                <div style="background: #e8f5e9; padding: 15px; border-radius: 4px;">
+                    <strong>✓ Import erfolgreich!</strong><br>
+                    Aktion: ${result.action}<br>
+                    Felder aktualisiert: ${result.fieldsUpdated}<br>
+                    Patient-ID: ${result.patientId}
+                </div>
+            `;
+            
+            document.getElementById('importPreview').style.display = 'none';
+        } catch (error) {
+            alert('Import-Fehler: ' + error.message);
+        }
+    });
+    
+    document.getElementById('closeImport').addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+}
+
