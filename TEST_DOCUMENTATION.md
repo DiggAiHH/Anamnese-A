@@ -6,7 +6,7 @@ This document provides comprehensive testing procedures for all features of the 
 ## Test Environment
 - **Application**: Medical History Questionnaire (index_v5.html)
 - **Version**: 3.0.0
-- **Languages Tested**: English, German, French, Spanish, Italian, Polish, Turkish, Arabic, Farsi (Persian), Urdu
+- **Languages Tested**: English, German, French, Spanish, Italian, Polish, Turkish, Russian, Arabic, Farsi (Persian), Urdu
 - **Features**: Multi-language UI, RTL support, document upload, OCR, encryption, voice input
 
 ## Test Categories
@@ -156,7 +156,29 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Privacy notice: "Gizlilik Bildirimi"
 - ✅ Summary: "Bilgilerinizin Özeti"
 
-#### Test 1.8: Arabic Language with RTL
+#### Test 1.8: Russian Language Switch
+**Objective**: Verify Russian language switch works correctly
+
+**Steps**:
+1. From English, select "Русский" from language dropdown
+2. Observe all text elements update
+3. Verify section titles, field labels, buttons
+4. Navigate through questionnaire sections
+5. Test export functionality
+6. Test document management section in Russian
+
+**Expected Results**:
+- ✅ All UI text changes to Russian instantly
+- ✅ Direction remains LTR
+- ✅ HTML lang attribute changes to: `ru`
+- ✅ Buttons: "Сохранить", "Загрузить", "Начать Заново", "Назад", "Далее"
+- ✅ Export buttons: "Экспорт (Зашифрованные + Документы)"
+- ✅ Document section: "Дополнительные Документы", "Загрузить Документы"
+- ✅ Title: "Медицинская Анкета"
+- ✅ Privacy notice: "Уведомление о Конфиденциальности"
+- ✅ Summary: "Сводка Вашей Информации"
+
+#### Test 1.9: Arabic Language with RTL
 **Objective**: Verify Arabic language with RTL layout
 
 **Steps**:
@@ -179,7 +201,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "استبيان التاريخ الطبي"
 
-#### Test 1.9: Farsi (Persian) Language with RTL
+#### Test 1.10: Farsi (Persian) Language with RTL
 **Objective**: Verify Farsi language with RTL layout
 
 **Steps**:
@@ -202,7 +224,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "پرسشنامه تاریخچه پزشکی"
 
-#### Test 1.10: Urdu Language with RTL
+#### Test 1.11: Urdu Language with RTL
 **Objective**: Verify Urdu language with RTL layout
 
 **Steps**:
@@ -225,7 +247,7 @@ This document provides comprehensive testing procedures for all features of the 
 - ✅ Navigation arrows reversed logically
 - ✅ Title: "طبی تاریخ کا سوالنامہ"
 
-#### Test 1.11: Language Persistence
+#### Test 1.12: Language Persistence
 **Objective**: Verify language preference is saved
 
 **Steps**:
