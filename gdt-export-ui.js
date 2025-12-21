@@ -282,7 +282,13 @@ async function showGDTExportDialog() {
     
     // Handle audit log view
     document.getElementById('gdtViewAuditLog').addEventListener('click', () => {
-        showAuditLogViewer();
+        // Use enhanced audit viewer if available, fallback to basic
+        if (typeof showEnhancedAuditLogViewer !== 'undefined') {
+            showEnhancedAuditLogViewer();
+        } else {
+            showAuditLogViewer();
+        }
+    });
     });
     
     // Handle documentation
