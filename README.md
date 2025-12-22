@@ -2,12 +2,13 @@
 
 ## 🏥 Offline Data Protection-Compliant HTML Medical History Form
 
-A fully offline, privacy-compliant medical history (Anamnese) application with multi-language support, AES-256 encryption, and local speech recognition.
+A fully offline, privacy-compliant medical history (Anamnese) application with multi-language support, AES-256 encryption, and Progressive Web App (PWA) capabilities.
 
 ## ✨ Features
 
 ### Core Features
-- **🌍 Multi-Language Support**: 10 languages (German, English, French, Spanish, Italian, Portuguese, Dutch, Polish, Turkish, Arabic)
+- **🌍 Multi-Language Support**: **19 languages** (German, English, French, Spanish, Italian, Portuguese, Dutch, Polish, Turkish, Arabic, Russian, Ukrainian, Farsi, Urdu, Chinese, Albanian, Romanian, Hindi, Japanese)
+- **📱 Progressive Web App (PWA)**: Installable on desktop and mobile devices, works offline
 - **🔒 AES-256 Encryption**: All data encrypted with Web Crypto API using AES-256-GCM
 - **💾 Local Storage**: All data stored only on your device (localStorage)
 - **🎤 Speech Recognition**: VOSK-based local speech recognition (German 50 MB model) with browser fallback
@@ -17,32 +18,59 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **🔐 Privacy-Compliant**: GDPR/DSGVO compliant - no external server communication
 - **📋 Consent Management**: Granular consent tracking according to GDPR Art. 6, 7
 - **📊 Audit Logging**: Comprehensive logging according to GDPR Art. 30, 32
-- **📱 Responsive Design**: Works on desktop, tablet, and mobile devices
-- **🌐 Fully Offline**: No internet connection required
+- **♿ WCAG 2.1 AA Accessible**: Full keyboard navigation, screen reader support, ARIA landmarks
+- **🌐 Fully Offline**: No internet connection required after initial load
 
 ### Production Features (index_v8_complete.html)
 
+#### 📱 Progressive Web App (NEW in v8.1.0)
+- **Installable**: Add to home screen on iOS, Android, and desktop
+- **Offline Support**: Service worker caches app for offline use
+- **Native-like Experience**: Standalone display mode, custom theme color
+- **App Icons**: Optimized SVG icons for all platforms
+- **Update Management**: Automatic detection and notification of new versions
+
+#### 🌐 Enhanced Multi-Language (NEW in v8.1.0)
+- **19 Total Languages**: Expanded from 10 to 19 languages
+- **New Languages**: Nederlands, Shqip, Română, हिन्दी, 日本語
+- **RTL Support**: Full right-to-left layout for Arabic, Farsi, Urdu
+- **Dynamic Switching**: Change language at any time without losing data
+
+#### ♿ Accessibility Features (NEW in v8.1.0)
+- **Skip Links**: Jump directly to main content
+- **Keyboard Navigation**: Full keyboard support with shortcuts (Ctrl+S save, Ctrl+Arrow navigate)
+- **ARIA Landmarks**: Semantic structure for screen readers
+- **Live Regions**: Screen reader announcements for actions
+- **Focus Management**: Enhanced focus indicators (3px solid outline)
+- **Reduced Motion**: Respects user preference for reduced animations
+- **High Contrast**: Supports high contrast mode
+
 #### 🔐 Enhanced Security
 - **Master Password System**: User-defined encryption keys (16+ characters required)
-- **Secure Key Storage**: Only password hashes stored, never actual passwords
-- **Input Sanitization**: All user inputs sanitized to prevent XSS attacks
-- **Content Security Policy**: Restrictive CSP headers for added protection
+- **XSS Prevention**: Enhanced input sanitization and URL validation
+- **Rate Limiting**: Prevents abuse (10 saves/min, 30 navigations/min)
+- **Secure Storage**: Safe localStorage wrapper with quota handling
+- **Content Security Policy**: Restrictive CSP headers with frame-ancestors protection
 - **Session-based Encryption**: Keys cleared when browser closes
 
 #### ✨ UX Improvements
 - **Real-time Validation**: Instant feedback on required fields and data ranges
 - **Visual Feedback**: Color-coded validation (✓ green for valid, ⚠️ red for errors)
-- **Auto-Save**: Automatic saving every 2 seconds after changes
+- **Auto-Save**: Automatic saving every 2 seconds after changes with rate limiting
 - **Save Indicator**: Visual indicator shows save status (💾 Speichert... → ✓ Gespeichert)
 - **Auto-Restore**: Prompts to restore unfinished forms (within 24 hours)
 - **Enhanced Progress Bar**: 
   - Percentage display (e.g., "67%")
   - Question counter (e.g., "15 von 42 Fragen beantwortet")
   - Color-coded progress (🔴 Red 0-33% → 🟠 Orange 33-66% → 🟢 Green 66-100%)
+  - Smooth animations with shimmer effect
+  - Screen reader announcements
 - **Smart Navigation**: Next button disabled until all required fields are valid
 - **Field-level Help**: Contextual error messages for invalid inputs
+- **Offline Indicator**: Visual banner when offline with screen reader announcement
+- **Keyboard Shortcuts Help**: Built-in shortcuts reference (⌨️ button in footer)
 
-#### 📄 DSGVO-Compliant OCR & Document Upload (NEW)
+#### 📄 DSGVO-Compliant OCR & Document Upload
 - **Local OCR Processing**: Tesseract.js-based OCR runs entirely in browser - NO external API calls
 - **Privacy Notice (Art. 13 DSGVO)**: Comprehensive privacy notice before document upload
 - **Audit Logging (Art. 30, 32 DSGVO)**: Complete logging of all OCR operations with metadata
@@ -55,6 +83,10 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **Multi-Engine Ready**: Architecture supports fallback OCR engines (currently Tesseract only)
 
 **📋 See [DSGVO_OCR_COMPLIANCE.md](DSGVO_OCR_COMPLIANCE.md) for complete compliance documentation**
+
+**📋 See [PWA_FEATURES.md](PWA_FEATURES.md) for PWA installation and usage guide**
+
+**📋 See [INTEGRATION_CHANGELOG.md](INTEGRATION_CHANGELOG.md) for detailed v8.1.0 changes**
 
 ## 🚀 Quick Start
 

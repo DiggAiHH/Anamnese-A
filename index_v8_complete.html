@@ -1697,24 +1697,72 @@ function clearUploadedDocuments() {
         /* =================================================================
            PROGRESS BAR
            ================================================================= */
-        .progress-container { margin-bottom: 1.5rem; }
+        .progress-container { 
+            margin-bottom: 1.5rem; 
+            position: relative;
+        }
         .progress-text {
             text-align: center;
             font-size: 0.9rem;
             margin-bottom: 0.5rem;
             color: var(--secondary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .progress-text::before {
+            content: '📊';
+            font-size: 1rem;
         }
         .progress-bar {
-            height: 12px;
+            height: 16px;
             background: var(--border-color);
-            border-radius: 6px;
+            border-radius: 8px;
             overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
         }
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--primary), var(--success));
-            transition: width 0.4s ease;
-            border-radius: 6px;
+            transition: width 0.4s ease, background-color 0.3s ease;
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Progress fill animation */
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255,255,255,0) 0%,
+                rgba(255,255,255,0.3) 50%,
+                rgba(255,255,255,0) 100%
+            );
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        /* Responsive progress */
+        @media (max-width: 640px) {
+            .progress-text {
+                font-size: 0.8rem;
+            }
+            .progress-bar {
+                height: 12px;
+            }
         }
 
         /* =================================================================
@@ -2203,10 +2251,61 @@ function clearUploadedDocuments() {
             </div>
         </div>
 
-        <footer>
+        <footer role="contentinfo">
             <p><strong data-translate="medical_concept">Medical Concept: Dr. Christian Klapproth</strong></p>
             <p data-translate="technical_implementation">Technical Implementation: DiggAi GmbH</p>
+            <button id="shortcuts-help-btn" class="btn btn-info" 
+                    onclick="document.getElementById('shortcuts-modal').style.display='flex'"
+                    style="margin-top: 1rem; font-size: 0.9rem;"
+                    aria-label="Show keyboard shortcuts">
+                ⌨️ Tastenkürzel anzeigen / Show Keyboard Shortcuts
+            </button>
         </footer>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="margin: 0;">⌨️ Tastenkürzel / Keyboard Shortcuts</h2>
+                <button onclick="document.getElementById('shortcuts-modal').style.display='none'" 
+                        class="btn btn-secondary" style="padding: 0.5rem 1rem;"
+                        aria-label="Close shortcuts modal">
+                    ✕
+                </button>
+            </div>
+            
+            <div style="display: grid; gap: 0.75rem;">
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Ctrl + S</strong>
+                    <span>Daten speichern / Save data</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Ctrl + →</strong>
+                    <span>Nächste Sektion / Next section</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Ctrl + ←</strong>
+                    <span>Vorherige Sektion / Previous section</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Esc</strong>
+                    <span>Modal schließen / Close modal</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Tab</strong>
+                    <span>Vorwärts navigieren / Navigate forward</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Shift + Tab</strong>
+                    <span>Rückwärts navigieren / Navigate backward</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--warning); color: #000; border-radius: 8px; font-size: 0.9rem;">
+                <strong>💡 Tipp / Tip:</strong> Diese Tastenkürzel funktionieren überall in der App. / These shortcuts work anywhere in the app.
+            </div>
+        </div>
     </div>
 
     <!-- =================================================================
@@ -14092,6 +14191,7 @@ function clearUploadedDocuments() {
             updateProgress() {
                 const progressBar = document.getElementById('progress-fill');
                 const progressText = document.getElementById('progress-text');
+                const progressContainer = progressBar?.parentElement;
                 
                 if (!progressBar || !progressText) return;
                 
@@ -14116,19 +14216,49 @@ function clearUploadedDocuments() {
                 
                 const progressPercent = totalQuestions > 0 ? (answeredQuestions / totalQuestions * 100) : 0;
                 
+                // Smooth transition
+                progressBar.style.transition = 'width 0.3s ease, background-color 0.3s ease';
                 progressBar.style.width = progressPercent + '%';
-                progressBar.setAttribute('aria-valuenow', Math.round(progressPercent));
+                
+                // Update ARIA attributes
+                progressContainer?.setAttribute('aria-valuenow', Math.round(progressPercent));
+                progressContainer?.setAttribute('aria-valuetext', `${Math.round(progressPercent)} Prozent abgeschlossen`);
                 
                 // Enhanced text with percentage and counts
-                progressText.textContent = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                const progressMessage = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                progressText.textContent = progressMessage;
                 
                 // Color coding based on progress
+                let progressColor;
+                let progressLabel;
                 if (progressPercent < 33) {
-                    progressBar.style.backgroundColor = '#ef4444'; // red
+                    progressColor = '#ef4444'; // red
+                    progressLabel = 'Begonnen';
                 } else if (progressPercent < 66) {
-                    progressBar.style.backgroundColor = '#f59e0b'; // orange
+                    progressColor = '#f59e0b'; // orange
+                    progressLabel = 'In Bearbeitung';
+                } else if (progressPercent < 100) {
+                    progressColor = '#10b981'; // green
+                    progressLabel = 'Fast fertig';
                 } else {
-                    progressBar.style.backgroundColor = '#10b981'; // green
+                    progressColor = '#10b981'; // green
+                    progressLabel = 'Vollständig';
+                }
+                
+                progressBar.style.backgroundColor = progressColor;
+                
+                // Announce to screen readers (throttled to avoid spam)
+                if (window.liveRegionAnnouncer && !this._lastProgressAnnouncement) {
+                    this._lastProgressAnnouncement = 0;
+                }
+                
+                const now = Date.now();
+                if (now - (this._lastProgressAnnouncement || 0) > 5000) {
+                    window.liveRegionAnnouncer?.announce(
+                        `Fortschritt: ${Math.round(progressPercent)}%. ${progressLabel}`,
+                        'polite'
+                    );
+                    this._lastProgressAnnouncement = now;
                 }
             },
 
