@@ -42,6 +42,20 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **Smart Navigation**: Next button disabled until all required fields are valid
 - **Field-level Help**: Contextual error messages for invalid inputs
 
+#### 📄 DSGVO-Compliant OCR & Document Upload (NEW)
+- **Local OCR Processing**: Tesseract.js-based OCR runs entirely in browser - NO external API calls
+- **Privacy Notice (Art. 13 DSGVO)**: Comprehensive privacy notice before document upload
+- **Audit Logging (Art. 30, 32 DSGVO)**: Complete logging of all OCR operations with metadata
+- **Right to be Forgotten (Art. 17 DSGVO)**: One-click deletion of all documents and data
+- **No Cloud Upload**: Explicit guarantee - no data sent to Google Vision, AWS, or any external service
+- **Encrypted Storage**: All extracted text encrypted with AES-256-GCM
+- **Retention Policy**: 3-year audit log retention per § 630f BGB
+- **DSB Report Generation**: Export audit reports for data protection officer review
+- **Supported Formats**: Images (JPG, PNG), PDFs, text files
+- **Multi-Engine Ready**: Architecture supports fallback OCR engines (currently Tesseract only)
+
+**📋 See [DSGVO_OCR_COMPLIANCE.md](DSGVO_OCR_COMPLIANCE.md) for complete compliance documentation**
+
 ## 🚀 Quick Start
 
 ### Basic Usage
@@ -75,15 +89,21 @@ To enable local VOSK speech recognition:
 
 ```
 Anamnese-/
-├── index.html              # Main HTML file with form
-├── styles.css              # Styling and responsive design
-├── app.js                  # Main application logic
-├── translations.js         # 10-language translation support
-├── encryption.js           # AES-256 encryption/decryption
-├── vosk-integration.js     # VOSK speech recognition integration
-├── vosk-worker.js          # Web Worker for VOSK processing
-├── README.md               # This file
-└── model/                  # VOSK model folder (user-provided)
+├── index.html                   # Main HTML file with form
+├── index_v8_complete.html       # Production version with all features
+├── styles.css                   # Styling and responsive design
+├── app.js                       # Main application logic
+├── translations.js              # 10-language translation support
+├── encryption.js                # AES-256 encryption/decryption
+├── vosk-integration.js          # VOSK speech recognition integration
+├── vosk-worker.js               # Web Worker for VOSK processing
+├── ocr-gdpr-module.js           # DSGVO-compliant OCR module (NEW)
+├── gdpr-compliance.js           # GDPR compliance utilities
+├── gdt-export.js                # GDT format export for PVS integration
+├── README.md                    # This file
+├── DSGVO_OCR_COMPLIANCE.md      # OCR GDPR compliance documentation (NEW)
+├── DOKUMENTEN_UPLOAD_README.md  # Document upload feature documentation
+└── model/                       # VOSK model folder (user-provided)
     └── vosk-model-small-de-0.15/
 ```
 

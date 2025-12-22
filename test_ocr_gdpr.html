@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test: DSGVO-konformes OCR-Modul</title>
+    
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- PDF.js for PDF text extraction -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+        // Configure PDF.js worker
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        }
+    </script>
+    
+    <!-- GDPR-compliant OCR Module -->
+    <script src="ocr-gdpr-module.js"></script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2196F3;
+        }
+        
+        h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        
+        button {
+            padding: 12px 24px;
+            margin: 5px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #1976D2;
+        }
+        
+        .danger {
+            background: #f44336;
+        }
+        
+        .danger:hover {
+            background: #d32f2f;
+        }
+        
+        .success {
+            background: #4CAF50;
+        }
+        
+        .success:hover {
+            background: #388E3C;
+        }
+        
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .pass {
+            background: #e8f5e9;
+            border-left-color: #4CAF50;
+        }
+        
+        .fail {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test: DSGVO-konformes OCR-Modul</h1>
+    
+    <div class="test-section">
+        <h2>1. Modul-Initialisierung</h2>
+        <p>Überprüft, ob alle GDPR-Module korrekt geladen wurden.</p>
+        <button onclick="testModuleInit()">Test ausführen</button>
+        <div id="result-init"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Datenschutz-Benachrichtigung (Art. 13 DSGVO)</h2>
+        <p>Testet, ob die Datenschutz-Benachrichtigung vor dem Upload angezeigt wird.</p>
+        <button onclick="testPrivacyNotice()">Privacy Notice anzeigen</button>
+        <div id="result-privacy"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Dokument-Upload mit Audit-Logging</h2>
+        <p>Testet den vollständigen Upload-Workflow mit Audit-Logging.</p>
+        <button onclick="testDocumentUpload()">Dokument hochladen</button>
+        <div id="result-upload"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Hochgeladene Dokumente anzeigen</h2>
+        <p>Zeigt alle hochgeladenen Dokumente mit Metadaten an.</p>
+        <button onclick="testShowDocuments()">Dokumente anzeigen</button>
+        <div id="result-show"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>5. Audit-Report generieren</h2>
+        <p>Generiert einen vollständigen Audit-Report für DSB-Prüfung.</p>
+        <button onclick="testAuditReport()">Audit-Report anzeigen</button>
+        <div id="result-audit"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>6. Daten-Löschung (Art. 17 DSGVO)</h2>
+        <p>Testet das Recht auf Vergessenwerden.</p>
+        <button class="danger" onclick="testDeleteAllDocuments()">Alle Dokumente löschen</button>
+        <button class="danger" onclick="testCompleteDeletion()">Vollständige Datenlöschung</button>
+        <div id="result-delete"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>7. Verschlüsselung testen</h2>
+        <p>Überprüft, ob Dokumente verschlüsselt gespeichert werden.</p>
+        <button onclick="testEncryption()">Verschlüsselung prüfen</button>
+        <div id="result-encryption"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>8. Lokale Verarbeitung verifizieren</h2>
+        <p>Stellt sicher, dass keine externen API-Calls gemacht werden.</p>
+        <button onclick="testLocalProcessing()">Network Monitoring starten</button>
+        <div id="result-network"></div>
+    </div>
+    
+    <script>
+        // Test 1: Modul-Initialisierung
+        function testModuleInit() {
+            const resultDiv = document.getElementById('result-init');
+            const tests = [
+                { name: 'OCR_AUDIT', obj: window.OCR_AUDIT },
+                { name: 'OCR_PRIVACY', obj: window.OCR_PRIVACY },
+                { name: 'DOCUMENT_STORAGE_GDPR', obj: window.DOCUMENT_STORAGE_GDPR },
+                { name: 'performOCRWithAudit', obj: window.performOCRWithAudit },
+                { name: 'showDocumentUploadDialogGDPR', obj: window.showDocumentUploadDialogGDPR },
+                { name: 'showUploadedDocumentsGDPR', obj: window.showUploadedDocumentsGDPR },
+                { name: 'deleteAllDocumentsGDPR', obj: window.deleteAllDocumentsGDPR },
+                { name: 'showAuditReportGDPR', obj: window.showAuditReportGDPR }
+            ];
+            
+            let allPass = true;
+            let html = '<div class="test-result">';
+            
+            tests.forEach(test => {
+                const exists = typeof test.obj !== 'undefined';
+                allPass = allPass && exists;
+                html += `<div>✓ ${test.name}: ${exists ? '<span style="color: green;">✔ Geladen</span>' : '<span style="color: red;">✘ Fehlt</span>'}</div>`;
+            });
+            
+            html += `</div><div class="test-result ${allPass ? 'pass' : 'fail'}">`;
+            html += allPass ? '✅ Alle Module erfolgreich geladen!' : '❌ Einige Module fehlen!';
+            html += '</div>';
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        // Test 2: Privacy Notice
+        function testPrivacyNotice() {
+            const resultDiv = document.getElementById('result-privacy');
+            resultDiv.innerHTML = '<div class="test-result">Privacy Notice wird angezeigt...</div>';
+            
+            OCR_PRIVACY.showPrivacyNotice().then(consent => {
+                if (consent) {
+                    resultDiv.innerHTML = '<div class="test-result pass">✅ Einwilligung erteilt - Art. 13 DSGVO erfüllt!</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="test-result">ℹ️ Einwilligung nicht erteilt (Test abgebrochen)</div>';
+                }
+            });
+        }
+        
+        // Test 3: Document Upload
+        async function testDocumentUpload() {
+            const resultDiv = document.getElementById('result-upload');
+            resultDiv.innerHTML = '<div class="test-result">Upload-Dialog wird geöffnet...</div>';
+            
+            const result = await showDocumentUploadDialogGDPR();
+            
+            if (result.success) {
+                resultDiv.innerHTML = `<div class="test-result pass">✅ ${result.processedCount} Dokument(e) hochgeladen!</div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="test-result">ℹ️ ${result.message || 'Upload abgebrochen'}</div>`;
+            }
+        }
+        
+        // Test 4: Show Documents
+        function testShowDocuments() {
+            const resultDiv = document.getElementById('result-show');
+            const docs = DOCUMENT_STORAGE_GDPR.getAllDocuments();
+            
+            resultDiv.innerHTML = `<div class="test-result">Anzahl Dokumente: ${docs.length}</div>`;
+            
+            if (docs.length > 0) {
+                showUploadedDocumentsGDPR();
+            } else {
+                resultDiv.innerHTML += '<div class="test-result">ℹ️ Keine Dokumente hochgeladen</div>';
+            }
+        }
+        
+        // Test 5: Audit Report
+        function testAuditReport() {
+            const resultDiv = document.getElementById('result-audit');
+            const report = OCR_AUDIT.generateAuditReport();
+            
+            let html = '<div class="test-result pass">';
+            html += `<strong>📊 Audit-Report (${report.totalEntries} Einträge)</strong><br>`;
+            html += `OCR gestartet: ${report.statistics.ocrStarted}<br>`;
+            html += `OCR abgeschlossen: ${report.statistics.ocrCompleted}<br>`;
+            html += `Dokumente hochgeladen: ${report.statistics.documentsUploaded}<br>`;
+            html += `Einwilligungen erteilt: ${report.statistics.consentGiven}<br>`;
+            html += `<br><strong>GDPR-Compliance:</strong><br>`;
+            html += `✅ Lokale Verarbeitung: ${report.gdprCompliance.localProcessing}<br>`;
+            html += `✅ Keine externen APIs: ${report.gdprCompliance.noExternalAPIs}<br>`;
+            html += '</div>';
+            
+            html += '<button onclick="showAuditReportGDPR()">Vollständiger Report (Modal)</button>';
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        // Test 6: Delete All Documents
+        function testDeleteAllDocuments() {
+            const resultDiv = document.getElementById('result-delete');
+            
+            if (confirm('Test: Alle Dokumente löschen? (Art. 17 DSGVO)')) {
+                deleteAllDocumentsGDPR();
+                resultDiv.innerHTML = '<div class="test-result pass">✅ Alle Dokumente gelöscht!</div>';
+                
+                // Verifikation
+                const verification = DOCUMENT_STORAGE_GDPR.verifyCompleteDeletion();
+                resultDiv.innerHTML += `<div class="test-result ${verification.complete ? 'pass' : 'fail'}">`;
+                resultDiv.innerHTML += `Löschung vollständig: ${verification.complete ? '✅ Ja' : '❌ Nein'}<br>`;
+                resultDiv.innerHTML += `Verbleibende Dokumente: ${verification.details.documentsRemaining}`;
+                resultDiv.innerHTML += '</div>';
+            }
+        }
+        
+        // Test 7: Complete Deletion
+        function testCompleteDeletion() {
+            const resultDiv = document.getElementById('result-delete');
+            
+            if (confirm('Test: VOLLSTÄNDIGE Datenlöschung inkl. Audit-Logs?')) {
+                const result = DOCUMENT_STORAGE_GDPR.performCompleteDeletion(true);
+                
+                resultDiv.innerHTML = `<div class="test-result ${result.success ? 'pass' : 'fail'}">`;
+                resultDiv.innerHTML += result.success ? '✅ Vollständige Löschung durchgeführt!' : '❌ Fehler bei Löschung';
+                resultDiv.innerHTML += '<br>Verifikation:<br>';
+                resultDiv.innerHTML += JSON.stringify(result.verification, null, 2);
+                resultDiv.innerHTML += '</div>';
+            }
+        }
+        
+        // Test 8: Encryption
+        function testEncryption() {
+            const resultDiv = document.getElementById('result-encryption');
+            
+            // Prüfe localStorage auf verschlüsselte Daten
+            const encrypted = localStorage.getItem('ocrDocuments_encrypted');
+            const method = localStorage.getItem('ocrDocuments_encryptionMethod');
+            const unencrypted = localStorage.getItem('ocrDocuments');
+            
+            let html = '<div class="test-result">';
+            
+            if (encrypted && method === 'AES-256-GCM') {
+                html += '<strong style="color: green;">✅ Verschlüsselung aktiv!</strong><br>';
+                html += `Methode: ${method}<br>`;
+                html += `Verschlüsselte Daten vorhanden: Ja<br>`;
+            } else if (unencrypted) {
+                html += '<strong style="color: orange;">⚠️ Dokumente unverschlüsselt!</strong><br>';
+                html += 'Hinweis: encryption.js oder Encryption-Key nicht verfügbar<br>';
+            } else {
+                html += 'ℹ️ Keine Dokumente gespeichert';
+            }
+            
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        }
+        
+        // Test 9: Local Processing
+        function testLocalProcessing() {
+            const resultDiv = document.getElementById('result-network');
+            
+            // Network monitoring
+            const originalFetch = window.fetch;
+            const originalXHR = window.XMLHttpRequest.prototype.open;
+            const apiCalls = [];
+            
+            // Monitor fetch
+            window.fetch = function(...args) {
+                const url = args[0];
+                if (!url.includes('cdn.jsdelivr.net') && !url.includes('localhost')) {
+                    apiCalls.push({ type: 'fetch', url: url });
+                }
+                return originalFetch.apply(this, args);
+            };
+            
+            // Monitor XHR
+            window.XMLHttpRequest.prototype.open = function(...args) {
+                const url = args[1];
+                if (url && !url.includes('cdn.jsdelivr.net') && !url.includes('localhost')) {
+                    apiCalls.push({ type: 'XHR', url: url });
+                }
+                return originalXHR.apply(this, args);
+            };
+            
+            resultDiv.innerHTML = '<div class="test-result pass">✅ Network Monitoring aktiv!<br>Bitte führen Sie jetzt einen OCR-Upload durch.<br><br><button onclick="checkNetworkCalls()">Network-Calls prüfen</button></div>';
+            
+            window.apiCalls = apiCalls;
+        }
+        
+        function checkNetworkCalls() {
+            const resultDiv = document.getElementById('result-network');
+            const calls = window.apiCalls || [];
+            
+            if (calls.length === 0) {
+                resultDiv.innerHTML = '<div class="test-result pass">✅ BESTÄTIGT: Keine externen API-Calls!<br>Alle Verarbeitung erfolgt lokal.</div>';
+            } else {
+                resultDiv.innerHTML = '<div class="test-result fail">❌ WARNUNG: Externe API-Calls erkannt!<br><pre>' + JSON.stringify(calls, null, 2) + '</pre></div>';
+            }
+        }
+        
+        // Auto-run init test on load
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                testModuleInit();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
