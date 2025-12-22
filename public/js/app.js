@@ -283,8 +283,29 @@ function goBackFromStep5() {
         // Practice users with patient data go back to step 4
         goToStep(4);
     } else {
-        // Practice users without patient data go back to step 3
+        // Practice users without patient data go back to step 3 (language)
         goToStep(3);
+    }
+}
+
+// Helper function to get total steps based on user type and mode
+function getTotalSteps() {
+    if (userType === 'selftest') {
+        return 5; // 0: User type, 1: (skipped), 2: (skipped), 3: Language, 4: (skipped), 5: Payment, 6: Code
+    } else {
+        return 7; // 0: User type, 1: Login, 2: Mode, 3: Language, 4: Patient data (conditional), 5: Payment, 6: Code
+    }
+}
+
+// Helper function to get current step number for display
+function getCurrentStepNumber() {
+    if (userType === 'selftest') {
+        // Self-test flow: 0, 3, 5, 6 = display as 0, 1, 2, 3
+        const stepMapping = {0: 0, 3: 1, 5: 2, 6: 3};
+        return stepMapping[currentStep] !== undefined ? stepMapping[currentStep] : currentStep;
+    } else {
+        // Practice flow uses actual step numbers
+        return currentStep;
     }
 }
 
