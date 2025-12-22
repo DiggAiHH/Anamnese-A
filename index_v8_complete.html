@@ -776,6 +776,13 @@ function scheduleAutoSave() {
 function saveToLocalStorage() {
     return new Promise((resolve, reject) => {
         try {
+            // Check rate limit
+            if (window.rateLimiter && !window.rateLimiter.isAllowed('save')) {
+                console.warn('[Save] Rate limit exceeded, please wait');
+                reject(new Error('Too many save attempts. Please wait a moment.'));
+                return;
+            }
+
             const answers = (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
                 ? APP_STATE.answers 
                 : (typeof AppState !== 'undefined' && AppState.answers) 
@@ -792,8 +799,19 @@ function saveToLocalStorage() {
                 currentSection: currentSection,
                 timestamp: new Date().toISOString()
             };
-            localStorage.setItem('anamnese_autosave', JSON.stringify(saveData));
-            resolve();
+            
+            // Use SecureStorage wrapper
+            if (window.SecureStorage) {
+                if (SecureStorage.setItem('anamnese_autosave', saveData)) {
+                    resolve();
+                } else {
+                    reject(new Error('LocalStorage full or unavailable'));
+                }
+            } else {
+                // Fallback to direct localStorage
+                localStorage.setItem('anamnese_autosave', JSON.stringify(saveData));
+                resolve();
+            }
         } catch (e) {
             reject(new Error('LocalStorage full or unavailable'));
         }
@@ -13341,6 +13359,198 @@ function clearUploadedDocuments() {
         function validatePhone(phone) {
             return /^[\d\s\+\-\(\)]*$/.test(phone);
         }
+
+        // ====================================================================
+        // SECURITY: ENHANCED XSS PREVENTION
+        // ====================================================================
+        const SecurityUtils = {
+            // Sanitize HTML more thoroughly
+            sanitizeHTML(html) {
+                if (!html) return '';
+                const div = document.createElement('div');
+                div.textContent = html;
+                return div.innerHTML;
+            },
+
+            // Validate and sanitize URLs
+            sanitizeURL(url) {
+                if (!url) return '';
+                try {
+                    const parsed = new URL(url);
+                    // Only allow http and https protocols
+                    if (!['http:', 'https:'].includes(parsed.protocol)) {
+                        console.warn('[Security] Blocked potentially dangerous URL protocol:', parsed.protocol);
+                        return '';
+                    }
+                    return parsed.href;
+                } catch (e) {
+                    console.warn('[Security] Invalid URL:', url);
+                    return '';
+                }
+            },
+
+            // Check for dangerous patterns
+            containsDangerousPatterns(text) {
+                if (!text) return false;
+                const dangerousPatterns = [
+                    /<script[^>]*>.*?<\/script>/gi,
+                    /javascript:/gi,
+                    /on\w+\s*=/gi, // Event handlers
+                    /<iframe/gi,
+                    /<object/gi,
+                    /<embed/gi
+                ];
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            },
+
+            // Safe text content setter
+            setTextContent(element, text) {
+                if (element && text !== undefined && text !== null) {
+                    element.textContent = String(text);
+                }
+            }
+        };
+
+        // ====================================================================
+        // SECURITY: SIMPLE RATE LIMITING
+        // ====================================================================
+        class SimpleRateLimiter {
+            constructor() {
+                this.actions = new Map();
+                this.limits = {
+                    save: { max: 10, window: 60000 }, // 10 saves per minute
+                    navigation: { max: 30, window: 60000 }, // 30 navigations per minute
+                    formSubmit: { max: 5, window: 60000 } // 5 submits per minute
+                };
+            }
+
+            isAllowed(actionType) {
+                const now = Date.now();
+                const limit = this.limits[actionType];
+                
+                if (!limit) return true; // No limit configured
+
+                if (!this.actions.has(actionType)) {
+                    this.actions.set(actionType, []);
+                }
+
+                const timestamps = this.actions.get(actionType);
+                
+                // Clean old timestamps
+                const validTimestamps = timestamps.filter(t => now - t < limit.window);
+                
+                // Check if limit exceeded
+                if (validTimestamps.length >= limit.max) {
+                    console.warn(`[RateLimit] Action '${actionType}' rate limit exceeded`);
+                    return false;
+                }
+
+                // Add current timestamp
+                validTimestamps.push(now);
+                this.actions.set(actionType, validTimestamps);
+                
+                return true;
+            }
+
+            reset(actionType) {
+                if (actionType) {
+                    this.actions.delete(actionType);
+                } else {
+                    this.actions.clear();
+                }
+            }
+        }
+
+        // Initialize rate limiter
+        window.rateLimiter = new SimpleRateLimiter();
+
+        // ====================================================================
+        // STORAGE: SECURE LOCAL STORAGE WRAPPER
+        // ====================================================================
+        const SecureStorage = {
+            // Check if localStorage is available
+            isAvailable() {
+                try {
+                    const test = '__storage_test__';
+                    localStorage.setItem(test, test);
+                    localStorage.removeItem(test);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            },
+
+            // Set item with error handling
+            setItem(key, value) {
+                if (!this.isAvailable()) {
+                    console.warn('[Storage] localStorage not available');
+                    return false;
+                }
+                
+                try {
+                    if (typeof value === 'object') {
+                        value = JSON.stringify(value);
+                    }
+                    localStorage.setItem(key, value);
+                    return true;
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        console.error('[Storage] Quota exceeded. Consider clearing old data.');
+                    } else {
+                        console.error('[Storage] Error saving to localStorage:', e);
+                    }
+                    return false;
+                }
+            },
+
+            // Get item with error handling
+            getItem(key, defaultValue = null) {
+                if (!this.isAvailable()) {
+                    return defaultValue;
+                }
+                
+                try {
+                    const value = localStorage.getItem(key);
+                    if (value === null) return defaultValue;
+                    
+                    // Try to parse as JSON
+                    try {
+                        return JSON.parse(value);
+                    } catch (e) {
+                        return value;
+                    }
+                } catch (e) {
+                    console.error('[Storage] Error reading from localStorage:', e);
+                    return defaultValue;
+                }
+            },
+
+            // Remove item
+            removeItem(key) {
+                if (!this.isAvailable()) return false;
+                
+                try {
+                    localStorage.removeItem(key);
+                    return true;
+                } catch (e) {
+                    console.error('[Storage] Error removing from localStorage:', e);
+                    return false;
+                }
+            },
+
+            // Clear all
+            clear() {
+                if (!this.isAvailable()) return false;
+                
+                try {
+                    localStorage.clear();
+                    return true;
+                } catch (e) {
+                    console.error('[Storage] Error clearing localStorage:', e);
+                    return false;
+                }
+            }
+        };
 
         /**
          * Validate a field and show feedback
