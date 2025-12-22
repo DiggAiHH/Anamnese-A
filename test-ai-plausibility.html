@@ -474,7 +474,7 @@
         }
         
         // Alle Tests ausführen
-        function runAllTests() {
+        async function runAllTests() {
             clearTestResults();
             
             console.log('🚀 Starte Test-Suite...');
@@ -483,7 +483,7 @@
             testAgeValidation();
             testGenderValidation();
             testMedicalLogic();
-            testPrivacyFeatures();
+            await testPrivacyFeatures(); // Warten auf async Test
             testAuditLogging();
             
             // Zusammenfassung anzeigen

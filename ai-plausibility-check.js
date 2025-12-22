@@ -598,7 +598,7 @@ function deleteAllAIData() {
 /**
  * Pseudonymisiert Trainingsdaten (DSGVO Art. 32)
  */
-function pseudonymizeTrainingData(data) {
+async function pseudonymizeTrainingData(data) {
     const pseudonymized = {...data};
     
     // Hash-Funktion für konsistente Pseudonymisierung
@@ -613,20 +613,25 @@ function pseudonymizeTrainingData(data) {
     // Pseudonymisiere persönliche Identifikatoren
     const fieldsToHash = ['firstName', 'lastName', 'email', 'phone', 'address'];
     
-    fieldsToHash.forEach(async field => {
-        if (pseudonymized[field]) {
-            pseudonymized[field] = await hashString(pseudonymized[field]);
-        }
-    });
+    // Verwende Promise.all für parallele async-Operationen
+    await Promise.all(
+        fieldsToHash.map(async field => {
+            if (pseudonymized[field]) {
+                pseudonymized[field] = await hashString(pseudonymized[field]);
+            }
+        })
+    );
     
     return pseudonymized;
 }
 
 /**
  * Überprüft, ob externe API-Aufrufe blockiert sind
+ * Hinweis: Dies ist eine zusätzliche Sicherheitsschicht. 
+ * Die primäre Sicherheit kommt durch das Design (keine externen Calls im Code).
  */
 function verifyNoExternalAPICalls() {
-    // Verhindere externe Aufrufe
+    // Verhindere externe Aufrufe zu bekannten AI-Diensten
     const blockedDomains = [
         'openai.com',
         'api.openai.com',
@@ -636,7 +641,7 @@ function verifyNoExternalAPICalls() {
         'amazonaws.com'
     ];
     
-    // Override fetch für Sicherheit
+    // Override fetch für Sicherheit (nur für AI-spezifische Domains)
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
         const url = args[0];
@@ -648,13 +653,14 @@ function verifyNoExternalAPICalls() {
                     result: 'blocked',
                     reason: 'DSGVO-Compliance: Externe AI-Dienste verboten'
                 });
-                throw new Error('DSGVO-Verstoß: Externe AI-API-Aufrufe sind nicht erlaubt');
+                // Gebe rejected Promise zurück statt zu werfen
+                return Promise.reject(new Error('DSGVO-Verstoß: Externe AI-API-Aufrufe sind nicht erlaubt'));
             }
         }
         return originalFetch.apply(this, args);
     };
     
-    console.log('[AI-Plausibility] Externe API-Aufrufe werden blockiert (DSGVO-Compliance)');
+    console.log('[AI-Plausibility] Externe API-Aufrufe zu AI-Diensten werden blockiert (DSGVO-Compliance)');
 }
 
 // ============================================================================
