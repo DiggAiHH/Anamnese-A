@@ -46,6 +46,28 @@ const ANAMNESE_BASE_URL = window.location.origin.includes('localhost')
     ? 'http://localhost:8080' 
     : 'https://anamnese.example.com';
 
+// Global Language Selection
+function updateGlobalLanguage() {
+    const globalSelect = document.getElementById('globalLanguageSelect');
+    const selectedLang = globalSelect.value;
+    const notice = document.getElementById('languageNotice');
+    const languageField = document.getElementById('language');
+    
+    if (selectedLang) {
+        // Update form data
+        formData.language = selectedLang;
+        
+        // Update the language dropdown in step 3
+        languageField.value = selectedLang;
+        
+        // Show success notice
+        notice.classList.remove('d-none');
+        setTimeout(() => {
+            notice.classList.add('d-none');
+        }, 3000);
+    }
+}
+
 // Utility Functions
 
 function showToast(title, message, isError = false) {
