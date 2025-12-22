@@ -1,5 +1,6 @@
 // Global variables
-let currentStep = 1;
+let currentStep = 0;  // Start at step 0 (user type selection)
+let userType = null;  // 'practice' or 'selftest'
 let practiceSecret = null;
 let practiceData = {
     id: null,
@@ -68,6 +69,21 @@ function updateGlobalLanguage() {
     }
 }
 
+// User Type Selection
+function selectUserType(type) {
+    userType = type;
+    
+    if (type === 'practice') {
+        // Practice flow: Go to Praxis-ID login
+        goToStep(1);
+    } else if (type === 'selftest') {
+        // Self-test flow: Skip practice login, go directly to mode selection
+        // For self-test, we automatically set mode to 'patient' since they're testing themselves
+        formData.mode = 'patient';
+        goToStep(3); // Skip steps 1 and 2, go to language selection
+    }
+}
+
 // Utility Functions
 
 function showToast(title, message, isError = false) {
@@ -95,10 +111,21 @@ function showSpinner(elementId, show = true) {
 
 function updateProgressBar(step) {
     const progressBar = document.getElementById('progressBar');
-    const percentage = (step / 6) * 100;
+    const totalSteps = userType === 'selftest' ? 5 : 7; // Self-test has fewer steps
+    const percentage = (step / totalSteps) * 100;
     progressBar.style.width = percentage + '%';
     progressBar.setAttribute('aria-valuenow', percentage);
-    progressBar.textContent = `Schritt ${step} von 6`;
+    
+    // Update text based on screen size
+    const desktopText = progressBar.querySelector('.d-none.d-sm-inline');
+    const mobileText = progressBar.querySelector('.d-inline.d-sm-none');
+    
+    if (desktopText) {
+        desktopText.textContent = `Schritt ${step} von ${totalSteps}`;
+    }
+    if (mobileText) {
+        mobileText.textContent = `${step}/${totalSteps}`;
+    }
 }
 
 function goToStep(step) {
@@ -126,9 +153,14 @@ function goToStep(step) {
 
 function validateCurrentStep() {
     switch (currentStep) {
+        case 0:
+            // User type selection - always valid (handled by selectUserType)
+            return true;
         case 1:
+            // Practice ID validation (only for practice users)
             return practiceData.id !== null;
         case 2:
+            // Mode selection (only for practice users)
             const mode = document.querySelector('input[name="mode"]:checked');
             if (!mode) {
                 showToast('Fehler', 'Bitte wählen Sie einen Eingabemodus', true);
@@ -137,6 +169,7 @@ function validateCurrentStep() {
             formData.mode = mode.value;
             return true;
         case 3:
+            // Language selection
             const language = document.getElementById('language').value;
             if (!language) {
                 showToast('Fehler', 'Bitte wählen Sie eine Sprache', true);
@@ -145,6 +178,7 @@ function validateCurrentStep() {
             formData.language = language;
             return true;
         case 4:
+            // Patient data (only if mode is 'practice')
             if (formData.mode === 'practice') {
                 const firstName = document.getElementById('firstName').value.trim();
                 const lastName = document.getElementById('lastName').value.trim();
@@ -224,41 +258,64 @@ async function validatePracticeId() {
     }
 }
 
-// Handle Step 3 Next (skip step 4 if mode is 'patient')
+// Handle Step 3 Next (skip step 4 if mode is 'patient' or userType is 'selftest')
 function handleStep3Next() {
     if (!validateCurrentStep()) {
         return;
     }
     
-    if (formData.mode === 'practice') {
-        goToStep(4);
-    } else {
+    if (userType === 'selftest' || formData.mode === 'patient') {
+        // Go directly to payment
         goToStep(5);
         updateSummary();
+    } else if (formData.mode === 'practice') {
+        // Go to patient data entry
+        goToStep(4);
     }
 }
 
 // Go back from Step 5
 function goBackFromStep5() {
-    if (formData.mode === 'practice') {
+    if (userType === 'selftest') {
+        // Self-test users go back to language selection (step 3)
+        goToStep(3);
+    } else if (formData.mode === 'practice') {
+        // Practice users with patient data go back to step 4
         goToStep(4);
     } else {
+        // Practice users without patient data go back to step 3
         goToStep(3);
     }
 }
 
 // Update Summary
 function updateSummary() {
-    document.getElementById('summaryPractice').textContent = practiceData.name;
-    document.getElementById('summaryMode').textContent = MODE_NAMES[formData.mode];
-    document.getElementById('summaryLanguage').textContent = LANGUAGE_NAMES[formData.language];
+    const summaryPractice = document.getElementById('summaryPractice');
+    const summaryMode = document.getElementById('summaryMode');
+    const summaryLanguage = document.getElementById('summaryLanguage');
+    const summaryPatientRow = document.getElementById('summaryPatientRow');
+    const paymentInfoText = document.getElementById('paymentInfoText');
+    
+    if (userType === 'selftest') {
+        summaryPractice.textContent = 'Selbst-Test';
+        summaryMode.textContent = 'Patient füllt selbst aus';
+        // Update payment amount for self-test
+        paymentInfoText.innerHTML = 'Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>1,00 € (inkl. MwSt.)</strong> zu tätigen.';
+    } else {
+        summaryPractice.textContent = practiceData.name;
+        summaryMode.textContent = MODE_NAMES[formData.mode];
+        // Payment amount for practice
+        paymentInfoText.innerHTML = 'Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>0,99 € (inkl. MwSt.)</strong> zu tätigen.';
+    }
+    
+    summaryLanguage.textContent = LANGUAGE_NAMES[formData.language];
     
     if (formData.mode === 'practice' && formData.patientData) {
-        document.getElementById('summaryPatientRow').style.display = 'block';
+        summaryPatientRow.style.display = 'block';
         document.getElementById('summaryPatient').textContent = 
             `${formData.patientData.firstName} ${formData.patientData.lastName} (${formData.patientData.birthDate})`;
     } else {
-        document.getElementById('summaryPatientRow').style.display = 'none';
+        summaryPatientRow.style.display = 'none';
     }
 }
 
@@ -272,17 +329,24 @@ async function initiatePayment() {
     showSpinner('paymentSpinner', true);
     
     try {
+        const requestBody = {
+            userType: userType,
+            mode: formData.mode,
+            language: formData.language,
+            patientData: formData.patientData
+        };
+        
+        // Only add practiceId for practice users
+        if (userType === 'practice') {
+            requestBody.practiceId = practiceData.id;
+        }
+        
         const response = await fetch('/api/create-checkout-session', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                practiceId: practiceData.id,
-                mode: formData.mode,
-                language: formData.language,
-                patientData: formData.patientData
-            })
+            body: JSON.stringify(requestBody)
         });
         
         const data = await response.json();

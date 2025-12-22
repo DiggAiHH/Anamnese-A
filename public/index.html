@@ -68,7 +68,7 @@
                             <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
                                  role="progressbar" style="width: 0%;" 
                                  aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
-                                <strong><span class="d-none d-sm-inline">Schritt 1 von 6</span><span class="d-inline d-sm-none">1/6</span></strong>
+                                <strong><span class="d-none d-sm-inline">Schritt 0 von 7</span><span class="d-inline d-sm-none">0/7</span></strong>
                             </div>
                         </div>
                     </div>
@@ -78,24 +78,81 @@
                 <div class="card shadow-lg">
                     <div class="card-body p-3 p-md-4 p-lg-5">
                         <form id="codeGeneratorForm">
-                            <!-- Step 1: Praxis-ID Login -->
-                            <div id="step1" class="form-step">
+                            <!-- Step 0: User Type Selection -->
+                            <div id="step0" class="form-step">
+                                <h2 class="mb-4 text-center">
+                                    <i class="bi bi-person-fill text-primary"></i> Willkommen
+                                </h2>
+                                <p class="lead text-center mb-5">Wählen Sie eine Option:</p>
+                                
+                                <div class="row g-4">
+                                    <!-- Option 1: Practice (Medical Facility) -->
+                                    <div class="col-md-6">
+                                        <div class="user-type-card" onclick="selectUserType('practice')">
+                                            <div class="user-type-icon">
+                                                <i class="bi bi-hospital-fill"></i>
+                                            </div>
+                                            <h3 class="user-type-title">Medizinische Einrichtung</h3>
+                                            <p class="user-type-description">
+                                                Ich bin eine Praxis/Klinik und möchte Codes für meine Patienten erstellen
+                                            </p>
+                                            <ul class="user-type-features">
+                                                <li><i class="bi bi-check-circle-fill"></i> Praxis-ID Login</li>
+                                                <li><i class="bi bi-check-circle-fill"></i> Mehrere Codes erstellen</li>
+                                                <li><i class="bi bi-check-circle-fill"></i> <strong>0,99 €</strong> pro Code</li>
+                                            </ul>
+                                            <button type="button" class="btn btn-primary btn-lg w-100 mt-3">
+                                                Als Praxis anmelden <i class="bi bi-arrow-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Option 2: Self-Test (Patient pays directly) -->
+                                    <div class="col-md-6">
+                                        <div class="user-type-card" onclick="selectUserType('selftest')">
+                                            <div class="user-type-icon user-type-icon-secondary">
+                                                <i class="bi bi-person-check-fill"></i>
+                                            </div>
+                                            <h3 class="user-type-title">Selbst-Test</h3>
+                                            <p class="user-type-description">
+                                                Ich möchte selbst einen Code kaufen und testen
+                                            </p>
+                                            <ul class="user-type-features">
+                                                <li><i class="bi bi-check-circle-fill"></i> Keine Anmeldung nötig</li>
+                                                <li><i class="bi bi-check-circle-fill"></i> Sofort testen</li>
+                                                <li><i class="bi bi-check-circle-fill"></i> <strong>1,00 €</strong> einmalig</li>
+                                            </ul>
+                                            <button type="button" class="btn btn-success btn-lg w-100 mt-3">
+                                                Selbst-Test starten <i class="bi bi-arrow-right"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Step 1: Praxis-ID Login (only for practice users) -->
+                            <div id="step1" class="form-step d-none">
                                 <h2 class="mb-4">
                                     <i class="bi bi-building text-primary"></i> Praxis-ID Anmeldung
                                 </h2>
                                 <div class="mb-4">
                                     <label for="practiceId" class="form-label">Praxis-ID (UUID)</label>
                                     <input type="text" class="form-control form-control-lg" id="practiceId" 
-                                           placeholder="z.B. 123e4567-e89b-12d3-a456-426614174000" required>
+                                           placeholder="z.B. 123e4567-e89b-12d3-a456-426614174000">
                                     <div id="practiceIdFeedback" class="invalid-feedback"></div>
                                     <div id="practiceNameDisplay" class="text-success mt-2" style="display: none;">
                                         <i class="bi bi-check-circle-fill"></i> <strong id="practiceName"></strong>
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-primary btn-lg w-100" onclick="validatePracticeId()">
-                                    <span id="validateSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
-                                    Weiter <i class="bi bi-arrow-right"></i>
-                                </button>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="goToStep(0)">
+                                        <i class="bi bi-arrow-left"></i> Zurück
+                                    </button>
+                                    <button type="button" class="btn btn-primary btn-lg flex-grow-1" onclick="validatePracticeId()">
+                                        <span id="validateSpinner" class="spinner-border spinner-border-sm d-none" role="status"></span>
+                                        Weiter <i class="bi bi-arrow-right"></i>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Step 2: Modus-Auswahl -->
@@ -220,9 +277,9 @@ auswahl -->
                                         </ul>
                                     </div>
                                 </div>
-                                <div class="alert alert-info">
+                                <div class="alert alert-info" id="paymentInfo">
                                     <i class="bi bi-info-circle"></i> 
-                                    Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>0,99 € (inkl. MwSt.)</strong> zu tätigen.
+                                    <span id="paymentInfoText">Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>0,99 € (inkl. MwSt.)</strong> zu tätigen.</span>
                                 </div>
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-outline-secondary" onclick="goBackFromStep5()">

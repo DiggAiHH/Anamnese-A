@@ -183,25 +183,50 @@ app.post('/api/validate-practice', async (req, res) => {
 // POST /api/create-checkout-session
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
-    const { practiceId, mode, language, patientData } = req.body;
+    const { userType, practiceId, mode, language, patientData } = req.body;
     
-    // Validierung
-    const schema = Joi.object({
-      practiceId: Joi.string().uuid().required(),
-      mode: Joi.string().valid('practice', 'patient').required(),
-      language: Joi.string().valid('de', 'de-en', 'de-ar', 'de-tr', 'de-uk', 'de-pl', 'de-fa', 'de-ur', 'de-ps', 'de-es', 'de-fr', 'de-it', 'de-ru').required(),
-      patientData: Joi.object({
-        firstName: Joi.string().max(100),
-        lastName: Joi.string().max(100),
-        birthDate: Joi.date().iso(),
-        address: Joi.string().max(500)
-      }).allow(null)
-    });
+    // Validation schema depends on userType
+    let schema;
+    if (userType === 'selftest') {
+      // For self-test, practiceId is not required
+      schema = Joi.object({
+        userType: Joi.string().valid('practice', 'selftest').required(),
+        practiceId: Joi.string().uuid().optional(),
+        mode: Joi.string().valid('practice', 'patient').required(),
+        language: Joi.string().valid('de', 'de-en', 'de-ar', 'de-tr', 'de-uk', 'de-pl', 'de-fa', 'de-ur', 'de-ps', 'de-es', 'de-fr', 'de-it', 'de-ru').required(),
+        patientData: Joi.object({
+          firstName: Joi.string().max(100),
+          lastName: Joi.string().max(100),
+          birthDate: Joi.date().iso(),
+          address: Joi.string().max(500)
+        }).allow(null)
+      });
+    } else {
+      // For practice, practiceId is required
+      schema = Joi.object({
+        userType: Joi.string().valid('practice', 'selftest').optional(),
+        practiceId: Joi.string().uuid().required(),
+        mode: Joi.string().valid('practice', 'patient').required(),
+        language: Joi.string().valid('de', 'de-en', 'de-ar', 'de-tr', 'de-uk', 'de-pl', 'de-fa', 'de-ur', 'de-ps', 'de-es', 'de-fr', 'de-it', 'de-ru').required(),
+        patientData: Joi.object({
+          firstName: Joi.string().max(100),
+          lastName: Joi.string().max(100),
+          birthDate: Joi.date().iso(),
+          address: Joi.string().max(500)
+        }).allow(null)
+      });
+    }
     
     const { error } = schema.validate(req.body);
     if (error) {
       return res.status(400).json({ error: error.details[0].message });
     }
+    
+    // Determine price based on userType
+    const unitAmount = userType === 'selftest' ? 100 : 99; // 1,00€ or 0,99€ in cents
+    const description = userType === 'selftest' 
+      ? `Selbst-Test | Sprache: ${language}`
+      : `Sprache: ${language}, Modus: ${mode}`;
     
     // Erstelle Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -211,9 +236,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
           currency: 'eur',
           product_data: {
             name: 'Anamnese-Zugangscode',
-            description: `Sprache: ${language}, Modus: ${mode}`
+            description: description
           },
-          unit_amount: 99, // 0,99€ in Cent
+          unit_amount: unitAmount,
           tax_behavior: 'inclusive'
         },
         quantity: 1
@@ -222,7 +247,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel`,
       metadata: {
-        practiceId,
+        userType: userType || 'practice',
+        practiceId: practiceId || 'SELFTEST',
         mode,
         language,
         patientData: patientData ? JSON.stringify(patientData) : null
