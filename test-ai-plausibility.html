@@ -361,13 +361,13 @@
         }
         
         // Test 5: Datenschutz-Features
-        function testPrivacyFeatures() {
+        async function testPrivacyFeatures() {
             logInfo('privacy', 'Teste Datenschutz-Features...');
             
-            // Test: Externe API-Blockierung
+            // Test: Externe API-Blockierung (async)
             let apiBlocked = false;
             try {
-                fetch('https://api.openai.com/v1/test');
+                await fetch('https://api.openai.com/v1/test');
             } catch (error) {
                 apiBlocked = error.message.includes('DSGVO');
             }

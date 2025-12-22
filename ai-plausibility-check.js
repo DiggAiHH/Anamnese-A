@@ -70,8 +70,9 @@ function logAIAccess(action, details = {}) {
     aiAuditLog.entries.push(entry);
     
     // Begrenzung der Log-Größe (DSGVO Art. 5 - Speicherbegrenzung)
+    // Verwende slice statt shift für bessere Performance
     if (aiAuditLog.entries.length > aiAuditLog.maxEntries) {
-        aiAuditLog.entries.shift();
+        aiAuditLog.entries = aiAuditLog.entries.slice(-aiAuditLog.maxEntries);
     }
     
     // Speichere Log lokal
