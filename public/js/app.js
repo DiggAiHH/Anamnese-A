@@ -13,8 +13,11 @@ let formData = {
 let generatedCode = null;
 let generatedUrl = null;
 
-// Initialize Stripe (will be set from environment)
-const stripe = Stripe('pk_test_51YOUR_KEY'); // This should be loaded from config
+// Initialize Stripe
+// In production, this should be configured via a config endpoint or build-time injection
+// For now, replace 'YOUR_PUBLISHABLE_KEY' with your actual Stripe publishable key
+const STRIPE_KEY = document.querySelector('meta[name="stripe-key"]')?.content || 'pk_test_YOUR_PUBLISHABLE_KEY';
+const stripe = Stripe(STRIPE_KEY);
 
 // Language mappings
 const LANGUAGE_NAMES = {
