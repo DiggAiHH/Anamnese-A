@@ -23,6 +23,8 @@
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
         }
     </script>
+    <!-- GDPR-compliant OCR Module -->
+    <script src="ocr-gdpr-module.js"></script>
     <script>
 // =================================================================
 // NEUE FUNKTIONEN FÜR LOGIK UND UI-VERBESSERUNGEN (MANUS)
@@ -1092,11 +1094,16 @@ async function showDecryptionModal() {
 }
 
 // =================================================================
-// DOKUMENTEN-UPLOAD UND OCR-FUNKTIONALITÄT
+// DOKUMENTEN-UPLOAD UND OCR-FUNKTIONALITÄT (LEGACY)
+// =================================================================
+// HINWEIS: Diese Funktionen werden für Rückwärtskompatibilität beibehalten.
+// Für DSGVO-konforme OCR-Verarbeitung verwenden Sie das neue Modul:
+// - ocr-gdpr-module.js (inkl. Audit-Logging, Datenschutz-Benachrichtigung, etc.)
+// - Funktionen: showDocumentUploadDialogGDPR(), DOCUMENT_STORAGE_GDPR, etc.
 // =================================================================
 
 /**
- * Speichert hochgeladene Dokumente und OCR-Texte
+ * Speichert hochgeladene Dokumente und OCR-Texte (LEGACY)
  */
 const DOCUMENT_STORAGE = {
     documents: [] // Array von {filename, text, timestamp, type}
@@ -1244,15 +1251,23 @@ async function showDocumentUploadDialog() {
 }
 
 /**
- * Erweiterte getAnswerJson-Funktion mit Dokumenten
+ * Erweiterte getAnswerJson-Funktion mit Dokumenten (GDPR-compliant)
  * @returns {object} - Das JSON-Objekt mit Antworten und Dokumenten
  */
 function getAnswerJsonWithDocuments() {
     const baseJson = getAnswerJson();
     
-    // Füge Dokumente hinzu, wenn vorhanden
-    if (DOCUMENT_STORAGE.documents.length > 0) {
-        baseJson.attachedDocuments = DOCUMENT_STORAGE.documents;
+    // Füge Dokumente hinzu aus GDPR-konformem Storage
+    if (typeof DOCUMENT_STORAGE_GDPR !== 'undefined') {
+        const documents = DOCUMENT_STORAGE_GDPR.getAllDocuments();
+        if (documents.length > 0) {
+            baseJson.attachedDocuments = documents;
+        }
+    } else {
+        // Fallback auf altes System (falls GDPR-Modul nicht geladen)
+        if (typeof DOCUMENT_STORAGE !== 'undefined' && DOCUMENT_STORAGE.documents.length > 0) {
+            baseJson.attachedDocuments = DOCUMENT_STORAGE.documents;
+        }
     }
     
     return baseJson;
@@ -13820,6 +13835,47 @@ function clearUploadedDocuments() {
                     sendEmailWithDocuments();
                 } else {
                     console.error('sendEmailWithDocuments function not found');
+                }
+            },
+            
+            // ----- GDPR-COMPLIANT DOCUMENT UPLOAD METHODS -----
+            async showDocumentUploadDialog() {
+                if (typeof showDocumentUploadDialogGDPR === 'function') {
+                    const result = await showDocumentUploadDialogGDPR();
+                    if (result.success) {
+                        alert(`✓ ${result.processedCount} Dokument(e) erfolgreich hochgeladen und verarbeitet.`);
+                    } else if (result.message) {
+                        alert(result.message);
+                    }
+                } else {
+                    console.error('showDocumentUploadDialogGDPR function not found - check ocr-gdpr-module.js');
+                    alert('OCR-Modul nicht geladen. Bitte Seite neu laden.');
+                }
+            },
+            
+            showUploadedDocuments() {
+                if (typeof showUploadedDocumentsGDPR === 'function') {
+                    showUploadedDocumentsGDPR();
+                } else {
+                    console.error('showUploadedDocumentsGDPR function not found');
+                }
+            },
+            
+            clearUploadedDocuments() {
+                if (typeof deleteAllDocumentsGDPR === 'function') {
+                    if (confirm('Möchten Sie wirklich ALLE hochgeladenen Dokumente löschen? (Art. 17 DSGVO - Recht auf Vergessenwerden)\n\nDiese Aktion kann nicht rückgängig gemacht werden.')) {
+                        deleteAllDocumentsGDPR();
+                    }
+                } else {
+                    console.error('deleteAllDocumentsGDPR function not found');
+                }
+            },
+            
+            showAuditReport() {
+                if (typeof showAuditReportGDPR === 'function') {
+                    showAuditReportGDPR();
+                } else {
+                    console.error('showAuditReportGDPR function not found');
                 }
             }
         };
