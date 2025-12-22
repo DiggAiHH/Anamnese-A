@@ -1,22 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Digital Medical History Questionnaire - Offline Medical App">
     <meta name="author" content="DiggAi GmbH">
+    <meta name="theme-color" content="#667eea">
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; 
+                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; 
                    style-src 'self' 'unsafe-inline'; 
-                   img-src 'self' data:; 
-                   connect-src 'self';">
-    <title>Medical History Questionnaire v7 (No Voice Recognition)</title>
+                   img-src 'self' data: blob:; 
+                   connect-src 'self';
+                   frame-ancestors 'none';">
+    <title>Medizinischer Anamnesebogen v8</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Anamnesebogen">
+    
+    <!-- Android PWA Support -->
+    <meta name="mobile-web-app-capable" content="yes">
     
     <!-- Tesseract.js for OCR -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <!-- PDF.js for PDF text extraction -->
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <!-- CryptoJS for encryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
+            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNs8n9SBe7yLFSw7VHT6+rRMASB5QFcM/N7Yj4fBcN4A6L6JSNO+JKgFXkYRD+Faq==" 
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
         // Configure PDF.js worker
         if (typeof pdfjsLib !== 'undefined') {
@@ -1467,6 +1484,113 @@ function clearUploadedDocuments() {
         }
 
         /* =================================================================
+           ACCESSIBILITY: SKIP LINKS
+           ================================================================= */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 0 0 4px 0;
+            z-index: 10000;
+            font-weight: bold;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 0;
+            outline: 3px solid var(--warning);
+            outline-offset: 2px;
+        }
+
+        /* Screen Reader Only content */
+        .sr-only {
+            position: absolute;
+            left: -10000px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+        }
+
+        /* =================================================================
+           ACCESSIBILITY: FOCUS INDICATORS
+           ================================================================= */
+        *:focus {
+            outline: 3px solid var(--warning);
+            outline-offset: 2px;
+        }
+
+        button:focus, input:focus, select:focus, textarea:focus, a:focus {
+            outline: 3px solid var(--warning);
+            outline-offset: 2px;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            :root {
+                --input-border: #000;
+                --border-color: #000;
+            }
+        }
+
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* =================================================================
+           MOBILE & PWA OPTIMIZATIONS
+           ================================================================= */
+        /* Touch device optimizations */
+        .touch-device button,
+        .touch-device input[type="button"],
+        .touch-device input[type="submit"],
+        .touch-device .btn {
+            min-height: 44px; /* iOS recommendation */
+            min-width: 44px;
+        }
+
+        /* Offline indicator */
+        body.offline::before {
+            content: '⚠️ Offline - Changes will be saved locally';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--warning);
+            color: #000;
+            text-align: center;
+            padding: 8px;
+            z-index: 9998;
+            font-weight: bold;
+        }
+
+        /* Safe area insets for iOS notch */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(0px, env(safe-area-inset-left));
+                padding-right: max(0px, env(safe-area-inset-right));
+            }
+        }
+
+        /* PWA standalone mode detection */
+        @media (display-mode: standalone) {
+            body::after {
+                content: '';
+                /* PWA-specific styles can go here */
+            }
+        }
+
+        /* =================================================================
            MODAL (Datenschutz)
            ================================================================= */
         .modal-overlay {
@@ -1940,6 +2064,10 @@ function clearUploadedDocuments() {
     </style>
 </head>
 <body>
+    <!-- Skip Links for Accessibility -->
+    <a href="#app-container" class="skip-link">Skip to main content</a>
+    <a href="#language-select" class="skip-link">Skip to language selector</a>
+
     <!-- ================================================================
          DATENSCHUTZ MODAL
          ================================================================ -->
@@ -1960,26 +2088,27 @@ function clearUploadedDocuments() {
     <!-- ================================================================
          MAIN APPLICATION
          ================================================================ -->
-    <div id="app-container" class="app-container hidden">
-        <header>
+    <div id="app-container" class="app-container hidden" role="main" aria-label="Medical questionnaire application">
+        <header role="banner">
             <h1 id="app-title"><span data-translate="app_title">🏥 Medical History Questionnaire</span></h1>
             
-            <div class="disclaimer warning" id="disclaimer-medical" data-translate="disclaimer_medical">
+            <div class="disclaimer warning" id="disclaimer-medical" data-translate="disclaimer_medical" role="alert" aria-live="polite">
                 This is a digital medical history tool and does not replace a medical examination.
             </div>
-            <div class="disclaimer success" id="disclaimer-privacy" data-translate="disclaimer_privacy">
+            <div class="disclaimer success" id="disclaimer-privacy" data-translate="disclaimer_privacy" role="status">
                 Your entries are stored locally and only transferred as a file.
             </div>
 
-            <div class="header-controls">
-                <select id="language-select" onchange="App.changeLanguage(this.value)"></select>
-                <button id="theme-toggle" onclick="App.toggleTheme()">🌙 Dark Mode</button>
-            </div>
+            <nav class="header-controls" role="navigation" aria-label="Application settings">
+                <label for="language-select" class="sr-only">Select language</label>
+                <select id="language-select" onchange="App.changeLanguage(this.value)" aria-label="Language selection"></select>
+                <button id="theme-toggle" onclick="App.toggleTheme()" aria-label="Toggle dark mode">🌙 Dark Mode</button>
+            </nav>
         </header>
 
-        <div class="progress-container">
-            <div class="progress-text" id="progress-text">Schritt 1 von 3</div>
-            <div class="progress-bar">
+        <div class="progress-container" role="complementary" aria-label="Form completion progress">
+            <div class="progress-text" id="progress-text" aria-live="polite" aria-atomic="true">Schritt 1 von 3</div>
+            <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10">
                 <div class="progress-fill" id="progress-fill" style="width: 10%;"></div>
             </div>
         </div>
@@ -2075,14 +2204,20 @@ function clearUploadedDocuments() {
             "fr": "Français",
             "es": "Español",
             "it": "Italiano",
+            "pt": "Português",
+            "nl": "Nederlands",
             "tr": "Türkçe",
             "pl": "Polski",
+            "sq": "Shqip",
+            "ro": "Română",
             "ru": "Русский",
             "uk": "Українська",
             "ar": "العربية",
             "fa": "فارسی",
             "ur": "اردو",
-            "zh": "中文"
+            "zh": "中文",
+            "hi": "हिन्दी",
+            "ja": "日本語"
         },
         "translations": {
                 "de": {
@@ -3445,6 +3580,116 @@ function clearUploadedDocuments() {
                         "0003_tag": "Dzień",
                         "0003_monat": "Miesiąc",
                         "0003_jahr": "Rok"
+                },
+                "nl": {
+                        "title_q0000": "Basisgegevens",
+                        "label_0000": "Achternaam",
+                        "label_0001": "Voornaam",
+                        "label_0002": "Geslacht",
+                        "app_title": "Medische Anamnese Vragenlijst",
+                        "privacy_notice": "Privacyverklaring",
+                        "privacy_text": "Deze applicatie verwerkt uw gezondheidsgegevens uitsluitend lokaal op uw apparaat. Er worden geen gegevens verzonden naar externe servers (behalve voor het eenmalig laden van taalmodellen, indien online). Door te klikken op 'Accepteren & Starten' stemt u in met lokale verwerking.",
+                        "accept_start": "Accepteren & Starten",
+                        "btn_back": "Terug",
+                        "btn_next": "Volgende",
+                        "btn_summary": "Samenvatting",
+                        "btn_save": "Opslaan",
+                        "btn_load": "Laden",
+                        "btn_restart": "Opnieuw starten",
+                        "select_placeholder": "Selecteer alstublieft...",
+                        "please_select": "Selecteer alstublieft...",
+                        "step_of": "Stap {current} van {total}",
+                        "0003_tag": "Dag",
+                        "0003_monat": "Maand",
+                        "0003_jahr": "Jaar"
+                },
+                "sq": {
+                        "title_q0000": "Të dhënat bazë",
+                        "label_0000": "Mbiemri",
+                        "label_0001": "Emri",
+                        "label_0002": "Gjinia",
+                        "app_title": "Pyetësori i Historisë Mjekësore",
+                        "privacy_notice": "Njoftimi i Privatësisë",
+                        "privacy_text": "Ky aplikacion përpunon të dhënat tuaja shëndetësore vetëm lokalisht në pajisjen tuaj. Asnjë të dhënë nuk transmetohet në serverë të jashtëm (përveç ngarkimit njëherësh të modeleve gjuhësore, nëse jeni online). Duke klikuar 'Prano & Fillo' ju pranoni përpunimin lokal.",
+                        "accept_start": "Prano & Fillo",
+                        "btn_back": "Prapa",
+                        "btn_next": "Përpara",
+                        "btn_summary": "Përmbledhje",
+                        "btn_save": "Ruaj",
+                        "btn_load": "Ngarko",
+                        "btn_restart": "Filloni përsëri",
+                        "select_placeholder": "Ju lutem zgjidhni...",
+                        "please_select": "Ju lutem zgjidhni...",
+                        "step_of": "Hapi {current} nga {total}",
+                        "0003_tag": "Dita",
+                        "0003_monat": "Muaji",
+                        "0003_jahr": "Viti"
+                },
+                "ro": {
+                        "title_q0000": "Date de bază",
+                        "label_0000": "Nume de familie",
+                        "label_0001": "Prenume",
+                        "label_0002": "Sex",
+                        "app_title": "Chestionar de Anamneză Medicală",
+                        "privacy_notice": "Notificare de confidențialitate",
+                        "privacy_text": "Această aplicație procesează datele dumneavoastră de sănătate exclusiv local pe dispozitivul dumneavoastră. Nu se transmit date către servere externe (cu excepția încărcării unice a modelelor de limbă, dacă sunteți online). Făcând clic pe 'Acceptare & Începere' sunteți de acord cu procesarea locală.",
+                        "accept_start": "Acceptare & Începere",
+                        "btn_back": "Înapoi",
+                        "btn_next": "Următorul",
+                        "btn_summary": "Rezumat",
+                        "btn_save": "Salvare",
+                        "btn_load": "Încărcare",
+                        "btn_restart": "Repornire",
+                        "select_placeholder": "Vă rugăm să selectați...",
+                        "please_select": "Vă rugăm să selectați...",
+                        "step_of": "Pasul {current} din {total}",
+                        "0003_tag": "Zi",
+                        "0003_monat": "Lună",
+                        "0003_jahr": "An"
+                },
+                "hi": {
+                        "title_q0000": "बुनियादी डेटा",
+                        "label_0000": "उपनाम",
+                        "label_0001": "प्रथम नाम",
+                        "label_0002": "लिंग",
+                        "app_title": "चिकित्सा इतिहास प्रश्नावली",
+                        "privacy_notice": "गोपनीयता सूचना",
+                        "privacy_text": "यह एप्लिकेशन आपके स्वास्थ्य डेटा को केवल आपके डिवाइस पर स्थानीय रूप से संसाधित करता है। कोई डेटा बाहरी सर्वर पर प्रसारित नहीं किया जाता है (भाषा मॉडल की एक बार लोडिंग को छोड़कर, यदि ऑनलाइन है)। 'स्वीकार करें और प्रारंभ करें' पर क्लिक करके आप स्थानीय प्रसंस्करण के लिए सहमत होते हैं।",
+                        "accept_start": "स्वीकार करें और प्रारंभ करें",
+                        "btn_back": "वापस",
+                        "btn_next": "आगे",
+                        "btn_summary": "सारांश",
+                        "btn_save": "सहेजें",
+                        "btn_load": "लोड करें",
+                        "btn_restart": "पुनः प्रारंभ करें",
+                        "select_placeholder": "कृपया चुनें...",
+                        "please_select": "कृपया चुनें...",
+                        "step_of": "चरण {current} का {total}",
+                        "0003_tag": "दिन",
+                        "0003_monat": "महीना",
+                        "0003_jahr": "वर्ष"
+                },
+                "ja": {
+                        "title_q0000": "基本データ",
+                        "label_0000": "姓",
+                        "label_0001": "名",
+                        "label_0002": "性別",
+                        "app_title": "医療問診票",
+                        "privacy_notice": "プライバシー通知",
+                        "privacy_text": "このアプリケーションは、お客様の健康データをお客様のデバイス上でローカルにのみ処理します。外部サーバーにデータが送信されることはありません（オンラインの場合、言語モデルの1回限りの読み込みを除く）。「同意して開始」をクリックすることで、ローカル処理に同意したことになります。",
+                        "accept_start": "同意して開始",
+                        "btn_back": "戻る",
+                        "btn_next": "次へ",
+                        "btn_summary": "概要",
+                        "btn_save": "保存",
+                        "btn_load": "読み込み",
+                        "btn_restart": "再開",
+                        "select_placeholder": "選択してください...",
+                        "please_select": "選択してください...",
+                        "step_of": "ステップ {current} / {total}",
+                        "0003_tag": "日",
+                        "0003_monat": "月",
+                        "0003_jahr": "年"
                 }
         },
         "red_flag_fields": [],
@@ -13885,6 +14130,195 @@ function clearUploadedDocuments() {
 
         // Start
         window.addEventListener('DOMContentLoaded', () => App.init());
+
+        // ====================================================================
+        // PWA SERVICE WORKER REGISTRATION
+        // ====================================================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('[PWA] Service Worker registered:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('[PWA] New version available! Reload to update.');
+                                    // Could show a notification to user here
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.log('[PWA] Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        // ====================================================================
+        // ACCESSIBILITY: SKIP LINK FUNCTIONALITY
+        // ====================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Focus management for skip links
+            const skipLinks = document.querySelectorAll('.skip-link');
+            skipLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('href').substring(1);
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        target.setAttribute('tabindex', '-1');
+                        target.focus();
+                        target.addEventListener('blur', () => {
+                            target.removeAttribute('tabindex');
+                        }, { once: true });
+                    }
+                });
+            });
+        });
+
+        // ====================================================================
+        // ACCESSIBILITY: LIVE REGION ANNOUNCER
+        // ====================================================================
+        class LiveRegionAnnouncer {
+            constructor() {
+                this.politeRegion = this.createRegion('polite');
+                this.assertiveRegion = this.createRegion('assertive');
+                this.queue = [];
+                this.isProcessing = false;
+            }
+
+            createRegion(level) {
+                let region = document.getElementById(`live-region-${level}`);
+                if (!region) {
+                    region = document.createElement('div');
+                    region.id = `live-region-${level}`;
+                    region.setAttribute('role', level === 'assertive' ? 'alert' : 'status');
+                    region.setAttribute('aria-live', level);
+                    region.setAttribute('aria-atomic', 'true');
+                    region.className = 'sr-only';
+                    region.style.cssText = 'position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;';
+                    document.body.appendChild(region);
+                }
+                return region;
+            }
+
+            announce(message, priority = 'polite') {
+                if (!message) return;
+                
+                const region = priority === 'assertive' ? this.assertiveRegion : this.politeRegion;
+                
+                // Clear and announce
+                region.textContent = '';
+                setTimeout(() => {
+                    region.textContent = message;
+                }, 100);
+
+                // Auto-clear after 5 seconds
+                setTimeout(() => {
+                    region.textContent = '';
+                }, 5000);
+            }
+        }
+
+        // Initialize live region announcer
+        window.liveRegionAnnouncer = new LiveRegionAnnouncer();
+
+        // ====================================================================
+        // KEYBOARD NAVIGATION ENHANCEMENTS
+        // ====================================================================
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + S: Save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (typeof App !== 'undefined' && App.saveToLocalStorage) {
+                    App.saveToLocalStorage();
+                    window.liveRegionAnnouncer?.announce('Daten gespeichert', 'polite');
+                }
+            }
+
+            // Ctrl/Cmd + Right Arrow: Next section
+            if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (typeof App !== 'undefined' && App.nextStep) {
+                    App.nextStep();
+                }
+            }
+
+            // Ctrl/Cmd + Left Arrow: Previous section
+            if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (typeof App !== 'undefined' && App.prevStep) {
+                    App.prevStep();
+                }
+            }
+
+            // Escape: Close modals
+            if (e.key === 'Escape') {
+                const summaryDiv = document.getElementById('summary-modal');
+                if (summaryDiv && summaryDiv.style.display !== 'none') {
+                    summaryDiv.style.display = 'none';
+                    window.liveRegionAnnouncer?.announce('Modal geschlossen', 'polite');
+                }
+            }
+        });
+
+        // ====================================================================
+        // MOBILE: TOUCH OPTIMIZATION
+        // ====================================================================
+        if ('ontouchstart' in window) {
+            // Add touch class to body for CSS hooks
+            document.body.classList.add('touch-device');
+
+            // Improve tap responsiveness
+            document.addEventListener('touchstart', function() {}, { passive: true });
+        }
+
+        // ====================================================================
+        // ONLINE/OFFLINE STATUS
+        // ====================================================================
+        window.addEventListener('online', () => {
+            console.log('[Network] Online');
+            window.liveRegionAnnouncer?.announce('Verbindung wiederhergestellt', 'polite');
+            document.body.classList.remove('offline');
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('[Network] Offline');
+            window.liveRegionAnnouncer?.announce('Keine Internetverbindung', 'assertive');
+            document.body.classList.add('offline');
+        });
+
+        // ====================================================================
+        // PERFORMANCE: LAZY LOAD IMAGES
+        // ====================================================================
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        if (img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                            observer.unobserve(img);
+                        }
+                    }
+                });
+            }, {
+                rootMargin: '50px'
+            });
+
+            // Observe all images with data-src
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('img[data-src]').forEach(img => {
+                    imageObserver.observe(img);
+                });
+            });
+        }
+
+        console.log('[App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization');
     </script>
 </body>
 </html>
