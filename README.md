@@ -11,6 +11,7 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **🔒 AES-256 Encryption**: All data encrypted with Web Crypto API using AES-256-GCM
 - **💾 Local Storage**: All data stored only on your device (localStorage)
 - **🎤 Speech Recognition**: VOSK-based local speech recognition (German 50 MB model) with browser fallback
+- **🤖 AI Plausibility Check**: Privacy-compliant, local rule-based validation (no external AI services)
 - **📤 JSON Export**: Export your medical history as JSON file
 - **🏥 GDT-Export**: GDPR-compliant export interface for practice management systems (Medatixx, CGM, Quincy)
 - **🔐 Privacy-Compliant**: GDPR/DSGVO compliant - no external server communication
@@ -285,6 +286,45 @@ For detailed GDT export documentation, see:
 - 📄 [GDT_EXPORT_README.md](GDT_EXPORT_README.md) - Quick start guide
 - 📄 [GDPR_EXPORT_DOCUMENTATION.md](GDPR_EXPORT_DOCUMENTATION.md) - Comprehensive GDPR documentation
 - 🧪 [test-gdt-export.html](test-gdt-export.html) - Test suite
+
+### AI Plausibility Check (Privacy-Compliant)
+
+The AI Plausibility Check provides automated validation of medical history data:
+
+**Features**:
+- ✅ **100% Local Processing**: All validation runs in the browser
+- ✅ **No External AI Services**: OpenAI, Google AI, Anthropic, etc. are blocked
+- ✅ **Rule-Based System**: Transparent, explainable validation rules
+- ✅ **Medical Logic Checks**: Age-gender consistency, medication-allergy conflicts
+- ✅ **Privacy by Design**: Pseudonymized audit logs, no data transmission
+- ✅ **GDPR Compliant**: Full DSFA/PIA documentation included
+
+**Documentation**:
+- 📄 [AI_PRIVACY_IMPACT_ASSESSMENT.md](AI_PRIVACY_IMPACT_ASSESSMENT.md) - Complete DSFA/PIA
+- 📄 [BFDI_CHECKLIST.md](BFDI_CHECKLIST.md) - BfDI compliance checklist
+- 📄 [AI_DELETION_CONCEPT.md](AI_DELETION_CONCEPT.md) - Art. 17 GDPR deletion concept
+- 📄 [AI_TECHNICAL_DOCUMENTATION.md](AI_TECHNICAL_DOCUMENTATION.md) - Technical documentation
+- 🧪 [test-ai-plausibility.html](test-ai-plausibility.html) - Test suite
+
+**Usage**:
+```javascript
+// Include the module
+<script src="ai-plausibility-check.js"></script>
+
+// Perform plausibility check
+const formData = getFormData();
+const results = performPlausibilityCheck(formData);
+
+// Display warnings and errors
+if (results.warnings.length > 0) {
+    console.warn('Warnings:', results.warnings);
+}
+if (results.errors.length > 0) {
+    console.error('Errors:', results.errors);
+}
+```
+
+**Important**: This is a support system only. Final medical decisions must be made by qualified healthcare professionals.
 
 ## 🔒 Data Protection Compliance
 
