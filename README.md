@@ -11,6 +11,7 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **🔒 AES-256 Encryption**: All data encrypted with Web Crypto API using AES-256-GCM
 - **💾 Local Storage**: All data stored only on your device (localStorage)
 - **🎤 Speech Recognition**: VOSK-based local speech recognition (German 50 MB model) with browser fallback
+- **🤖 AI Plausibility Check**: Privacy-compliant, local rule-based validation (no external AI services)
 - **📤 JSON Export**: Export your medical history as JSON file
 - **🏥 GDT-Export**: GDPR-compliant export interface for practice management systems (Medatixx, CGM, Quincy)
 - **🔐 Privacy-Compliant**: GDPR/DSGVO compliant - no external server communication
