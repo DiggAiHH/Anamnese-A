@@ -1262,11 +1262,14 @@ function getAnswerJsonWithDocuments() {
         const documents = DOCUMENT_STORAGE_GDPR.getAllDocuments();
         if (documents.length > 0) {
             baseJson.attachedDocuments = documents;
+            console.log(`✓ ${documents.length} Dokument(e) aus GDPR-Storage hinzugefügt`);
         }
     } else {
         // Fallback auf altes System (falls GDPR-Modul nicht geladen)
+        console.warn('⚠️ GDPR-Modul nicht geladen - verwende Legacy-Storage');
         if (typeof DOCUMENT_STORAGE !== 'undefined' && DOCUMENT_STORAGE.documents.length > 0) {
             baseJson.attachedDocuments = DOCUMENT_STORAGE.documents;
+            console.log(`✓ ${DOCUMENT_STORAGE.documents.length} Dokument(e) aus Legacy-Storage hinzugefügt`);
         }
     }
     

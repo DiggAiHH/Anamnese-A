@@ -39,7 +39,7 @@ const OCR_AUDIT = {
             processingLocation: 'local_browser', // GARANTIE: Immer lokal
             textLength: details.textLength || null,
             userId: details.userId || this.getSessionUserId(),
-            userAgent: navigator.userAgent,
+            userAgent: this.anonymizeUserAgent(navigator.userAgent), // Anonymisiert für DSGVO
             language: details.language || 'deu',
             success: details.success !== false,
             errorMessage: details.errorMessage || null,
@@ -50,6 +50,20 @@ const OCR_AUDIT = {
         this.persistLog(logEntry);
         
         return logEntry;
+    },
+    
+    /**
+     * Anonymisiert User Agent String (Datensparsamkeit Art. 5 DSGVO)
+     */
+    anonymizeUserAgent(userAgent) {
+        // Extrahiere nur Browser-Familie und grobes OS ohne detaillierte Versionsnummern
+        const browserMatch = userAgent.match(/(Chrome|Firefox|Safari|Edge|Opera)\/[\d.]+/);
+        const osMatch = userAgent.match(/(Windows|Mac OS|Linux|Android|iOS)/);
+        
+        const browser = browserMatch ? browserMatch[1] : 'Unknown';
+        const os = osMatch ? osMatch[1] : 'Unknown';
+        
+        return `${browser} on ${os}`;
     },
     
     /**
@@ -404,25 +418,73 @@ const DOCUMENT_STORAGE_GDPR = {
     },
     
     /**
-     * Persistiert Dokumente (verschlüsselt)
+     * Persistiert Dokumente (verschlüsselt mit AES-256-GCM)
+     * WICHTIG: Verwendet die Verschlüsselungsfunktion aus encryption.js wenn verfügbar
      */
     persistDocuments() {
         try {
-            // In production sollte hier die Verschlüsselung erfolgen
-            localStorage.setItem('ocrDocuments', JSON.stringify(this.documents));
+            const dataToStore = JSON.stringify(this.documents);
+            
+            // Versuche, mit encryption.js zu verschlüsseln (wenn geladen)
+            if (typeof encryptData === 'function' && typeof getEncryptionKey === 'function') {
+                // Verwende bestehenden Encryption-Key
+                const key = getEncryptionKey();
+                if (key) {
+                    // Asynchrone Verschlüsselung - speichere mit Prefix für später
+                    encryptData(dataToStore, key).then(encrypted => {
+                        localStorage.setItem('ocrDocuments_encrypted', encrypted);
+                        localStorage.setItem('ocrDocuments_encryptionMethod', 'AES-256-GCM');
+                    }).catch(err => {
+                        console.error('Verschlüsselung fehlgeschlagen, speichere unverschlüsselt:', err);
+                        localStorage.setItem('ocrDocuments', dataToStore);
+                    });
+                } else {
+                    // Kein Key verfügbar, speichere unverschlüsselt (mit Warnung)
+                    console.warn('⚠️ WARNUNG: Dokumente werden unverschlüsselt gespeichert (kein Encryption-Key)');
+                    localStorage.setItem('ocrDocuments', dataToStore);
+                }
+            } else {
+                // encryption.js nicht geladen - speichere unverschlüsselt mit Warnung
+                console.warn('⚠️ WARNUNG: Dokumente werden unverschlüsselt gespeichert (encryption.js nicht geladen)');
+                localStorage.setItem('ocrDocuments', dataToStore);
+            }
         } catch (error) {
             console.error('Fehler beim Persistieren der Dokumente:', error);
         }
     },
     
     /**
-     * Lädt Dokumente aus Storage
+     * Lädt Dokumente aus Storage (verschlüsselt oder unverschlüsselt)
      */
-    loadDocuments() {
+    async loadDocuments() {
         try {
+            // Prüfe zuerst auf verschlüsselte Daten
+            const encryptedData = localStorage.getItem('ocrDocuments_encrypted');
+            const encryptionMethod = localStorage.getItem('ocrDocuments_encryptionMethod');
+            
+            if (encryptedData && encryptionMethod === 'AES-256-GCM') {
+                // Versuche zu entschlüsseln
+                if (typeof decryptData === 'function' && typeof getEncryptionKey === 'function') {
+                    const key = getEncryptionKey();
+                    if (key) {
+                        try {
+                            const decrypted = await decryptData(encryptedData, key);
+                            this.documents = JSON.parse(decrypted);
+                            console.log('✓ Dokumente erfolgreich entschlüsselt geladen');
+                            return;
+                        } catch (decryptError) {
+                            console.error('Entschlüsselung fehlgeschlagen:', decryptError);
+                            // Fallback auf unverschlüsselte Daten
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: Lade unverschlüsselte Daten
             const stored = localStorage.getItem('ocrDocuments');
             if (stored) {
                 this.documents = JSON.parse(stored);
+                console.warn('⚠️ Dokumente wurden unverschlüsselt geladen');
             }
         } catch (error) {
             console.error('Fehler beim Laden der Dokumente:', error);
@@ -567,6 +629,36 @@ const DOCUMENT_STORAGE_GDPR = {
 // ============================================================================
 // ENHANCED OCR FUNCTIONS (mit GDPR-Compliance)
 // ============================================================================
+
+/**
+ * Extrahiert Text aus einem PDF-Dokument (LOKAL mit PDF.js)
+ * @param {File} file - Die PDF-Datei
+ * @returns {Promise<string>} - Der extrahierte Text
+ */
+async function extractTextFromPDF(file) {
+    try {
+        // Prüfe ob PDF.js geladen ist
+        if (typeof pdfjsLib === 'undefined') {
+            throw new Error('PDF.js Bibliothek nicht geladen');
+        }
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            fullText += pageText + '\n';
+        }
+        
+        return fullText.trim();
+    } catch (error) {
+        console.error('PDF-Textextraktion fehlgeschlagen:', error);
+        throw new Error('Fehler beim Extrahieren des Textes aus PDF: ' + error.message);
+    }
+}
 
 /**
  * Führt OCR auf einem Bild durch (LOKAL - KEINE EXTERNEN APIs)
@@ -779,74 +871,110 @@ function showUploadedDocumentsGDPR() {
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     `;
     
-    let docListHTML = docs.map((doc, index) => `
-        <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px;">
-            <div style="display: flex; justify-content: space-between; align-items: start;">
-                <div style="flex: 1;">
-                    <h4 style="margin: 0 0 10px 0;">${index + 1}. ${doc.filename}</h4>
-                    <p style="margin: 5px 0; font-size: 13px; color: #666;">
-                        <strong>Typ:</strong> ${doc.type} | 
-                        <strong>Größe:</strong> ${(doc.originalSize / 1024).toFixed(1)} KB | 
-                        <strong>Text:</strong> ${doc.text?.length || 0} Zeichen
-                    </p>
-                    <p style="margin: 5px 0; font-size: 12px; color: #999;">
-                        Hochgeladen: ${new Date(doc.uploadTimestamp).toLocaleString('de-DE')}
-                    </p>
-                </div>
-                <button onclick="deleteDocumentGDPR('${doc.id}')" style="
-                    padding: 8px 16px;
-                    background: #f44336;
-                    color: white;
-                    border: none;
-                    border-radius: 4px;
-                    cursor: pointer;
-                    font-size: 13px;
-                ">🗑️ Löschen</button>
-            </div>
-        </div>
-    `).join('');
+    // Erstelle Dokumente-Liste mit createElement statt innerHTML (XSS-sicher)
+    const docListContainer = document.createElement('div');
+    docListContainer.id = 'documentsList';
     
-    content.innerHTML = `
-        <h2 style="margin-top: 0;">📋 Hochgeladene Dokumente (${docs.length})</h2>
-        <div id="documentsList">${docListHTML}</div>
-        <div style="margin-top: 20px; padding: 15px; background: #fff3e0; border-radius: 4px;">
-            <p style="margin: 0; font-size: 13px;">
-                ℹ️ <strong>Datenschutz-Hinweis:</strong> Sie können einzelne Dokumente oder alle Dokumente 
-                gemäß Art. 17 DSGVO (Recht auf Vergessenwerden) jederzeit löschen.
-            </p>
-        </div>
-        <div style="display: flex; justify-content: space-between; gap: 10px; margin-top: 20px;">
-            <button id="deleteAllDocsBtn" style="
-                padding: 12px 24px;
-                background: #f44336;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            ">🗑️ Alle löschen (Art. 17 DSGVO)</button>
-            <button id="closeDocsModal" style="
-                padding: 12px 24px;
-                background: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-            ">Schließen</button>
-        </div>
-    `;
+    docs.forEach((doc, index) => {
+        const docDiv = document.createElement('div');
+        docDiv.style.cssText = 'border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px;';
+        
+        const flexDiv = document.createElement('div');
+        flexDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: start;';
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.style.flex = '1';
+        
+        const title = document.createElement('h4');
+        title.style.cssText = 'margin: 0 0 10px 0;';
+        title.textContent = `${index + 1}. ${doc.filename}`;
+        
+        const info = document.createElement('p');
+        info.style.cssText = 'margin: 5px 0; font-size: 13px; color: #666;';
+        info.textContent = `Typ: ${doc.type} | Größe: ${(doc.originalSize / 1024).toFixed(1)} KB | Text: ${doc.text?.length || 0} Zeichen`;
+        
+        const timestamp = document.createElement('p');
+        timestamp.style.cssText = 'margin: 5px 0; font-size: 12px; color: #999;';
+        timestamp.textContent = `Hochgeladen: ${new Date(doc.uploadTimestamp).toLocaleString('de-DE')}`;
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '🗑️ Löschen';
+        deleteBtn.style.cssText = 'padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;';
+        deleteBtn.dataset.documentId = doc.id; // Verwende data-attribute statt onclick
+        deleteBtn.className = 'delete-doc-btn';
+        
+        infoDiv.appendChild(title);
+        infoDiv.appendChild(info);
+        infoDiv.appendChild(timestamp);
+        
+        flexDiv.appendChild(infoDiv);
+        flexDiv.appendChild(deleteBtn);
+        
+        docDiv.appendChild(flexDiv);
+        docListContainer.appendChild(docDiv);
+    });
+    
+    const header = document.createElement('h2');
+    header.style.marginTop = '0';
+    header.textContent = `📋 Hochgeladene Dokumente (${docs.length})`;
+    
+    const privacyNotice = document.createElement('div');
+    privacyNotice.style.cssText = 'margin-top: 20px; padding: 15px; background: #fff3e0; border-radius: 4px;';
+    const noticeText = document.createElement('p');
+    noticeText.style.cssText = 'margin: 0; font-size: 13px;';
+    noticeText.innerHTML = 'ℹ️ <strong>Datenschutz-Hinweis:</strong> Sie können einzelne Dokumente oder alle Dokumente gemäß Art. 17 DSGVO (Recht auf Vergessenwerden) jederzeit löschen.';
+    privacyNotice.appendChild(noticeText);
+    
+    const buttonDiv = document.createElement('div');
+    buttonDiv.style.cssText = 'display: flex; justify-content: space-between; gap: 10px; margin-top: 20px;';
+    
+    const deleteAllBtn = document.createElement('button');
+    deleteAllBtn.id = 'deleteAllDocsBtn';
+    deleteAllBtn.textContent = '🗑️ Alle löschen (Art. 17 DSGVO)';
+    deleteAllBtn.style.cssText = 'padding: 12px 24px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'closeDocsModal';
+    closeBtn.textContent = 'Schließen';
+    closeBtn.style.cssText = 'padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;';
+    
+    buttonDiv.appendChild(deleteAllBtn);
+    buttonDiv.appendChild(closeBtn);
+    
+    content.appendChild(header);
+    content.appendChild(docListContainer);
+    content.appendChild(privacyNotice);
+    content.appendChild(buttonDiv);
     
     modal.appendChild(content);
     document.body.appendChild(modal);
     
+    // Event Delegation für Delete-Buttons (XSS-sicher)
+    docListContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-doc-btn')) {
+            const documentId = e.target.dataset.documentId;
+            if (confirm('Dokument wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+                const result = DOCUMENT_STORAGE_GDPR.deleteDocument(documentId);
+                if (result.success) {
+                    alert('✓ Dokument erfolgreich gelöscht.');
+                    document.body.removeChild(modal);
+                    showUploadedDocumentsGDPR(); // Neu laden
+                } else {
+                    alert('❌ Fehler beim Löschen: ' + result.error);
+                }
+            }
+        }
+    });
+    
     // Event Listeners
-    document.getElementById('deleteAllDocsBtn').addEventListener('click', () => {
+    deleteAllBtn.addEventListener('click', () => {
         if (confirm('Möchten Sie wirklich ALLE Dokumente unwiderruflich löschen? (Art. 17 DSGVO)')) {
             deleteAllDocumentsGDPR();
             document.body.removeChild(modal);
         }
     });
     
-    document.getElementById('closeDocsModal').addEventListener('click', () => {
+    closeBtn.addEventListener('click', () => {
         document.body.removeChild(modal);
     });
 }
