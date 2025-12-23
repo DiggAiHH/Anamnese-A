@@ -1,22 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Digital Medical History Questionnaire - Offline Medical App">
     <meta name="author" content="DiggAi GmbH">
+    <meta name="theme-color" content="#667eea">
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; 
+                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; 
                    style-src 'self' 'unsafe-inline'; 
-                   img-src 'self' data:; 
-                   connect-src 'self';">
-    <title>Medical History Questionnaire v7 (No Voice Recognition)</title>
+                   img-src 'self' data: blob:; 
+                   connect-src 'self';
+                   frame-ancestors 'none';">
+    <title>Medizinischer Anamnesebogen v8</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Anamnesebogen">
+    
+    <!-- Android PWA Support -->
+    <meta name="mobile-web-app-capable" content="yes">
     
     <!-- Tesseract.js for OCR -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <!-- PDF.js for PDF text extraction -->
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <!-- CryptoJS for encryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
+            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNs8n9SBe7yLFSw7VHT6+rRMASB5QFcM/N7Yj4fBcN4A6L6JSNO+JKgFXkYRD+Faq==" 
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
         // Configure PDF.js worker
         if (typeof pdfjsLib !== 'undefined') {
@@ -759,6 +776,13 @@ function scheduleAutoSave() {
 function saveToLocalStorage() {
     return new Promise((resolve, reject) => {
         try {
+            // Check rate limit
+            if (window.rateLimiter && !window.rateLimiter.isAllowed('save')) {
+                console.warn('[Save] Rate limit exceeded, please wait');
+                reject(new Error('Too many save attempts. Please wait a moment.'));
+                return;
+            }
+
             const answers = (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
                 ? APP_STATE.answers 
                 : (typeof AppState !== 'undefined' && AppState.answers) 
@@ -775,8 +799,19 @@ function saveToLocalStorage() {
                 currentSection: currentSection,
                 timestamp: new Date().toISOString()
             };
-            localStorage.setItem('anamnese_autosave', JSON.stringify(saveData));
-            resolve();
+            
+            // Use SecureStorage wrapper
+            if (window.SecureStorage) {
+                if (SecureStorage.setItem('anamnese_autosave', saveData)) {
+                    resolve();
+                } else {
+                    reject(new Error('LocalStorage full or unavailable'));
+                }
+            } else {
+                // Fallback to direct localStorage
+                localStorage.setItem('anamnese_autosave', JSON.stringify(saveData));
+                resolve();
+            }
         } catch (e) {
             reject(new Error('LocalStorage full or unavailable'));
         }
@@ -1467,6 +1502,113 @@ function clearUploadedDocuments() {
         }
 
         /* =================================================================
+           ACCESSIBILITY: SKIP LINKS
+           ================================================================= */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: var(--primary);
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 0 0 4px 0;
+            z-index: 10000;
+            font-weight: bold;
+            transition: top 0.2s ease;
+        }
+
+        .skip-link:focus {
+            top: 0;
+            outline: 3px solid var(--warning);
+            outline-offset: 2px;
+        }
+
+        /* Screen Reader Only content */
+        .sr-only {
+            position: absolute;
+            left: -10000px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+        }
+
+        /* =================================================================
+           ACCESSIBILITY: FOCUS INDICATORS
+           ================================================================= */
+        *:focus {
+            outline: 3px solid var(--warning);
+            outline-offset: 2px;
+        }
+
+        button:focus, input:focus, select:focus, textarea:focus, a:focus {
+            outline: 3px solid var(--warning);
+            outline-offset: 2px;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            :root {
+                --input-border: #000;
+                --border-color: #000;
+            }
+        }
+
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* =================================================================
+           MOBILE & PWA OPTIMIZATIONS
+           ================================================================= */
+        /* Touch device optimizations */
+        .touch-device button,
+        .touch-device input[type="button"],
+        .touch-device input[type="submit"],
+        .touch-device .btn {
+            min-height: 44px; /* iOS recommendation */
+            min-width: 44px;
+        }
+
+        /* Offline indicator */
+        body.offline::before {
+            content: '⚠️ Offline - Changes will be saved locally';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--warning);
+            color: #000;
+            text-align: center;
+            padding: 8px;
+            z-index: 9998;
+            font-weight: bold;
+        }
+
+        /* Safe area insets for iOS notch */
+        @supports (padding: max(0px)) {
+            body {
+                padding-left: max(0px, env(safe-area-inset-left));
+                padding-right: max(0px, env(safe-area-inset-right));
+            }
+        }
+
+        /* PWA standalone mode detection */
+        @media (display-mode: standalone) {
+            body::after {
+                content: '';
+                /* PWA-specific styles can go here */
+            }
+        }
+
+        /* =================================================================
            MODAL (Datenschutz)
            ================================================================= */
         .modal-overlay {
@@ -1555,24 +1697,72 @@ function clearUploadedDocuments() {
         /* =================================================================
            PROGRESS BAR
            ================================================================= */
-        .progress-container { margin-bottom: 1.5rem; }
+        .progress-container { 
+            margin-bottom: 1.5rem; 
+            position: relative;
+        }
         .progress-text {
             text-align: center;
             font-size: 0.9rem;
             margin-bottom: 0.5rem;
             color: var(--secondary);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .progress-text::before {
+            content: '📊';
+            font-size: 1rem;
         }
         .progress-bar {
-            height: 12px;
+            height: 16px;
             background: var(--border-color);
-            border-radius: 6px;
+            border-radius: 8px;
             overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
         }
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--primary), var(--success));
-            transition: width 0.4s ease;
-            border-radius: 6px;
+            transition: width 0.4s ease, background-color 0.3s ease;
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Progress fill animation */
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255,255,255,0) 0%,
+                rgba(255,255,255,0.3) 50%,
+                rgba(255,255,255,0) 100%
+            );
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        /* Responsive progress */
+        @media (max-width: 640px) {
+            .progress-text {
+                font-size: 0.8rem;
+            }
+            .progress-bar {
+                height: 12px;
+            }
         }
 
         /* =================================================================
@@ -1940,6 +2130,10 @@ function clearUploadedDocuments() {
     </style>
 </head>
 <body>
+    <!-- Skip Links for Accessibility -->
+    <a href="#app-container" class="skip-link">Skip to main content</a>
+    <a href="#language-select" class="skip-link">Skip to language selector</a>
+
     <!-- ================================================================
          DATENSCHUTZ MODAL
          ================================================================ -->
@@ -1960,26 +2154,27 @@ function clearUploadedDocuments() {
     <!-- ================================================================
          MAIN APPLICATION
          ================================================================ -->
-    <div id="app-container" class="app-container hidden">
-        <header>
+    <div id="app-container" class="app-container hidden" role="main" aria-label="Medical questionnaire application">
+        <header role="banner">
             <h1 id="app-title"><span data-translate="app_title">🏥 Medical History Questionnaire</span></h1>
             
-            <div class="disclaimer warning" id="disclaimer-medical" data-translate="disclaimer_medical">
+            <div class="disclaimer warning" id="disclaimer-medical" data-translate="disclaimer_medical" role="alert" aria-live="polite">
                 This is a digital medical history tool and does not replace a medical examination.
             </div>
-            <div class="disclaimer success" id="disclaimer-privacy" data-translate="disclaimer_privacy">
+            <div class="disclaimer success" id="disclaimer-privacy" data-translate="disclaimer_privacy" role="status">
                 Your entries are stored locally and only transferred as a file.
             </div>
 
-            <div class="header-controls">
-                <select id="language-select" onchange="App.changeLanguage(this.value)"></select>
-                <button id="theme-toggle" onclick="App.toggleTheme()">🌙 Dark Mode</button>
-            </div>
+            <nav class="header-controls" role="navigation" aria-label="Application settings">
+                <label for="language-select" class="sr-only">Select language</label>
+                <select id="language-select" onchange="App.changeLanguage(this.value)" aria-label="Language selection"></select>
+                <button id="theme-toggle" onclick="App.toggleTheme()" aria-label="Toggle dark mode">🌙 Dark Mode</button>
+            </nav>
         </header>
 
-        <div class="progress-container">
-            <div class="progress-text" id="progress-text">Schritt 1 von 3</div>
-            <div class="progress-bar">
+        <div class="progress-container" role="complementary" aria-label="Form completion progress">
+            <div class="progress-text" id="progress-text" aria-live="polite" aria-atomic="true">Schritt 1 von 3</div>
+            <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10">
                 <div class="progress-fill" id="progress-fill" style="width: 10%;"></div>
             </div>
         </div>
@@ -2056,10 +2251,61 @@ function clearUploadedDocuments() {
             </div>
         </div>
 
-        <footer>
+        <footer role="contentinfo">
             <p><strong data-translate="medical_concept">Medical Concept: Dr. Christian Klapproth</strong></p>
             <p data-translate="technical_implementation">Technical Implementation: DiggAi GmbH</p>
+            <button id="shortcuts-help-btn" class="btn btn-info" 
+                    onclick="document.getElementById('shortcuts-modal').style.display='flex'"
+                    style="margin-top: 1rem; font-size: 0.9rem;"
+                    aria-label="Show keyboard shortcuts">
+                ⌨️ Tastenkürzel anzeigen / Show Keyboard Shortcuts
+            </button>
         </footer>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="margin: 0;">⌨️ Tastenkürzel / Keyboard Shortcuts</h2>
+                <button onclick="document.getElementById('shortcuts-modal').style.display='none'" 
+                        class="btn btn-secondary" style="padding: 0.5rem 1rem;"
+                        aria-label="Close shortcuts modal">
+                    ✕
+                </button>
+            </div>
+            
+            <div style="display: grid; gap: 0.75rem;">
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Ctrl + S</strong>
+                    <span>Daten speichern / Save data</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Ctrl + →</strong>
+                    <span>Nächste Sektion / Next section</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Ctrl + ←</strong>
+                    <span>Vorherige Sektion / Previous section</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Esc</strong>
+                    <span>Modal schließen / Close modal</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Tab</strong>
+                    <span>Vorwärts navigieren / Navigate forward</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1rem; padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                    <strong style="font-family: monospace; color: var(--primary);">Shift + Tab</strong>
+                    <span>Rückwärts navigieren / Navigate backward</span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--warning); color: #000; border-radius: 8px; font-size: 0.9rem;">
+                <strong>💡 Tipp / Tip:</strong> Diese Tastenkürzel funktionieren überall in der App. / These shortcuts work anywhere in the app.
+            </div>
+        </div>
     </div>
 
     <!-- =================================================================
@@ -2075,14 +2321,20 @@ function clearUploadedDocuments() {
             "fr": "Français",
             "es": "Español",
             "it": "Italiano",
+            "pt": "Português",
+            "nl": "Nederlands",
             "tr": "Türkçe",
             "pl": "Polski",
+            "sq": "Shqip",
+            "ro": "Română",
             "ru": "Русский",
             "uk": "Українська",
             "ar": "العربية",
             "fa": "فارسی",
             "ur": "اردو",
-            "zh": "中文"
+            "zh": "中文",
+            "hi": "हिन्दी",
+            "ja": "日本語"
         },
         "translations": {
                 "de": {
@@ -2761,7 +3013,52 @@ function clearUploadedDocuments() {
                         "red_flag_warning": "⚠️ Achtung: Es wurden wichtige Symptome erkannt, die eine sofortige ärztliche Untersuchung erfordern!",
                         "0003_tag": "Tag",
                         "0003_monat": "Monat",
-                        "0003_jahr": "Jahr"
+                        "0003_jahr": "Jahr",
+                        
+                        // Additional UI labels from gemini.txt
+                        "add_entry": "Weitere hinzufügen",
+                        "additional_notes": "Weitere Anmerkungen",
+                        "app_subtitle": "Bitte füllen Sie alle Pflichtfelder aus",
+                        "upload_title": "Medizinisches Dokument hochladen",
+                        "upload_subtitle": "Drag & Drop oder klicken zum Hochladen (PDF, JPG, PNG)",
+                        "btn_export": "Daten exportieren",
+                        "anliegen": "Ihr Anliegen",
+                        "anliegen_termin": "Terminvereinbarung",
+                        "anliegen_rezept": "Rezept/Verordnung",
+                        "anliegen_sonstiges": "Sonstiges Anliegen",
+                        "complaints_main": "Beschwerden",
+                        "complaints_details": "Details zu Ihren Beschwerden",
+                        "personal_info": "Persönliche Daten",
+                        
+                        // Validation messages
+                        "validation_number": "Bitte geben Sie eine gültige Zahl ein",
+                        "validation_min": "Wert muss mindestens {min} sein",
+                        "validation_max": "Wert darf maximal {max} sein",
+                        "validation_max_length": "Maximal {max} Zeichen erlaubt",
+                        "validation_pattern": "Ungültiges Format. Nur Buchstaben erlaubt",
+                        "validation_email": "Ungültige E-Mail-Adresse",
+                        "validation_phone": "Ungültige Telefonnummer",
+                        "validation_min_length": "Mindestens {min} Zeichen erforderlich",
+                        
+                        // OCR messages
+                        "ocr_processing": "Dokument wird verarbeitet...",
+                        "ocr_unsupported_format": "Nicht unterstütztes Dateiformat",
+                        "ocr_success": "✅ Dokument erfolgreich verarbeitet!",
+                        "ocr_error": "❌ Fehler beim Verarbeiten:",
+                        
+                        // Encryption messages
+                        "encryption_max_retries": "Maximale Anzahl an Versuchen überschritten. Bitte laden Sie die Seite neu.",
+                        "encryption_test_mode": "TEST MODUS\n\nMöchten Sie den Test-Schlüssel verwenden?\n(Für Produktion 'Abbrechen' klicken)",
+                        "encryption_first_setup": "WICHTIG: Erstmalige Einrichtung\n\nBitte geben Sie ein sicheres Master-Passwort ein (min. 16 Zeichen).\nACHTUNG: Wenn Sie dieses Passwort vergessen, sind alle Daten unwiederbringlich verloren!",
+                        "encryption_min_length": "Passwort muss mindestens 16 Zeichen lang sein!",
+                        "encryption_success": "✅ Master-Passwort erfolgreich gesetzt!",
+                        "encryption_enter_password": "Bitte geben Sie Ihr Master-Passwort ein:",
+                        "encryption_required": "❌ Passwort erforderlich!",
+                        "encryption_wrong_password": "❌ Falsches Passwort!",
+                        
+                        // Restart messages
+                        "restart_confirmation": "ACHTUNG: Alle gespeicherten Daten werden gelöscht!\n\nMöchten Sie wirklich neu starten?",
+                        "restart_delete_key": "Möchten Sie auch den Verschlüsselungsschlüssel löschen?\n\n(Falls Nein, können Sie gespeicherte verschlüsselte Daten später noch laden)"
                 },
                 "en": {
                         "title_q0000": "Basic Data",
@@ -2816,7 +3113,52 @@ function clearUploadedDocuments() {
                         "technical_implementation": "Technical Implementation: DiggAi GmbH",
                         "0003_tag": "Day",
                         "0003_monat": "Month",
-                        "0003_jahr": "Year"
+                        "0003_jahr": "Year",
+                        
+                        // Additional UI labels from gemini.txt
+                        "add_entry": "Add Another",
+                        "additional_notes": "Additional Notes",
+                        "app_subtitle": "Please fill out all required fields",
+                        "upload_title": "Upload Medical Document",
+                        "upload_subtitle": "Drag & drop or click to upload (PDF, JPG, PNG)",
+                        "btn_export": "Export Data",
+                        "anliegen": "Your Concern",
+                        "anliegen_termin": "Appointment",
+                        "anliegen_rezept": "Prescription",
+                        "anliegen_sonstiges": "Other Concern",
+                        "complaints_main": "Complaints",
+                        "complaints_details": "Details of Your Complaints",
+                        "personal_info": "Personal Information",
+                        
+                        // Validation messages
+                        "validation_number": "Please enter a valid number",
+                        "validation_min": "Value must be at least {min}",
+                        "validation_max": "Value must be at most {max}",
+                        "validation_max_length": "Maximum {max} characters allowed",
+                        "validation_pattern": "Invalid format. Only letters allowed",
+                        "validation_email": "Invalid email address",
+                        "validation_phone": "Invalid phone number",
+                        "validation_min_length": "Minimum {min} characters required",
+                        
+                        // OCR messages
+                        "ocr_processing": "Processing document...",
+                        "ocr_unsupported_format": "Unsupported file format",
+                        "ocr_success": "✅ Document processed successfully!",
+                        "ocr_error": "❌ Processing error:",
+                        
+                        // Encryption messages
+                        "encryption_max_retries": "Maximum number of attempts exceeded. Please reload the page.",
+                        "encryption_test_mode": "TEST MODE\n\nWould you like to use the test key?\n(For production, click 'Cancel')",
+                        "encryption_first_setup": "IMPORTANT: First-time setup\n\nPlease enter a secure master password (min. 16 characters).\nWARNING: If you forget this password, all data will be permanently lost!",
+                        "encryption_min_length": "Password must be at least 16 characters long!",
+                        "encryption_success": "✅ Master password set successfully!",
+                        "encryption_enter_password": "Please enter your master password:",
+                        "encryption_required": "❌ Password required!",
+                        "encryption_wrong_password": "❌ Wrong password!",
+                        
+                        // Restart messages
+                        "restart_confirmation": "WARNING: All saved data will be deleted!\n\nDo you really want to restart?",
+                        "restart_delete_key": "Do you also want to delete the encryption key?\n\n(If No, you can load saved encrypted data later)"
                 },
                 "es": {
                         "title_q0000": "Datos Básicos",
@@ -3445,6 +3787,116 @@ function clearUploadedDocuments() {
                         "0003_tag": "Dzień",
                         "0003_monat": "Miesiąc",
                         "0003_jahr": "Rok"
+                },
+                "nl": {
+                        "title_q0000": "Basisgegevens",
+                        "label_0000": "Achternaam",
+                        "label_0001": "Voornaam",
+                        "label_0002": "Geslacht",
+                        "app_title": "Medische Anamnese Vragenlijst",
+                        "privacy_notice": "Privacyverklaring",
+                        "privacy_text": "Deze applicatie verwerkt uw gezondheidsgegevens uitsluitend lokaal op uw apparaat. Er worden geen gegevens verzonden naar externe servers (behalve voor het eenmalig laden van taalmodellen, indien online). Door te klikken op 'Accepteren & Starten' stemt u in met lokale verwerking.",
+                        "accept_start": "Accepteren & Starten",
+                        "btn_back": "Terug",
+                        "btn_next": "Volgende",
+                        "btn_summary": "Samenvatting",
+                        "btn_save": "Opslaan",
+                        "btn_load": "Laden",
+                        "btn_restart": "Opnieuw starten",
+                        "select_placeholder": "Selecteer alstublieft...",
+                        "please_select": "Selecteer alstublieft...",
+                        "step_of": "Stap {current} van {total}",
+                        "0003_tag": "Dag",
+                        "0003_monat": "Maand",
+                        "0003_jahr": "Jaar"
+                },
+                "sq": {
+                        "title_q0000": "Të dhënat bazë",
+                        "label_0000": "Mbiemri",
+                        "label_0001": "Emri",
+                        "label_0002": "Gjinia",
+                        "app_title": "Pyetësori i Historisë Mjekësore",
+                        "privacy_notice": "Njoftimi i Privatësisë",
+                        "privacy_text": "Ky aplikacion përpunon të dhënat tuaja shëndetësore vetëm lokalisht në pajisjen tuaj. Asnjë të dhënë nuk transmetohet në serverë të jashtëm (përveç ngarkimit njëherësh të modeleve gjuhësore, nëse jeni online). Duke klikuar 'Prano & Fillo' ju pranoni përpunimin lokal.",
+                        "accept_start": "Prano & Fillo",
+                        "btn_back": "Prapa",
+                        "btn_next": "Përpara",
+                        "btn_summary": "Përmbledhje",
+                        "btn_save": "Ruaj",
+                        "btn_load": "Ngarko",
+                        "btn_restart": "Filloni përsëri",
+                        "select_placeholder": "Ju lutem zgjidhni...",
+                        "please_select": "Ju lutem zgjidhni...",
+                        "step_of": "Hapi {current} nga {total}",
+                        "0003_tag": "Dita",
+                        "0003_monat": "Muaji",
+                        "0003_jahr": "Viti"
+                },
+                "ro": {
+                        "title_q0000": "Date de bază",
+                        "label_0000": "Nume de familie",
+                        "label_0001": "Prenume",
+                        "label_0002": "Sex",
+                        "app_title": "Chestionar de Anamneză Medicală",
+                        "privacy_notice": "Notificare de confidențialitate",
+                        "privacy_text": "Această aplicație procesează datele dumneavoastră de sănătate exclusiv local pe dispozitivul dumneavoastră. Nu se transmit date către servere externe (cu excepția încărcării unice a modelelor de limbă, dacă sunteți online). Făcând clic pe 'Acceptare & Începere' sunteți de acord cu procesarea locală.",
+                        "accept_start": "Acceptare & Începere",
+                        "btn_back": "Înapoi",
+                        "btn_next": "Următorul",
+                        "btn_summary": "Rezumat",
+                        "btn_save": "Salvare",
+                        "btn_load": "Încărcare",
+                        "btn_restart": "Repornire",
+                        "select_placeholder": "Vă rugăm să selectați...",
+                        "please_select": "Vă rugăm să selectați...",
+                        "step_of": "Pasul {current} din {total}",
+                        "0003_tag": "Zi",
+                        "0003_monat": "Lună",
+                        "0003_jahr": "An"
+                },
+                "hi": {
+                        "title_q0000": "बुनियादी डेटा",
+                        "label_0000": "उपनाम",
+                        "label_0001": "प्रथम नाम",
+                        "label_0002": "लिंग",
+                        "app_title": "चिकित्सा इतिहास प्रश्नावली",
+                        "privacy_notice": "गोपनीयता सूचना",
+                        "privacy_text": "यह एप्लिकेशन आपके स्वास्थ्य डेटा को केवल आपके डिवाइस पर स्थानीय रूप से संसाधित करता है। कोई डेटा बाहरी सर्वर पर प्रसारित नहीं किया जाता है (भाषा मॉडल की एक बार लोडिंग को छोड़कर, यदि ऑनलाइन है)। 'स्वीकार करें और प्रारंभ करें' पर क्लिक करके आप स्थानीय प्रसंस्करण के लिए सहमत होते हैं।",
+                        "accept_start": "स्वीकार करें और प्रारंभ करें",
+                        "btn_back": "वापस",
+                        "btn_next": "आगे",
+                        "btn_summary": "सारांश",
+                        "btn_save": "सहेजें",
+                        "btn_load": "लोड करें",
+                        "btn_restart": "पुनः प्रारंभ करें",
+                        "select_placeholder": "कृपया चुनें...",
+                        "please_select": "कृपया चुनें...",
+                        "step_of": "चरण {current} का {total}",
+                        "0003_tag": "दिन",
+                        "0003_monat": "महीना",
+                        "0003_jahr": "वर्ष"
+                },
+                "ja": {
+                        "title_q0000": "基本データ",
+                        "label_0000": "姓",
+                        "label_0001": "名",
+                        "label_0002": "性別",
+                        "app_title": "医療問診票",
+                        "privacy_notice": "プライバシー通知",
+                        "privacy_text": "このアプリケーションは、お客様の健康データをお客様のデバイス上でローカルにのみ処理します。外部サーバーにデータが送信されることはありません（オンラインの場合、言語モデルの1回限りの読み込みを除く）。「同意して開始」をクリックすることで、ローカル処理に同意したことになります。",
+                        "accept_start": "同意して開始",
+                        "btn_back": "戻る",
+                        "btn_next": "次へ",
+                        "btn_summary": "概要",
+                        "btn_save": "保存",
+                        "btn_load": "読み込み",
+                        "btn_restart": "再開",
+                        "select_placeholder": "選択してください...",
+                        "please_select": "選択してください...",
+                        "step_of": "ステップ {current} / {total}",
+                        "0003_tag": "日",
+                        "0003_monat": "月",
+                        "0003_jahr": "年"
                 }
         },
         "red_flag_fields": [],
@@ -13097,6 +13549,198 @@ function clearUploadedDocuments() {
             return /^[\d\s\+\-\(\)]*$/.test(phone);
         }
 
+        // ====================================================================
+        // SECURITY: ENHANCED XSS PREVENTION
+        // ====================================================================
+        const SecurityUtils = {
+            // Sanitize HTML more thoroughly
+            sanitizeHTML(html) {
+                if (!html) return '';
+                const div = document.createElement('div');
+                div.textContent = html;
+                return div.innerHTML;
+            },
+
+            // Validate and sanitize URLs
+            sanitizeURL(url) {
+                if (!url) return '';
+                try {
+                    const parsed = new URL(url);
+                    // Only allow http and https protocols
+                    if (!['http:', 'https:'].includes(parsed.protocol)) {
+                        console.warn('[Security] Blocked potentially dangerous URL protocol:', parsed.protocol);
+                        return '';
+                    }
+                    return parsed.href;
+                } catch (e) {
+                    console.warn('[Security] Invalid URL:', url);
+                    return '';
+                }
+            },
+
+            // Check for dangerous patterns
+            containsDangerousPatterns(text) {
+                if (!text) return false;
+                const dangerousPatterns = [
+                    /<script[^>]*>.*?<\/script>/gi,
+                    /javascript:/gi,
+                    /on\w+\s*=/gi, // Event handlers
+                    /<iframe/gi,
+                    /<object/gi,
+                    /<embed/gi
+                ];
+                return dangerousPatterns.some(pattern => pattern.test(text));
+            },
+
+            // Safe text content setter
+            setTextContent(element, text) {
+                if (element && text !== undefined && text !== null) {
+                    element.textContent = String(text);
+                }
+            }
+        };
+
+        // ====================================================================
+        // SECURITY: SIMPLE RATE LIMITING
+        // ====================================================================
+        class SimpleRateLimiter {
+            constructor() {
+                this.actions = new Map();
+                this.limits = {
+                    save: { max: 10, window: 60000 }, // 10 saves per minute
+                    navigation: { max: 30, window: 60000 }, // 30 navigations per minute
+                    formSubmit: { max: 5, window: 60000 } // 5 submits per minute
+                };
+            }
+
+            isAllowed(actionType) {
+                const now = Date.now();
+                const limit = this.limits[actionType];
+                
+                if (!limit) return true; // No limit configured
+
+                if (!this.actions.has(actionType)) {
+                    this.actions.set(actionType, []);
+                }
+
+                const timestamps = this.actions.get(actionType);
+                
+                // Clean old timestamps
+                const validTimestamps = timestamps.filter(t => now - t < limit.window);
+                
+                // Check if limit exceeded
+                if (validTimestamps.length >= limit.max) {
+                    console.warn(`[RateLimit] Action '${actionType}' rate limit exceeded`);
+                    return false;
+                }
+
+                // Add current timestamp
+                validTimestamps.push(now);
+                this.actions.set(actionType, validTimestamps);
+                
+                return true;
+            }
+
+            reset(actionType) {
+                if (actionType) {
+                    this.actions.delete(actionType);
+                } else {
+                    this.actions.clear();
+                }
+            }
+        }
+
+        // Initialize rate limiter
+        window.rateLimiter = new SimpleRateLimiter();
+
+        // ====================================================================
+        // STORAGE: SECURE LOCAL STORAGE WRAPPER
+        // ====================================================================
+        const SecureStorage = {
+            // Check if localStorage is available
+            isAvailable() {
+                try {
+                    const test = '__storage_test__';
+                    localStorage.setItem(test, test);
+                    localStorage.removeItem(test);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            },
+
+            // Set item with error handling
+            setItem(key, value) {
+                if (!this.isAvailable()) {
+                    console.warn('[Storage] localStorage not available');
+                    return false;
+                }
+                
+                try {
+                    if (typeof value === 'object') {
+                        value = JSON.stringify(value);
+                    }
+                    localStorage.setItem(key, value);
+                    return true;
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        console.error('[Storage] Quota exceeded. Consider clearing old data.');
+                    } else {
+                        console.error('[Storage] Error saving to localStorage:', e);
+                    }
+                    return false;
+                }
+            },
+
+            // Get item with error handling
+            getItem(key, defaultValue = null) {
+                if (!this.isAvailable()) {
+                    return defaultValue;
+                }
+                
+                try {
+                    const value = localStorage.getItem(key);
+                    if (value === null) return defaultValue;
+                    
+                    // Try to parse as JSON
+                    try {
+                        return JSON.parse(value);
+                    } catch (e) {
+                        return value;
+                    }
+                } catch (e) {
+                    console.error('[Storage] Error reading from localStorage:', e);
+                    return defaultValue;
+                }
+            },
+
+            // Remove item
+            removeItem(key) {
+                if (!this.isAvailable()) return false;
+                
+                try {
+                    localStorage.removeItem(key);
+                    return true;
+                } catch (e) {
+                    console.error('[Storage] Error removing from localStorage:', e);
+                    return false;
+                }
+            },
+
+            // Clear all
+            clear() {
+                if (!this.isAvailable()) return false;
+                
+                try {
+                    localStorage.clear();
+                    return true;
+                } catch (e) {
+                    console.error('[Storage] Error clearing localStorage:', e);
+                    return false;
+                }
+            }
+        };
+
         /**
          * Validate a field and show feedback
          * @param {string} fieldId - The field ID to validate
@@ -13637,6 +14281,7 @@ function clearUploadedDocuments() {
             updateProgress() {
                 const progressBar = document.getElementById('progress-fill');
                 const progressText = document.getElementById('progress-text');
+                const progressContainer = progressBar?.parentElement;
                 
                 if (!progressBar || !progressText) return;
                 
@@ -13661,19 +14306,49 @@ function clearUploadedDocuments() {
                 
                 const progressPercent = totalQuestions > 0 ? (answeredQuestions / totalQuestions * 100) : 0;
                 
+                // Smooth transition
+                progressBar.style.transition = 'width 0.3s ease, background-color 0.3s ease';
                 progressBar.style.width = progressPercent + '%';
-                progressBar.setAttribute('aria-valuenow', Math.round(progressPercent));
+                
+                // Update ARIA attributes
+                progressContainer?.setAttribute('aria-valuenow', Math.round(progressPercent));
+                progressContainer?.setAttribute('aria-valuetext', `${Math.round(progressPercent)} Prozent abgeschlossen`);
                 
                 // Enhanced text with percentage and counts
-                progressText.textContent = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                const progressMessage = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                progressText.textContent = progressMessage;
                 
                 // Color coding based on progress
+                let progressColor;
+                let progressLabel;
                 if (progressPercent < 33) {
-                    progressBar.style.backgroundColor = '#ef4444'; // red
+                    progressColor = '#ef4444'; // red
+                    progressLabel = 'Begonnen';
                 } else if (progressPercent < 66) {
-                    progressBar.style.backgroundColor = '#f59e0b'; // orange
+                    progressColor = '#f59e0b'; // orange
+                    progressLabel = 'In Bearbeitung';
+                } else if (progressPercent < 100) {
+                    progressColor = '#10b981'; // green
+                    progressLabel = 'Fast fertig';
                 } else {
-                    progressBar.style.backgroundColor = '#10b981'; // green
+                    progressColor = '#10b981'; // green
+                    progressLabel = 'Vollständig';
+                }
+                
+                progressBar.style.backgroundColor = progressColor;
+                
+                // Announce to screen readers (throttled to avoid spam)
+                if (window.liveRegionAnnouncer && !this._lastProgressAnnouncement) {
+                    this._lastProgressAnnouncement = 0;
+                }
+                
+                const now = Date.now();
+                if (now - (this._lastProgressAnnouncement || 0) > 5000) {
+                    window.liveRegionAnnouncer?.announce(
+                        `Fortschritt: ${Math.round(progressPercent)}%. ${progressLabel}`,
+                        'polite'
+                    );
+                    this._lastProgressAnnouncement = now;
                 }
             },
 
@@ -13885,6 +14560,195 @@ function clearUploadedDocuments() {
 
         // Start
         window.addEventListener('DOMContentLoaded', () => App.init());
+
+        // ====================================================================
+        // PWA SERVICE WORKER REGISTRATION
+        // ====================================================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('[PWA] Service Worker registered:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('[PWA] New version available! Reload to update.');
+                                    // Could show a notification to user here
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.log('[PWA] Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        // ====================================================================
+        // ACCESSIBILITY: SKIP LINK FUNCTIONALITY
+        // ====================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            // Focus management for skip links
+            const skipLinks = document.querySelectorAll('.skip-link');
+            skipLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetId = link.getAttribute('href').substring(1);
+                    const target = document.getElementById(targetId);
+                    if (target) {
+                        target.setAttribute('tabindex', '-1');
+                        target.focus();
+                        target.addEventListener('blur', () => {
+                            target.removeAttribute('tabindex');
+                        }, { once: true });
+                    }
+                });
+            });
+        });
+
+        // ====================================================================
+        // ACCESSIBILITY: LIVE REGION ANNOUNCER
+        // ====================================================================
+        class LiveRegionAnnouncer {
+            constructor() {
+                this.politeRegion = this.createRegion('polite');
+                this.assertiveRegion = this.createRegion('assertive');
+                this.queue = [];
+                this.isProcessing = false;
+            }
+
+            createRegion(level) {
+                let region = document.getElementById(`live-region-${level}`);
+                if (!region) {
+                    region = document.createElement('div');
+                    region.id = `live-region-${level}`;
+                    region.setAttribute('role', level === 'assertive' ? 'alert' : 'status');
+                    region.setAttribute('aria-live', level);
+                    region.setAttribute('aria-atomic', 'true');
+                    region.className = 'sr-only';
+                    region.style.cssText = 'position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;';
+                    document.body.appendChild(region);
+                }
+                return region;
+            }
+
+            announce(message, priority = 'polite') {
+                if (!message) return;
+                
+                const region = priority === 'assertive' ? this.assertiveRegion : this.politeRegion;
+                
+                // Clear and announce
+                region.textContent = '';
+                setTimeout(() => {
+                    region.textContent = message;
+                }, 100);
+
+                // Auto-clear after 5 seconds
+                setTimeout(() => {
+                    region.textContent = '';
+                }, 5000);
+            }
+        }
+
+        // Initialize live region announcer
+        window.liveRegionAnnouncer = new LiveRegionAnnouncer();
+
+        // ====================================================================
+        // KEYBOARD NAVIGATION ENHANCEMENTS
+        // ====================================================================
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + S: Save
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                if (typeof App !== 'undefined' && App.saveToLocalStorage) {
+                    App.saveToLocalStorage();
+                    window.liveRegionAnnouncer?.announce('Daten gespeichert', 'polite');
+                }
+            }
+
+            // Ctrl/Cmd + Right Arrow: Next section
+            if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (typeof App !== 'undefined' && App.nextStep) {
+                    App.nextStep();
+                }
+            }
+
+            // Ctrl/Cmd + Left Arrow: Previous section
+            if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (typeof App !== 'undefined' && App.prevStep) {
+                    App.prevStep();
+                }
+            }
+
+            // Escape: Close modals
+            if (e.key === 'Escape') {
+                const summaryDiv = document.getElementById('summary-modal');
+                if (summaryDiv && summaryDiv.style.display !== 'none') {
+                    summaryDiv.style.display = 'none';
+                    window.liveRegionAnnouncer?.announce('Modal geschlossen', 'polite');
+                }
+            }
+        });
+
+        // ====================================================================
+        // MOBILE: TOUCH OPTIMIZATION
+        // ====================================================================
+        if ('ontouchstart' in window) {
+            // Add touch class to body for CSS hooks
+            document.body.classList.add('touch-device');
+
+            // Improve tap responsiveness
+            document.addEventListener('touchstart', function() {}, { passive: true });
+        }
+
+        // ====================================================================
+        // ONLINE/OFFLINE STATUS
+        // ====================================================================
+        window.addEventListener('online', () => {
+            console.log('[Network] Online');
+            window.liveRegionAnnouncer?.announce('Verbindung wiederhergestellt', 'polite');
+            document.body.classList.remove('offline');
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('[Network] Offline');
+            window.liveRegionAnnouncer?.announce('Keine Internetverbindung', 'assertive');
+            document.body.classList.add('offline');
+        });
+
+        // ====================================================================
+        // PERFORMANCE: LAZY LOAD IMAGES
+        // ====================================================================
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        if (img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                            observer.unobserve(img);
+                        }
+                    }
+                });
+            }, {
+                rootMargin: '50px'
+            });
+
+            // Observe all images with data-src
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('img[data-src]').forEach(img => {
+                    imageObserver.observe(img);
+                });
+            });
+        }
+
+        console.log('[App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization');
     </script>
 </body>
 </html>
