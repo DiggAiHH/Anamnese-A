@@ -48,24 +48,54 @@
 // =================================================================
 
 /**
- * Calculates age from birthdate fields
- * @returns {number|null} Age in years or null if incomplete
+ * Helper function to get answers from the appropriate state object
+ * @returns {object} The answers object
  */
-function calculateAge() {
-    // Use AppState if APP_STATE is not defined
-    const answers = (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
+function getAnswers() {
+    return (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
         ? APP_STATE.answers 
         : (typeof AppState !== 'undefined' && AppState.answers) 
             ? AppState.answers 
             : {};
+}
+
+// Constants for computed field mappings
+const COMPUTED_FIELD_MAPPINGS = {
+    'calculated_gender': '0002',
+    'birthdate_day': '0003_tag',
+    'birthdate_month': '0003_monat',
+    'birthdate_year': '0003_jahr'
+};
+
+/**
+ * Calculates age from birthdate fields
+ * @returns {number|null} Age in years or null if incomplete or invalid
+ */
+function calculateAge() {
+    const answers = getAnswers();
     
-    const day = answers['0003_tag'];
-    const month = answers['0003_monat'];
-    const year = answers['0003_jahr'];
+    const day = parseInt(answers[COMPUTED_FIELD_MAPPINGS.birthdate_day], 10);
+    const month = parseInt(answers[COMPUTED_FIELD_MAPPINGS.birthdate_month], 10);
+    const year = parseInt(answers[COMPUTED_FIELD_MAPPINGS.birthdate_year], 10);
     
-    if (!day || !month || !year) return null;
+    // Validate inputs
+    if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year)) {
+        return null;
+    }
     
+    // Validate month and day ranges
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+        return null;
+    }
+    
+    // Create date and validate it's a valid date
     const birthDate = new Date(year, month - 1, day);
+    
+    // Check if the date is valid (handles cases like Feb 30)
+    if (birthDate.getDate() !== day || birthDate.getMonth() !== month - 1 || birthDate.getFullYear() !== year) {
+        return null;
+    }
+    
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -89,13 +119,7 @@ function checkCondition(item) {
     }
 
     const { field, value, operator = '==' } = item.condition;
-    
-    // Use AppState if APP_STATE is not defined
-    const answers = (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
-        ? APP_STATE.answers 
-        : (typeof AppState !== 'undefined' && AppState.answers) 
-            ? AppState.answers 
-            : {};
+    const answers = getAnswers();
     
     let answer;
     
@@ -103,7 +127,7 @@ function checkCondition(item) {
     if (field === 'calculated_age') {
         answer = calculateAge();
     } else if (field === 'calculated_gender') {
-        answer = answers['0002'];
+        answer = answers[COMPUTED_FIELD_MAPPINGS.calculated_gender];
     } else {
         answer = answers[field];
     }
@@ -14262,18 +14286,24 @@ function clearUploadedDocuments() {
                 const section = sections[index];
                 
                 // Check if section has a condition and if it's met using the enhanced checkCondition function
-                if (section.condition && typeof checkCondition === 'function') {
-                    const conditionMet = checkCondition(section);
-                    
-                    // If condition not met, skip to next section
-                    if (!conditionMet) {
-                        // Auto-advance or go back depending on navigation direction
-                        if (index < sections.length - 1) {
-                            this.renderStep(index + 1);
-                        } else {
-                            this.renderStep(index - 1);
+                if (section.condition) {
+                    // checkCondition is a required function defined in the same script tag
+                    if (typeof checkCondition !== 'function') {
+                        console.error('[App] checkCondition function is not available. Conditional logic will not work properly.');
+                        // Don't skip sections if the function is missing - this ensures visibility
+                    } else {
+                        const conditionMet = checkCondition(section);
+                        
+                        // If condition not met, skip to next section
+                        if (!conditionMet) {
+                            // Auto-advance or go back depending on navigation direction
+                            if (index < sections.length - 1) {
+                                this.renderStep(index + 1);
+                            } else {
+                                this.renderStep(index - 1);
+                            }
+                            return;
                         }
-                        return;
                     }
                 }
                 
@@ -14587,9 +14617,24 @@ function clearUploadedDocuments() {
                 let totalQuestions = 0;
                 let answeredQuestions = 0;
                 
+                // Check if checkCondition function is available
+                const hasCheckCondition = typeof checkCondition === 'function';
+                if (!hasCheckCondition) {
+                    console.warn('[App] checkCondition function not available. Progress calculation may be inaccurate.');
+                }
+                
                 window.APP_DATA.sections.forEach((section, idx) => {
                     // Check if section should be visible based on conditions
-                    const sectionVisible = !section.condition || (typeof checkCondition === 'function' && checkCondition(section));
+                    let sectionVisible = true;
+                    if (section.condition) {
+                        if (hasCheckCondition) {
+                            sectionVisible = checkCondition(section);
+                        } else {
+                            // If checkCondition is not available, assume section is visible
+                            // This is safer than hiding sections incorrectly
+                            sectionVisible = true;
+                        }
+                    }
                     
                     if (sectionVisible) {
                         visibleSections++;
