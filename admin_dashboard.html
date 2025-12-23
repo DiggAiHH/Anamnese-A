@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Admin Dashboard - Anamnese Question Management">
+    <meta name="author" content="DiggAi GmbH">
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline'; 
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data:;">
+    <title>Admin Dashboard - Fragebogen Management</title>
+    <style>
+        /* Modern, accessible design inspired by USWDS / BSI standards */
+        :root {
+            --primary-color: #005ea2;
+            --primary-dark: #0d4a70;
+            --primary-light: #73b3e7;
+            --success-color: #00a91c;
+            --warning-color: #ffbe2e;
+            --error-color: #d54309;
+            --text-color: #1b1b1b;
+            --text-secondary: #565c65;
+            --bg-color: #f0f0f0;
+            --bg-white: #ffffff;
+            --border-color: #c9c9c9;
+            --focus-color: #2491ff;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+        }
+
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .header p {
+            margin-top: 0.25rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background-color: var(--bg-white);
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--primary-dark);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-color);
+        }
+
+        .form-label.required::after {
+            content: " *";
+            color: var(--error-color);
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            font-family: var(--font-sans);
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--focus-color);
+            box-shadow: 0 0 0 3px rgba(36, 145, 255, 0.2);
+        }
+
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-hint {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn:focus {
+            outline: 2px solid var(--focus-color);
+            outline-offset: 2px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: var(--text-secondary);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--text-color);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #008817;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .btn-block {
+            display: block;
+            width: 100%;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .dynamic-fields {
+            background-color: var(--bg-color);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+
+        .option-item {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .option-item input {
+            flex: 1;
+        }
+
+        .question-list {
+            max-height: 700px;
+            overflow-y: auto;
+        }
+
+        .question-item {
+            background-color: var(--bg-color);
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .question-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .question-item.active {
+            border-color: var(--primary-color);
+            background-color: #e7f2f8;
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.5rem;
+        }
+
+        .question-title {
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--primary-dark);
+            flex: 1;
+        }
+
+        .question-meta {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .question-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+        }
+
+        .badge-type {
+            background-color: #e7f2f8;
+            color: var(--primary-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        .export-section {
+            background-color: #fffbf0;
+            border: 2px solid var(--warning-color);
+            border-radius: 4px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .export-section h3 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .ai-request-section {
+            background-color: #f0f8ff;
+            border: 2px solid var(--primary-light);
+            border-radius: 4px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .ai-request-section h4 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+            color: var(--primary-dark);
+        }
+
+        .info-box {
+            background-color: #e7f2f8;
+            border-left: 4px solid var(--primary-color);
+            padding: 1rem;
+            margin-top: 0.5rem;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .info-box p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .language-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background-color: #ecf8ed;
+            border: 1px solid var(--success-color);
+            color: #005e0d;
+        }
+
+        .alert-error {
+            background-color: #fdecea;
+            border: 1px solid var(--error-color);
+            color: #6e1200;
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-header h3 {
+            font-size: 1.5rem;
+            color: var(--primary-dark);
+        }
+
+        .modal-footer {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🏥 Admin Dashboard - Fragebogen Management</h1>
+        <p>Verwaltung von Anamnese-Fragen | Barrierefreies Design nach USWDS/BSI-Standards</p>
+    </header>
+
+    <div class="container">
+        <!-- Left Panel: Question Input -->
+        <div class="panel">
+            <h2>📝 Neue Frage erstellen</h2>
+            
+            <form id="questionForm">
+                <!-- Category Selection -->
+                <div class="form-group">
+                    <label class="form-label required" for="category">Kategorie</label>
+                    <select id="category" class="form-select" required>
+                        <option value="">-- Bitte wählen --</option>
+                        <option value="Basisdaten">Basisdaten</option>
+                        <option value="Augenbeschwerden">Augenbeschwerden</option>
+                        <option value="HNO-Beschwerden">HNO-Beschwerden</option>
+                        <option value="Psychische Gesundheit">Psychische Gesundheit</option>
+                        <option value="Kinder- und Jugendmedizin">Kinder- und Jugendmedizin</option>
+                        <option value="Symptome">Symptome</option>
+                        <option value="Medikamente">Medikamente</option>
+                        <option value="Allergien">Allergien</option>
+                        <option value="Vorerkrankungen">Vorerkrankungen</option>
+                        <option value="Familienanamnese">Familienanamnese</option>
+                        <option value="Sozialanamnese">Sozialanamnese</option>
+                        <option value="new">➕ Neue Kategorie...</option>
+                    </select>
+                </div>
+
+                <!-- New Category Input (hidden by default) -->
+                <div class="form-group" id="newCategoryGroup" style="display: none;">
+                    <label class="form-label required" for="newCategory">Name der neuen Kategorie</label>
+                    <input type="text" id="newCategory" class="form-input" placeholder="z.B. Notfallanamnese">
+                </div>
+
+                <!-- Question Type -->
+                <div class="form-group">
+                    <label class="form-label required" for="questionType">Fragetyp</label>
+                    <select id="questionType" class="form-select" required>
+                        <option value="">-- Bitte wählen --</option>
+                        <option value="text">Text (Freitextfeld)</option>
+                        <option value="number">Zahl (Numerische Eingabe)</option>
+                        <option value="date">Datum</option>
+                        <option value="select">Single Choice (Einfachauswahl)</option>
+                        <option value="checkbox">Multiple Choice (Mehrfachauswahl)</option>
+                    </select>
+                </div>
+
+                <!-- Dynamic Fields for Choice Types -->
+                <div id="choiceOptionsGroup" class="dynamic-fields" style="display: none;">
+                    <label class="form-label">Antwortoptionen</label>
+                    <div id="optionsList"></div>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="addOption()">
+                        ➕ Option hinzufügen
+                    </button>
+                </div>
+
+                <!-- Question Text -->
+                <div class="form-group">
+                    <label class="form-label required" for="questionText">Fragetext (Deutsch)</label>
+                    <textarea id="questionText" class="form-textarea" required placeholder="z.B. Welche Medikamente nehmen Sie regelmäßig ein?"></textarea>
+                </div>
+
+                <!-- Language Support -->
+                <div class="form-group">
+                    <label class="form-label">Übersetzungen (optional)</label>
+                    <p class="form-hint">Fügen Sie Übersetzungen für unterstützte Sprachen hinzu</p>
+                    
+                    <div class="language-grid">
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇬🇧 English</label>
+                            <input type="text" id="lang_en" class="form-input" placeholder="Question text in English">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇹🇷 Türkçe</label>
+                            <input type="text" id="lang_tr" class="form-input" placeholder="Soru metni">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇷🇺 Русский</label>
+                            <input type="text" id="lang_ru" class="form-input" placeholder="Текст вопроса">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇫🇷 Français</label>
+                            <input type="text" id="lang_fr" class="form-input" placeholder="Texte de la question">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇪🇸 Español</label>
+                            <input type="text" id="lang_es" class="form-input" placeholder="Texto de la pregunta">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇮🇹 Italiano</label>
+                            <input type="text" id="lang_it" class="form-input" placeholder="Testo della domanda">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇵🇱 Polski</label>
+                            <input type="text" id="lang_pl" class="form-input" placeholder="Tekst pytania">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇺🇦 Українська</label>
+                            <input type="text" id="lang_uk" class="form-input" placeholder="Текст питання">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇸🇦 العربية</label>
+                            <input type="text" id="lang_ar" class="form-input" placeholder="نص السؤال" dir="rtl">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇮🇷 فارسی</label>
+                            <input type="text" id="lang_fa" class="form-input" placeholder="متن سوال" dir="rtl">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇵🇰 اردو</label>
+                            <input type="text" id="lang_ur" class="form-input" placeholder="سوال کا متن" dir="rtl">
+                        </div>
+                        <div>
+                            <label class="form-label" style="font-weight: normal;">🇨🇳 中文</label>
+                            <input type="text" id="lang_zh" class="form-input" placeholder="问题文本">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        ✓ Frage hinzufügen
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                        ↺ Zurücksetzen
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right Panel: Questions Preview -->
+        <div class="panel">
+            <h2>📋 Hinzugefügte Fragen (<span id="questionCount">0</span>)</h2>
+            
+            <div id="questionsList" class="question-list">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <p>Noch keine Fragen hinzugefügt.</p>
+                    <p style="font-size: 0.875rem;">Erstellen Sie Ihre erste Frage im linken Bereich.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Section -->
+    <div class="container" style="grid-template-columns: 1fr;">
+        <div class="panel">
+            <h2>📤 Export & Praxis-Informationen</h2>
+            
+            <!-- Practice Details -->
+            <div class="form-group">
+                <label class="form-label required" for="doctorName">Name des Arztes</label>
+                <input type="text" id="doctorName" class="form-input" placeholder="Dr. Max Mustermann">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required" for="practiceName">Praxisname</label>
+                <input type="text" id="practiceName" class="form-input" placeholder="Praxis für Allgemeinmedizin">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="practiceNumber">Praxisnummer (optional)</label>
+                <input type="text" id="practiceNumber" class="form-input" placeholder="z.B. 123456789">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="completionDate">Gewünschtes Fertigstellungsdatum (optional)</label>
+                <input type="date" id="completionDate" class="form-input">
+            </div>
+
+            <!-- AI Function Request Section -->
+            <div class="ai-request-section">
+                <h4>🤖 Individuelle KI-Anfrage</h4>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                    Möchten Sie eine neue datenschutzkonforme KI-Funktion oder Analyse?
+                </p>
+                
+                <div class="form-group">
+                    <label class="form-label" for="aiRequest">Ihre KI-Funktions-Anfrage</label>
+                    <textarea id="aiRequest" class="form-textarea" placeholder="Beschreiben Sie hier die gewünschte KI-Funktion oder Analyse..."></textarea>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>💡 Hinweis:</strong> Bitte senden Sie uns für die KI-Anfrage eine <strong>anonymisierte Beispieldatei</strong> zu. Dies hilft uns, Ihre Anforderungen besser zu verstehen und umzusetzen.</p>
+                </div>
+            </div>
+
+            <!-- Export Actions -->
+            <div class="export-section">
+                <h3>🔐 Export-Optionen (AES-256 verschlüsselt)</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                    Alle Daten werden clientseitig mit AES-256 verschlüsselt.
+                </p>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="exportViaEmail()">
+                        📧 Per E-Mail senden
+                    </button>
+                    <button class="btn btn-success" onclick="exportAsFile()">
+                        💾 Als verschlüsselte Datei exportieren
+                    </button>
+                </div>
+            </div>
+
+            <!-- Alert Area -->
+            <div id="alertArea" style="margin-top: 1.5rem;"></div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Frage bearbeiten</h3>
+            </div>
+            <div id="editModalBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditModal()">Abbrechen</button>
+                <button class="btn btn-primary" onclick="saveEdit()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===================================================================
+        // APPLICATION STATE
+        // ===================================================================
+        let appState = {
+            questions: [],
+            currentEditIndex: null
+        };
+
+        // Supported languages (from index_v8_complete.html)
+        const SUPPORTED_LANGUAGES = {
+            de: "Deutsch",
+            en: "English",
+            fr: "Français",
+            es: "Español",
+            it: "Italiano",
+            tr: "Türkçe",
+            pl: "Polski",
+            ru: "Русский",
+            uk: "Українська",
+            ar: "العربية",
+            fa: "فارسی",
+            ur: "اردو",
+            zh: "中文"
+        };
+
+        // ===================================================================
+        // FORM HANDLERS
+        // ===================================================================
+
+        // Category selection handler
+        document.getElementById('category').addEventListener('change', function() {
+            const newCategoryGroup = document.getElementById('newCategoryGroup');
+            if (this.value === 'new') {
+                newCategoryGroup.style.display = 'block';
+                document.getElementById('newCategory').required = true;
+            } else {
+                newCategoryGroup.style.display = 'none';
+                document.getElementById('newCategory').required = false;
+            }
+        });
+
+        // Question type selection handler
+        document.getElementById('questionType').addEventListener('change', function() {
+            const choiceGroup = document.getElementById('choiceOptionsGroup');
+            const optionsList = document.getElementById('optionsList');
+            
+            if (this.value === 'select' || this.value === 'checkbox') {
+                choiceGroup.style.display = 'block';
+                // Add initial options if empty
+                if (optionsList.children.length === 0) {
+                    addOption();
+                    addOption();
+                }
+            } else {
+                choiceGroup.style.display = 'none';
+            }
+        });
+
+        // Add option for choice types
+        function addOption() {
+            const optionsList = document.getElementById('optionsList');
+            const optionIndex = optionsList.children.length;
+            
+            const optionItem = document.createElement('div');
+            optionItem.className = 'option-item';
+            optionItem.innerHTML = `
+                <input type="text" class="form-input" placeholder="Option ${optionIndex + 1}" data-option-index="${optionIndex}">
+                <button type="button" class="btn btn-secondary btn-small" onclick="removeOption(this)">✖</button>
+            `;
+            
+            optionsList.appendChild(optionItem);
+        }
+
+        // Remove option
+        function removeOption(button) {
+            button.parentElement.remove();
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('questionForm').reset();
+            document.getElementById('newCategoryGroup').style.display = 'none';
+            document.getElementById('choiceOptionsGroup').style.display = 'none';
+            document.getElementById('optionsList').innerHTML = '';
+            appState.currentEditIndex = null;
+        }
+
+        // Form submission
+        document.getElementById('questionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            let category = document.getElementById('category').value;
+            if (category === 'new') {
+                category = document.getElementById('newCategory').value.trim();
+                if (!category) {
+                    showAlert('Bitte geben Sie einen Namen für die neue Kategorie ein.', 'error');
+                    return;
+                }
+            }
+            
+            const questionType = document.getElementById('questionType').value;
+            const questionText = document.getElementById('questionText').value.trim();
+            
+            // Get options for choice types
+            let options = [];
+            if (questionType === 'select' || questionType === 'checkbox') {
+                const optionInputs = document.querySelectorAll('#optionsList input');
+                options = Array.from(optionInputs)
+                    .map(input => input.value.trim())
+                    .filter(val => val !== '');
+                
+                if (options.length < 2) {
+                    showAlert('Bitte fügen Sie mindestens 2 Optionen hinzu.', 'error');
+                    return;
+                }
+            }
+            
+            // Get translations
+            const translations = { de: questionText };
+            Object.keys(SUPPORTED_LANGUAGES).forEach(lang => {
+                if (lang !== 'de') {
+                    const value = document.getElementById(`lang_${lang}`).value.trim();
+                    if (value) {
+                        translations[lang] = value;
+                    }
+                }
+            });
+            
+            // Create question object
+            const question = {
+                id: Date.now(),
+                category,
+                type: questionType,
+                text: questionText,
+                translations,
+                options,
+                created: new Date().toISOString()
+            };
+            
+            // Add or update question
+            if (appState.currentEditIndex !== null) {
+                appState.questions[appState.currentEditIndex] = question;
+                showAlert('Frage erfolgreich aktualisiert!', 'success');
+                appState.currentEditIndex = null;
+            } else {
+                appState.questions.push(question);
+                showAlert('Frage erfolgreich hinzugefügt!', 'success');
+            }
+            
+            // Update UI
+            renderQuestions();
+            resetForm();
+        });
+
+        // ===================================================================
+        // QUESTION LIST RENDERING
+        // ===================================================================
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsList');
+            const count = document.getElementById('questionCount');
+            
+            count.textContent = appState.questions.length;
+            
+            if (appState.questions.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        <p>Noch keine Fragen hinzugefügt.</p>
+                        <p style="font-size: 0.875rem;">Erstellen Sie Ihre erste Frage im linken Bereich.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = appState.questions.map((q, index) => {
+                const typeLabels = {
+                    text: 'Text',
+                    number: 'Zahl',
+                    date: 'Datum',
+                    select: 'Single Choice',
+                    checkbox: 'Multiple Choice'
+                };
+                
+                const translationCount = Object.keys(q.translations).length - 1; // -1 for German
+                
+                return `
+                    <div class="question-item" onclick="selectQuestion(${index})">
+                        <div class="question-header">
+                            <div class="question-title">${q.text}</div>
+                        </div>
+                        <div class="question-meta">
+                            <span class="badge">${q.category}</span>
+                            <span class="badge badge-type">${typeLabels[q.type]}</span>
+                            ${translationCount > 0 ? `<span class="badge">🌍 ${translationCount} Sprachen</span>` : ''}
+                        </div>
+                        ${q.options && q.options.length > 0 ? `
+                            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                                Optionen: ${q.options.join(', ')}
+                            </div>
+                        ` : ''}
+                        <div class="question-actions">
+                            <button class="btn btn-secondary btn-small" onclick="editQuestion(${index}, event)">✏️ Bearbeiten</button>
+                            <button class="btn btn-secondary btn-small" onclick="deleteQuestion(${index}, event)">🗑️ Löschen</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectQuestion(index) {
+            const items = document.querySelectorAll('.question-item');
+            items.forEach((item, i) => {
+                if (i === index) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+
+        function editQuestion(index, event) {
+            event.stopPropagation();
+            
+            const question = appState.questions[index];
+            
+            // Fill form with question data
+            document.getElementById('category').value = question.category;
+            document.getElementById('questionType').value = question.type;
+            document.getElementById('questionText').value = question.text;
+            
+            // Fill translations
+            Object.keys(SUPPORTED_LANGUAGES).forEach(lang => {
+                if (lang !== 'de' && question.translations[lang]) {
+                    document.getElementById(`lang_${lang}`).value = question.translations[lang];
+                }
+            });
+            
+            // Handle options for choice types
+            if (question.type === 'select' || question.type === 'checkbox') {
+                document.getElementById('choiceOptionsGroup').style.display = 'block';
+                const optionsList = document.getElementById('optionsList');
+                optionsList.innerHTML = '';
+                
+                question.options.forEach(option => {
+                    const optionItem = document.createElement('div');
+                    optionItem.className = 'option-item';
+                    optionItem.innerHTML = `
+                        <input type="text" class="form-input" value="${option}">
+                        <button type="button" class="btn btn-secondary btn-small" onclick="removeOption(this)">✖</button>
+                    `;
+                    optionsList.appendChild(optionItem);
+                });
+            }
+            
+            appState.currentEditIndex = index;
+            
+            // Scroll to form
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showAlert('Bearbeiten Sie die Frage und klicken Sie auf "Frage hinzufügen" zum Speichern.', 'success');
+        }
+
+        function deleteQuestion(index, event) {
+            event.stopPropagation();
+            
+            if (confirm('Möchten Sie diese Frage wirklich löschen?')) {
+                appState.questions.splice(index, 1);
+                renderQuestions();
+                showAlert('Frage erfolgreich gelöscht.', 'success');
+            }
+        }
+
+        // ===================================================================
+        // ENCRYPTION (AES-256)
+        // ===================================================================
+
+        async function encryptData(data, password) {
+            const enc = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                enc.encode(password),
+                { name: 'PBKDF2' },
+                false,
+                ['deriveBits', 'deriveKey']
+            );
+            
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const key = await crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: 100000,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt']
+            );
+            
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                enc.encode(data)
+            );
+            
+            // Combine salt + iv + encrypted data
+            const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+            combined.set(salt, 0);
+            combined.set(iv, salt.length);
+            combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+            
+            // Convert to base64
+            return btoa(String.fromCharCode(...combined));
+        }
+
+        // ===================================================================
+        // EXPORT FUNCTIONS
+        // ===================================================================
+
+        async function exportViaEmail() {
+            if (!validateExport()) return;
+            
+            const exportData = prepareExportData();
+            
+            try {
+                // Encrypt with hardcoded password "123456"
+                const encrypted = await encryptData(JSON.stringify(exportData, null, 2), '123456');
+                
+                const subject = encodeURIComponent('Anamnese-Fragebogen Export');
+                const body = encodeURIComponent(`Sehr geehrte Damen und Herren,
+
+anbei übersende ich den verschlüsselten Export meines Anamnese-Fragebogens.
+
+Praxis-Informationen:
+- Arzt: ${exportData.practice.doctorName}
+- Praxis: ${exportData.practice.practiceName}
+${exportData.practice.practiceNumber ? `- Praxisnummer: ${exportData.practice.practiceNumber}\n` : ''}${exportData.practice.completionDate ? `- Gewünschtes Fertigstellungsdatum: ${exportData.practice.completionDate}\n` : ''}
+- Anzahl Fragen: ${exportData.questions.length}
+
+${exportData.aiRequest ? `KI-Funktions-Anfrage:\n${exportData.aiRequest}\n\n` : ''}Verschlüsselter Export (AES-256):
+${encrypted}
+
+Mit freundlichen Grüßen`);
+                
+                window.location.href = `mailto:support@diggai.de?subject=${subject}&body=${body}`;
+                
+                showAlert('E-Mail-Programm geöffnet. Bitte senden Sie die E-Mail ab.', 'success');
+            } catch (error) {
+                showAlert('Fehler bei der Verschlüsselung: ' + error.message, 'error');
+            }
+        }
+
+        async function exportAsFile() {
+            if (!validateExport()) return;
+            
+            const exportData = prepareExportData();
+            
+            try {
+                // Encrypt with hardcoded password "123456"
+                const encrypted = await encryptData(JSON.stringify(exportData, null, 2), '123456');
+                
+                // Create download
+                const blob = new Blob([encrypted], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `anamnese_export_${new Date().toISOString().split('T')[0]}.aes256.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showAlert('Export erfolgreich! Die verschlüsselte Datei wurde heruntergeladen.', 'success');
+            } catch (error) {
+                showAlert('Fehler beim Export: ' + error.message, 'error');
+            }
+        }
+
+        function validateExport() {
+            if (appState.questions.length === 0) {
+                showAlert('Bitte fügen Sie mindestens eine Frage hinzu.', 'error');
+                return false;
+            }
+            
+            const doctorName = document.getElementById('doctorName').value.trim();
+            const practiceName = document.getElementById('practiceName').value.trim();
+            
+            if (!doctorName || !practiceName) {
+                showAlert('Bitte geben Sie den Namen des Arztes und der Praxis ein.', 'error');
+                return false;
+            }
+            
+            return true;
+        }
+
+        function prepareExportData() {
+            return {
+                version: '1.0.0',
+                exportDate: new Date().toISOString(),
+                practice: {
+                    doctorName: document.getElementById('doctorName').value.trim(),
+                    practiceName: document.getElementById('practiceName').value.trim(),
+                    practiceNumber: document.getElementById('practiceNumber').value.trim(),
+                    completionDate: document.getElementById('completionDate').value
+                },
+                aiRequest: document.getElementById('aiRequest').value.trim(),
+                questions: appState.questions,
+                metadata: {
+                    questionCount: appState.questions.length,
+                    categories: [...new Set(appState.questions.map(q => q.category))],
+                    languages: [...new Set(appState.questions.flatMap(q => Object.keys(q.translations)))]
+                }
+            };
+        }
+
+        // ===================================================================
+        // UI HELPERS
+        // ===================================================================
+
+        function showAlert(message, type) {
+            const alertArea = document.getElementById('alertArea');
+            const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+            
+            const alert = document.createElement('div');
+            alert.className = `alert ${alertClass}`;
+            alert.textContent = message;
+            
+            alertArea.innerHTML = '';
+            alertArea.appendChild(alert);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // ===================================================================
+        // INITIALIZATION
+        // ===================================================================
+
+        // Load saved state from localStorage
+        window.addEventListener('DOMContentLoaded', function() {
+            const saved = localStorage.getItem('adminDashboardState');
+            if (saved) {
+                try {
+                    appState = JSON.parse(saved);
+                    renderQuestions();
+                    showAlert('Gespeicherte Daten wurden geladen.', 'success');
+                } catch (e) {
+                    console.error('Error loading saved state:', e);
+                }
+            }
+        });
+
+        // Auto-save to localStorage
+        setInterval(() => {
+            localStorage.setItem('adminDashboardState', JSON.stringify(appState));
+        }, 5000);
+
+        // Initial render
+        renderQuestions();
+    </script>
+</body>
+</html>
