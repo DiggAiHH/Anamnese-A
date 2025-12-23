@@ -15252,6 +15252,9 @@ function clearUploadedDocuments() {
     document.addEventListener('DOMContentLoaded', function() {
         console.log('[Flow] Initializing questionnaire flow system');
         
+        // Constants
+        const BASISDATEN_FIELDS = ['0000', '0001', '0002', '0003_tag', '0003_monat', '0003_jahr'];
+        
         const form = document.getElementById('form') || document.querySelector('form') || document.getElementById('question-area');
         if (!form) {
             console.warn('[Flow] No form element found');
@@ -15285,8 +15288,7 @@ function clearUploadedDocuments() {
 
         // Check if Basisdaten (q0000) is complete
         function checkBasisdatenComplete() {
-            const fields = ['0000', '0001', '0002', '0003_tag', '0003_monat', '0003_jahr'];
-            const allFilled = fields.every(function(name) {
+            const allFilled = BASISDATEN_FIELDS.every(function(name) {
                 const el = form.querySelector('[name="' + name + '"]') || 
                            form.querySelector('[data-field-id="' + name + '"]');
                 if (!el) return false;
@@ -15350,12 +15352,17 @@ function clearUploadedDocuments() {
                     showSection(target);
                 } else {
                     hideSection(target);
-                    // Also clear any inputs in hidden sections
+                    // Clear inputs in hidden sections and sync with AppState
                     const targets = target.split(',');
                     targets.forEach(function(sel) {
                         const section = document.querySelector(sel.trim());
                         if (section) {
                             section.querySelectorAll('input, select, textarea').forEach(function(el) {
+                                const fieldId = el.name || el.dataset.fieldId;
+                                if (fieldId && typeof AppState !== 'undefined' && AppState.answers) {
+                                    // Clear from AppState as well
+                                    delete AppState.answers[fieldId];
+                                }
                                 if (el.type === 'checkbox' || el.type === 'radio') {
                                     el.checked = false;
                                 } else {
@@ -15368,9 +15375,8 @@ function clearUploadedDocuments() {
             }
 
             // Check Basisdaten completion
-            const basisdatenFields = ['0000', '0001', '0002', '0003_tag', '0003_monat', '0003_jahr'];
             const fieldId = input.name || input.dataset.fieldId || '';
-            if (basisdatenFields.indexOf(fieldId) !== -1) {
+            if (BASISDATEN_FIELDS.indexOf(fieldId) !== -1) {
                 checkBasisdatenComplete();
             }
 
@@ -15380,10 +15386,13 @@ function clearUploadedDocuments() {
             }
         }, true); // Use capture phase to catch all events
 
-        // Initial check
-        setTimeout(function() {
-            checkBasisdatenComplete();
-        }, 500);
+        // Initial check - wait for form fields to be rendered
+        // Use requestAnimationFrame to ensure DOM is fully rendered
+        requestAnimationFrame(function() {
+            setTimeout(function() {
+                checkBasisdatenComplete();
+            }, 100); // Reduced delay, just enough for rendering to complete
+        });
         
         console.log('[Flow] Questionnaire flow system initialized');
     });
