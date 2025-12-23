@@ -5136,15 +5136,13 @@ function clearUploadedDocuments() {
                                         "id": "1000",
                                         "type": "radio",
                                         "label": "Ja",
-                                        "required": false,
-                                        "dataNext": "#q1001"
+                                        "required": false
                                 },
                                 {
                                         "id": "1000",
                                         "type": "radio",
                                         "label": "Nein",
-                                        "required": false,
-                                        "dataNext": "#q2000"
+                                        "required": false
                                 }
                         ]
                 },
@@ -5161,8 +5159,7 @@ function clearUploadedDocuments() {
                                         "id": "1001_select",
                                         "type": "select",
                                         "label": "1001_select",
-                                        "required": false,
-                                        "dataToggle": "#q1002"
+                                        "required": false
                                 }
                         ]
                 },
@@ -14349,12 +14346,8 @@ function clearUploadedDocuments() {
                         : (currentValue === field.label ? 'checked' : '');
                     const selected = checked ? 'selected' : '';
                     
-                    // Add data-next or data-toggle attributes if present
-                    const dataNext = field.dataNext ? ` data-next="${field.dataNext}"` : '';
-                    const dataToggle = field.dataToggle ? ` data-toggle="${field.dataToggle}"` : '';
-                    
                     html += `<label class="option-item ${selected}">`;
-                    html += `<input type="${field.type}" name="${field.id}" value="${escapeHtml(field.label)}" ${checked} data-field-id="${field.id}"${dataNext}${dataToggle}>`;
+                    html += `<input type="${field.type}" name="${field.id}" value="${escapeHtml(field.label)}" ${checked} data-field-id="${field.id}">`;
                     html += `<span>${escapeHtml(field.label)}</span>`;
                     html += `</label>`;
                     html += `</div>`;
@@ -14389,9 +14382,7 @@ function clearUploadedDocuments() {
                         break;
 
                     case 'select':
-                        // Add data-toggle attribute if present
-                        const selectDataToggle = field.dataToggle ? ` data-toggle="${field.dataToggle}"` : '';
-                        html += `<select id="${fieldId}" data-field-id="${field.id}" ${field.required ? 'required' : ''}${selectDataToggle}>`;
+                        html += `<select id="${fieldId}" data-field-id="${field.id}" ${field.required ? 'required' : ''}>`;
                         
                         // Special handling for birthdate fields (0003_tag, 0003_monat, 0003_jahr)
                         if (field.id === '0003_tag') {
@@ -15155,142 +15146,6 @@ function clearUploadedDocuments() {
         }
 
         console.log('[App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization');
-    </script>
-
-    <!-- =================================================================
-         QUESTIONNAIRE FLOW LOGIC (data-next / data-toggle)
-         ================================================================= -->
-    <script>
-    // Questionnaire flow system adapted from master file
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('[Flow] Initializing questionnaire flow system');
-        
-        const form = document.getElementById('form') || document.querySelector('form') || document.getElementById('question-area');
-        if (!form) {
-            console.warn('[Flow] No form element found');
-            return;
-        }
-
-        // Show a section by removing hidden attribute
-        function showSection(selector) {
-            const targets = selector.split(',');
-            targets.forEach(function(sel) {
-                const section = document.querySelector(sel.trim());
-                if (section) {
-                    section.removeAttribute('hidden');
-                    section.style.display = '';
-                    console.log('[Flow] Showing section:', sel.trim());
-                }
-            });
-        }
-
-        // Hide a section by adding hidden attribute
-        function hideSection(selector) {
-            const targets = selector.split(',');
-            targets.forEach(function(sel) {
-                const section = document.querySelector(sel.trim());
-                if (section) {
-                    section.setAttribute('hidden', '');
-                    console.log('[Flow] Hiding section:', sel.trim());
-                }
-            });
-        }
-
-        // Check if Basisdaten (q0000) is complete
-        function checkBasisdatenComplete() {
-            const fields = ['0000', '0001', '0002', '0003_tag', '0003_monat', '0003_jahr'];
-            const allFilled = fields.every(function(name) {
-                const el = form.querySelector('[name="' + name + '"]') || 
-                           form.querySelector('[data-field-id="' + name + '"]');
-                if (!el) return false;
-                if (el.value && el.value !== '') return true;
-                // Check in AppState
-                if (typeof AppState !== 'undefined' && AppState.answers && AppState.answers[name]) {
-                    return true;
-                }
-                return false;
-            });
-            if (allFilled) {
-                showSection('#q1000');
-                console.log('[Flow] Basisdaten complete, showing q1000');
-            }
-        }
-
-        // Main change event handler
-        document.addEventListener('change', function(e) {
-            const input = e.target;
-            if (!input) return;
-
-            console.log('[Flow] Change event on:', input.name || input.dataset.fieldId, 'type:', input.type);
-
-            // Handle data-next (radio buttons)
-            if (input.type === 'radio' && input.hasAttribute('data-next')) {
-                const target = input.getAttribute('data-next');
-                console.log('[Flow] Radio with data-next:', target);
-                showSection(target);
-                // Scroll to the new section
-                const targetEl = document.querySelector(target.split(',')[0].trim());
-                if (targetEl) {
-                    setTimeout(function() {
-                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                }
-            }
-
-            // Handle data-toggle on SELECT elements
-            if (input.tagName === 'SELECT' && input.hasAttribute('data-toggle')) {
-                if (input.value && input.value !== '') {
-                    const target = input.getAttribute('data-toggle');
-                    console.log('[Flow] Select with data-toggle:', target);
-                    showSection(target);
-                }
-            }
-
-            // Handle data-toggle on CHECKBOX elements
-            if (input.type === 'checkbox' && input.hasAttribute('data-toggle')) {
-                const target = input.getAttribute('data-toggle');
-                console.log('[Flow] Checkbox with data-toggle:', target, 'checked:', input.checked);
-                if (input.checked) {
-                    showSection(target);
-                } else {
-                    hideSection(target);
-                    // Also clear any inputs in hidden sections
-                    const targets = target.split(',');
-                    targets.forEach(function(sel) {
-                        const section = document.querySelector(sel.trim());
-                        if (section) {
-                            section.querySelectorAll('input, select, textarea').forEach(function(el) {
-                                if (el.type === 'checkbox' || el.type === 'radio') {
-                                    el.checked = false;
-                                } else {
-                                    el.value = '';
-                                }
-                            });
-                        }
-                    });
-                }
-            }
-
-            // Check Basisdaten completion
-            const basisdatenFields = ['0000', '0001', '0002', '0003_tag', '0003_monat', '0003_jahr'];
-            const fieldId = input.name || input.dataset.fieldId || '';
-            if (basisdatenFields.indexOf(fieldId) !== -1) {
-                checkBasisdatenComplete();
-            }
-
-            // Update progress bar if function exists
-            if (typeof App !== 'undefined' && typeof App.updateProgress === 'function') {
-                App.updateProgress();
-            }
-        }, true); // Use capture phase to catch all events
-
-        // Initial check
-        setTimeout(function() {
-            checkBasisdatenComplete();
-        }, 500);
-        
-        console.log('[Flow] Questionnaire flow system initialized');
-    });
     </script>
 </body>
 </html>
