@@ -229,7 +229,7 @@
             border-radius: 4px;
             padding: 1rem;
             margin-bottom: 1rem;
-            cursor: pointer;
+            cursor: move;
             transition: all 0.2s;
         }
 
@@ -241,6 +241,22 @@
         .question-item.active {
             border-color: var(--primary-color);
             background-color: #e7f2f8;
+        }
+
+        .question-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .question-item.drag-over {
+            border-top: 3px solid var(--primary-color);
+        }
+
+        .drag-handle {
+            cursor: move;
+            color: var(--text-secondary);
+            margin-right: 0.5rem;
+            user-select: none;
         }
 
         .question-header {
@@ -561,7 +577,31 @@
 
         <!-- Right Panel: Questions Preview -->
         <div class="panel">
-            <h2>📋 Hinzugefügte Fragen (<span id="questionCount">0</span>)</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="margin: 0;">📋 Hinzugefügte Fragen (<span id="questionCount">0</span>)</h2>
+                <button class="btn btn-secondary btn-small" onclick="showImportModal()">
+                    📥 Import
+                </button>
+            </div>
+            
+            <!-- Search and Filter -->
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <input type="text" id="searchInput" class="form-input" placeholder="🔍 Fragen durchsuchen..." oninput="filterQuestions()">
+            </div>
+            
+            <div class="form-group" style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <select id="filterCategory" class="form-select" style="flex: 1;" onchange="filterQuestions()">
+                    <option value="">Alle Kategorien</option>
+                </select>
+                <select id="filterType" class="form-select" style="flex: 1;" onchange="filterQuestions()">
+                    <option value="">Alle Typen</option>
+                    <option value="text">Text</option>
+                    <option value="number">Zahl</option>
+                    <option value="date">Datum</option>
+                    <option value="select">Single Choice</option>
+                    <option value="checkbox">Multiple Choice</option>
+                </select>
+            </div>
             
             <div id="questionsList" class="question-list">
                 <div class="empty-state">
@@ -632,6 +672,9 @@
                     <button class="btn btn-success" onclick="exportAsFile()">
                         💾 Als verschlüsselte Datei exportieren
                     </button>
+                    <button class="btn btn-secondary" onclick="exportAsJSON()">
+                        📄 Als JSON exportieren (unverschlüsselt)
+                    </button>
                 </div>
             </div>
 
@@ -650,6 +693,50 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeEditModal()">Abbrechen</button>
                 <button class="btn btn-primary" onclick="saveEdit()">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📥 Fragebogen importieren</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Importquelle wählen</label>
+                    <select id="importType" class="form-select" onchange="toggleImportFields()">
+                        <option value="encrypted">Verschlüsselte Datei (.aes256.txt)</option>
+                        <option value="json">JSON-Datei (unverschlüsselt)</option>
+                    </select>
+                </div>
+                
+                <div id="encryptedImportFields">
+                    <div class="form-group">
+                        <label class="form-label">Verschlüsselte Daten einfügen</label>
+                        <textarea id="importEncryptedData" class="form-textarea" placeholder="Fügen Sie hier die verschlüsselten Daten ein..." rows="8"></textarea>
+                        <p class="form-hint">Passwort: 123456</p>
+                    </div>
+                </div>
+                
+                <div id="jsonImportFields" style="display: none;">
+                    <div class="form-group">
+                        <label class="form-label">JSON-Daten einfügen</label>
+                        <textarea id="importJsonData" class="form-textarea" placeholder='{"questions": [...]}' rows="8"></textarea>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="mergeImport" style="margin-right: 0.5rem;">
+                        Mit bestehenden Fragen zusammenführen (anstatt zu ersetzen)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeImportModal()">Abbrechen</button>
+                <button class="btn btn-primary" onclick="performImport()">Importieren</button>
             </div>
         </div>
     </div>
@@ -845,9 +932,12 @@
                 const translationCount = Object.keys(q.translations).length - 1; // -1 for German
                 
                 return `
-                    <div class="question-item" onclick="selectQuestion(${index})">
+                    <div class="question-item" data-index="${index}">
                         <div class="question-header">
-                            <div class="question-title">${q.text}</div>
+                            <div style="display: flex; align-items: center; flex: 1;">
+                                <span class="drag-handle" title="Ziehen um neu zu ordnen">⋮⋮</span>
+                                <div class="question-title">${q.text}</div>
+                            </div>
                         </div>
                         <div class="question-meta">
                             <span class="badge">${q.category}</span>
@@ -866,17 +956,12 @@
                     </div>
                 `;
             }).join('');
-        }
-
-        function selectQuestion(index) {
-            const items = document.querySelectorAll('.question-item');
-            items.forEach((item, i) => {
-                if (i === index) {
-                    item.classList.add('active');
-                } else {
-                    item.classList.remove('active');
-                }
-            });
+            
+            // Enable drag and drop
+            makeDraggable();
+            
+            // Update filter options
+            updateFilterOptions();
         }
 
         function editQuestion(index, event) {
@@ -1073,6 +1158,307 @@ Mit freundlichen Grüßen`);
                     languages: [...new Set(appState.questions.flatMap(q => Object.keys(q.translations)))]
                 }
             };
+        }
+
+        // ===================================================================
+        // IMPORT FUNCTIONALITY
+        // ===================================================================
+
+        function showImportModal() {
+            document.getElementById('importModal').classList.add('show');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.remove('show');
+            document.getElementById('importEncryptedData').value = '';
+            document.getElementById('importJsonData').value = '';
+            document.getElementById('mergeImport').checked = false;
+        }
+
+        function toggleImportFields() {
+            const importType = document.getElementById('importType').value;
+            const encryptedFields = document.getElementById('encryptedImportFields');
+            const jsonFields = document.getElementById('jsonImportFields');
+            
+            if (importType === 'encrypted') {
+                encryptedFields.style.display = 'block';
+                jsonFields.style.display = 'none';
+            } else {
+                encryptedFields.style.display = 'none';
+                jsonFields.style.display = 'block';
+            }
+        }
+
+        async function performImport() {
+            const importType = document.getElementById('importType').value;
+            const mergeMode = document.getElementById('mergeImport').checked;
+            
+            try {
+                let importedData;
+                
+                if (importType === 'encrypted') {
+                    const encryptedText = document.getElementById('importEncryptedData').value.trim();
+                    if (!encryptedText) {
+                        showAlert('Bitte geben Sie die verschlüsselten Daten ein.', 'error');
+                        return;
+                    }
+                    
+                    // Decrypt data
+                    const decrypted = await decryptData(encryptedText, '123456');
+                    importedData = JSON.parse(decrypted);
+                } else {
+                    const jsonText = document.getElementById('importJsonData').value.trim();
+                    if (!jsonText) {
+                        showAlert('Bitte geben Sie die JSON-Daten ein.', 'error');
+                        return;
+                    }
+                    
+                    importedData = JSON.parse(jsonText);
+                }
+                
+                // Validate imported data
+                if (!importedData.questions || !Array.isArray(importedData.questions)) {
+                    showAlert('Ungültige Datenstruktur. Keine Fragen gefunden.', 'error');
+                    return;
+                }
+                
+                // Import questions
+                if (mergeMode) {
+                    // Merge with existing
+                    appState.questions = [...appState.questions, ...importedData.questions];
+                    showAlert(`${importedData.questions.length} Fragen erfolgreich hinzugefügt!`, 'success');
+                } else {
+                    // Replace existing
+                    if (appState.questions.length > 0) {
+                        if (!confirm('Möchten Sie die bestehenden Fragen wirklich ersetzen?')) {
+                            return;
+                        }
+                    }
+                    appState.questions = importedData.questions;
+                    showAlert(`${importedData.questions.length} Fragen erfolgreich importiert!`, 'success');
+                }
+                
+                // Import practice data if available
+                if (importedData.practice) {
+                    document.getElementById('doctorName').value = importedData.practice.doctorName || '';
+                    document.getElementById('practiceName').value = importedData.practice.practiceName || '';
+                    document.getElementById('practiceNumber').value = importedData.practice.practiceNumber || '';
+                    document.getElementById('completionDate').value = importedData.practice.completionDate || '';
+                }
+                
+                // Import AI request if available
+                if (importedData.aiRequest) {
+                    document.getElementById('aiRequest').value = importedData.aiRequest;
+                }
+                
+                renderQuestions();
+                updateFilterOptions();
+                closeImportModal();
+                
+            } catch (error) {
+                console.error('Import error:', error);
+                showAlert('Fehler beim Import: ' + error.message, 'error');
+            }
+        }
+
+        async function decryptData(encryptedBase64, password) {
+            const enc = new TextEncoder();
+            const data = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+            
+            const salt = data.slice(0, 16);
+            const iv = data.slice(16, 28);
+            const encrypted = data.slice(28);
+            
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                enc.encode(password),
+                { name: 'PBKDF2' },
+                false,
+                ['deriveBits', 'deriveKey']
+            );
+            
+            const key = await crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: 100000,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['decrypt']
+            );
+            
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                encrypted
+            );
+            
+            return new TextDecoder().decode(decrypted);
+        }
+
+        // ===================================================================
+        // SEARCH AND FILTER FUNCTIONALITY
+        // ===================================================================
+
+        function filterQuestions() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filterCategory = document.getElementById('filterCategory').value;
+            const filterType = document.getElementById('filterType').value;
+            
+            const items = document.querySelectorAll('.question-item');
+            let visibleCount = 0;
+            
+            appState.questions.forEach((q, index) => {
+                const item = items[index];
+                if (!item) return;
+                
+                // Search in text
+                const matchesSearch = !searchTerm || 
+                    q.text.toLowerCase().includes(searchTerm) ||
+                    (q.options && q.options.some(opt => opt.toLowerCase().includes(searchTerm)));
+                
+                // Filter by category
+                const matchesCategory = !filterCategory || q.category === filterCategory;
+                
+                // Filter by type
+                const matchesType = !filterType || q.type === filterType;
+                
+                if (matchesSearch && matchesCategory && matchesType) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Show/hide empty state
+            const emptyState = document.querySelector('.empty-state');
+            if (visibleCount === 0 && appState.questions.length > 0) {
+                if (!emptyState) {
+                    const container = document.getElementById('questionsList');
+                    const div = document.createElement('div');
+                    div.className = 'empty-state';
+                    div.innerHTML = '<p>Keine Fragen gefunden.</p>';
+                    container.appendChild(div);
+                }
+            } else if (emptyState && appState.questions.length > 0) {
+                emptyState.remove();
+            }
+        }
+
+        function updateFilterOptions() {
+            const categories = [...new Set(appState.questions.map(q => q.category))];
+            const filterCategory = document.getElementById('filterCategory');
+            
+            // Save current selection
+            const currentValue = filterCategory.value;
+            
+            // Update options
+            filterCategory.innerHTML = '<option value="">Alle Kategorien</option>';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                filterCategory.appendChild(option);
+            });
+            
+            // Restore selection if still valid
+            if (categories.includes(currentValue)) {
+                filterCategory.value = currentValue;
+            }
+        }
+
+        // ===================================================================
+        // DRAG AND DROP FUNCTIONALITY
+        // ===================================================================
+
+        let draggedIndex = null;
+
+        function makeDraggable() {
+            const items = document.querySelectorAll('.question-item');
+            
+            items.forEach((item, index) => {
+                item.setAttribute('draggable', 'true');
+                item.dataset.index = index;
+                
+                item.addEventListener('dragstart', function(e) {
+                    draggedIndex = parseInt(this.dataset.index);
+                    this.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                
+                item.addEventListener('dragend', function(e) {
+                    this.classList.remove('dragging');
+                    draggedIndex = null;
+                    
+                    // Remove all drag-over classes
+                    document.querySelectorAll('.drag-over').forEach(el => {
+                        el.classList.remove('drag-over');
+                    });
+                });
+                
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    
+                    if (draggedIndex !== null && draggedIndex !== parseInt(this.dataset.index)) {
+                        this.classList.add('drag-over');
+                    }
+                });
+                
+                item.addEventListener('dragleave', function(e) {
+                    this.classList.remove('drag-over');
+                });
+                
+                item.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('drag-over');
+                    
+                    const dropIndex = parseInt(this.dataset.index);
+                    
+                    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+                        // Reorder questions
+                        const draggedQuestion = appState.questions[draggedIndex];
+                        appState.questions.splice(draggedIndex, 1);
+                        appState.questions.splice(dropIndex, 0, draggedQuestion);
+                        
+                        renderQuestions();
+                        showAlert('Reihenfolge aktualisiert!', 'success');
+                    }
+                });
+            });
+        }
+
+        // ===================================================================
+        // JSON EXPORT
+        // ===================================================================
+
+        function exportAsJSON() {
+            if (!validateExport()) return;
+            
+            const exportData = prepareExportData();
+            
+            try {
+                const jsonString = JSON.stringify(exportData, null, 2);
+                
+                // Create download
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `anamnese_export_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showAlert('JSON-Export erfolgreich! Die Datei wurde heruntergeladen.', 'success');
+            } catch (error) {
+                showAlert('Fehler beim JSON-Export: ' + error.message, 'error');
+            }
         }
 
         // ===================================================================
