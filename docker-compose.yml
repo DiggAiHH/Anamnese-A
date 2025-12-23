@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://anamnese_user:anamnese_password@db:5432/anamnese
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - MASTER_KEY=${MASTER_KEY}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ANAMNESE_BASE_URL=${ANAMNESE_BASE_URL:-http://localhost:8080}
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - anamnese-network
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=anamnese_user
+      - POSTGRES_PASSWORD=anamnese_password
+      - POSTGRES_DB=anamnese
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    restart: unless-stopped
+    networks:
+      - anamnese-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d anamnese"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  anamnese-network:
+    driver: bridge
