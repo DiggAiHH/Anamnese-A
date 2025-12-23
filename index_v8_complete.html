@@ -14261,25 +14261,9 @@ function clearUploadedDocuments() {
                 AppState.currentStep = index;
                 const section = sections[index];
                 
-                // Check if section has a condition and if it's met
-                if (section.condition) {
-                    const { field, value, operator = '==' } = section.condition;
-                    const answer = AppState.answers[field];
-                    
-                    let conditionMet = false;
-                    if (answer !== undefined && answer !== null && answer !== '') {
-                        switch (operator) {
-                            case '==':
-                                conditionMet = answer == value;
-                                break;
-                            case '!=':
-                                conditionMet = answer != value;
-                                break;
-                            case 'includes':
-                                conditionMet = Array.isArray(answer) && answer.includes(value);
-                                break;
-                        }
-                    }
+                // Check if section has a condition and if it's met using the enhanced checkCondition function
+                if (section.condition && typeof checkCondition === 'function') {
+                    const conditionMet = checkCondition(section);
                     
                     // If condition not met, skip to next section
                     if (!conditionMet) {
