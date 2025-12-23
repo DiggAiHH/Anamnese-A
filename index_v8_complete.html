@@ -108,6 +108,83 @@ function calculateAge() {
 }
 
 /**
+ * Updates visibility of conditional questions without full re-render.
+ * Deletes answers for hidden questions.
+ */
+function updateConditionalVisibility() {
+    const section = APP_DATA.sections[APP_STATE.currentSectionIndex];
+    const fields = section.fields || section.questions || [];
+    
+    fields.forEach(question => {
+        const questionElement = document.getElementById(`question-${question.id}`);
+        if (!questionElement) return;
+        
+        const isVisible = checkCondition(question);
+        
+        if (!isVisible) {
+            questionElement.style.display = 'none';
+            // Delete answer when question becomes hidden
+            if (APP_STATE.answers[question.id] !== undefined) {
+                delete APP_STATE.answers[question.id];
+            }
+        } else {
+            questionElement.style.display = 'block';
+        }
+    });
+}
+
+/**
+ * Updates the Next button state based on visible required questions.
+ */
+function updateNextButtonState() {
+    const section = APP_DATA.sections[APP_STATE.currentSectionIndex];
+    const fields = section.fields || section.questions || [];
+    
+    let allRequiredAnswered = true;
+    
+    fields.forEach(question => {
+        // Only check visible questions
+        const questionElement = document.getElementById(`question-${question.id}`);
+        if (!questionElement || questionElement.style.display === 'none') {
+            return;
+        }
+        
+        if (question.required) {
+            const answer = APP_STATE.answers[question.id];
+            if (answer === undefined || answer === null || answer === '') {
+                allRequiredAnswered = false;
+            }
+        }
+    });
+    
+    const nextBtn = document.getElementById('next-btn');
+    if (nextBtn) {
+        nextBtn.disabled = !allRequiredAnswered;
+    }
+}
+
+/**
+ * Aggregates DOB fields into ISO format YYYY-MM-DD.
+ * Stores in APP_STATE.answers['0003'] when all three parts are provided.
+ * Clears '0003' otherwise.
+ */
+function aggregateDOBToISO() {
+    const day = APP_STATE.answers['0003_tag'];
+    const month = APP_STATE.answers['0003_monat'];
+    const year = APP_STATE.answers['0003_jahr'];
+    
+    if (day && month && year) {
+        // Pad day and month with leading zeros
+        const paddedDay = String(day).padStart(2, '0');
+        const paddedMonth = String(month).padStart(2, '0');
+        APP_STATE.answers['0003'] = `${year}-${paddedMonth}-${paddedDay}`;
+    } else {
+        // Clear ISO date if any part is missing
+        delete APP_STATE.answers['0003'];
+    }
+}
+
+/**
  * Überprüft die Bedingungen für eine Frage oder Sektion.
  * Enhanced to support computed fields and all operators.
  * @param {object} item - Die Frage oder Sektion mit einer optionalen 'condition' Eigenschaft.
@@ -183,7 +260,8 @@ function renderCurrentSection() {
     let allQuestionsAnswered = true;
 
     // Fragen rendern
-    section.questions.forEach(question => {
+    const fields = section.fields || section.questions || [];
+    fields.forEach(question => {
         const questionElement = document.createElement('div');
         questionElement.className = 'form-group question-card';
         questionElement.id = `question-${question.id}`;
@@ -225,16 +303,8 @@ function renderCurrentSection() {
         }
     });
     
-    // Füge Event-Listener hinzu, um bei jeder Antwort die Bedingungen neu zu prüfen
-    formContainer.querySelectorAll('input, select, textarea').forEach(input => {
-        input.addEventListener('change', (event) => {
-            handleAnswerChange(input.id, getInputValue(input));
-            renderCurrentSection(); // Re-render, um abhängige Fragen zu aktualisieren
-        });
-    });
-
-    // Aktualisiere den "Weiter"-Button
-    document.getElementById('next-btn').disabled = !allQuestionsAnswered;
+    // Update Next button state after rendering
+    updateNextButtonState();
 }
 
 // Hilfsfunktion zum Erstellen der Geburtsdatum-Selects
@@ -393,7 +463,8 @@ function createStandardInput(question) {
                     
                     let newValues = Array.from(input.querySelectorAll('input:checked')).map(cb => cb.value);
                     handleAnswerChange(question.id, newValues);
-                    renderCurrentSection(); // Re-render für bedingte Fragen
+                    updateConditionalVisibility();
+                    updateNextButtonState();
                 });
                 
                 input.appendChild(item);
@@ -454,10 +525,24 @@ function handleAnswerChange(id, value) {
     } else {
         APP_STATE.answers[id] = sanitizedValue;
     }
+    
+    // Aggregate DOB fields into ISO format
+    if (id === '0003_tag' || id === '0003_monat' || id === '0003_jahr') {
+        aggregateDOBToISO();
+    }
+    
+    // Update conditional question visibility
+    updateConditionalVisibility();
+    
+    // Update Next button state
+    updateNextButtonState();
+    
     // Schedule auto-save after changes
     scheduleAutoSave();
-    // Aktualisiere die JSON-Box (wird in Phase 7 implementiert)
-    // updateJsonBox(); 
+    // Aktualisiere die JSON-Box
+    if (typeof updateJsonBox === 'function') {
+        updateJsonBox();
+    }
 }
 
 
@@ -989,9 +1074,10 @@ function formatAnswerValue(question, value) {
  * @param {string} questionId - Die ID der Frage.
  */
 function jumpToQuestion(questionId) {
-    const sectionIndex = APP_DATA.sections.findIndex(section => 
-        section.questions.some(q => q.id === questionId)
-    );
+    const sectionIndex = APP_DATA.sections.findIndex(section => {
+        const fields = section.fields || section.questions || [];
+        return fields.some(q => q.id === questionId);
+    });
     
     if (sectionIndex !== -1) {
         APP_STATE.currentSectionIndex = sectionIndex;
@@ -1096,24 +1182,6 @@ async function exportNFC() {
             alert('Encryption error: ' + e.message);
         }
     }
-}
-
-// Überschreibe die ursprüngliche `handleAnswerChange` Funktion, um die JSON-Box zu aktualisieren
-function handleAnswerChange(id, value) {
-    // Sanitize input to prevent XSS
-    const sanitizedValue = Array.isArray(value) 
-        ? value.map(sanitizeInput)
-        : sanitizeInput(value);
-    
-    // Entferne die Antwort, wenn sie leer ist
-    if (sanitizedValue === '' || (Array.isArray(sanitizedValue) && sanitizedValue.length === 0)) {
-        delete APP_STATE.answers[id];
-    } else {
-        APP_STATE.answers[id] = sanitizedValue;
-    }
-    // Schedule auto-save after changes
-    scheduleAutoSave();
-    updateJsonBox(); // NEU: Aktualisiere die JSON-Box bei jeder Änderung
 }
 
 // Füge die Entschlüsselungsfunktion für die Praxis/Klinik hinzu
@@ -14296,6 +14364,13 @@ function clearUploadedDocuments() {
                         
                         // If condition not met, skip to next section
                         if (!conditionMet) {
+                            // Delete answers from this hidden section
+                            if (section.fields) {
+                                section.fields.forEach(field => {
+                                    delete AppState.answers[field.id];
+                                });
+                            }
+                            
                             // Auto-advance or go back depending on navigation direction
                             if (index < sections.length - 1) {
                                 this.renderStep(index + 1);
@@ -14498,6 +14573,54 @@ function clearUploadedDocuments() {
                             }
                             parent.classList.toggle('selected', e.target.checked);
                         }
+                        
+                        // Dynamic day adjustment for DOB fields to handle leap years
+                        if (fieldId === '0003_monat' || fieldId === '0003_jahr') {
+                            const daySelect = document.querySelector('[data-field-id="0003_tag"]');
+                            const monthSelect = document.querySelector('[data-field-id="0003_monat"]');
+                            const yearSelect = document.querySelector('[data-field-id="0003_jahr"]');
+                            
+                            if (daySelect && monthSelect && yearSelect) {
+                                const month = parseInt(monthSelect.value);
+                                const year = parseInt(yearSelect.value);
+                                const currentDay = parseInt(daySelect.value);
+                                
+                                if (month && year) {
+                                    // Calculate days in month
+                                    let daysInMonth = 31;
+                                    if ([4, 6, 9, 11].includes(month)) {
+                                        daysInMonth = 30;
+                                    } else if (month === 2) {
+                                        // Leap year check
+                                        const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+                                        daysInMonth = isLeap ? 29 : 28;
+                                    }
+                                    
+                                    // Rebuild day options
+                                    const placeholder = daySelect.querySelector('option[value=""]');
+                                    daySelect.innerHTML = '';
+                                    if (placeholder) {
+                                        daySelect.appendChild(placeholder.cloneNode(true));
+                                    }
+                                    
+                                    for (let i = 1; i <= daysInMonth; i++) {
+                                        const opt = document.createElement('option');
+                                        opt.value = String(i);
+                                        opt.textContent = String(i);
+                                        if (i === currentDay && currentDay <= daysInMonth) {
+                                            opt.selected = true;
+                                        }
+                                        daySelect.appendChild(opt);
+                                    }
+                                    
+                                    // If current day is now invalid, clear it
+                                    if (currentDay > daysInMonth) {
+                                        daySelect.value = '';
+                                        this.saveFieldValue('0003_tag', daySelect);
+                                    }
+                                }
+                            }
+                        }
                     }
                 });
                 
@@ -14526,6 +14649,23 @@ function clearUploadedDocuments() {
                     AppState.answers[fieldId] = checked ? sanitizeInput(checked.value) : '';
                 } else {
                     AppState.answers[fieldId] = sanitizeInput(element.value);
+                }
+                
+                // Aggregate DOB fields into ISO format YYYY-MM-DD
+                if (fieldId === '0003_tag' || fieldId === '0003_monat' || fieldId === '0003_jahr') {
+                    const day = AppState.answers['0003_tag'];
+                    const month = AppState.answers['0003_monat'];
+                    const year = AppState.answers['0003_jahr'];
+                    
+                    if (day && month && year) {
+                        // Pad day and month with leading zeros
+                        const paddedDay = String(day).padStart(2, '0');
+                        const paddedMonth = String(month).padStart(2, '0');
+                        AppState.answers['0003'] = `${year}-${paddedMonth}-${paddedDay}`;
+                    } else {
+                        // Clear ISO date if any part is missing
+                        delete AppState.answers['0003'];
+                    }
                 }
                 
                 // Schedule auto-save after changes
@@ -14779,6 +14919,18 @@ function clearUploadedDocuments() {
             goToStep(index) {
                 document.getElementById('summary-box').classList.add('hidden');
                 this.renderStep(index);
+            },
+            
+            jumpToQuestion(questionId) {
+                // Find which section contains this question
+                const sectionIndex = window.APP_DATA.sections.findIndex(section => {
+                    const fields = section.fields || [];
+                    return fields.some(f => f.id === questionId);
+                });
+                
+                if (sectionIndex !== -1) {
+                    this.goToStep(sectionIndex);
+                }
             },
 
             // ----- SUMMARY -----
