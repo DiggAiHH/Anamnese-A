@@ -14583,22 +14583,26 @@ function clearUploadedDocuments() {
                 
                 if (!progressBar || !progressText) return;
                 
-                const totalSections = window.APP_DATA.sections.length;
-                const currentSection = AppState.currentStep;
-                
+                let visibleSections = 0;
                 let totalQuestions = 0;
                 let answeredQuestions = 0;
                 
                 window.APP_DATA.sections.forEach((section, idx) => {
-                    if (section.fields) {
-                        section.fields.forEach(field => {
-                            // Count all visible questions
-                            totalQuestions++;
-                            // Count answered questions up to current section
-                            if (idx < currentSection || (idx === currentSection && AppState.answers[field.id] !== undefined && AppState.answers[field.id] !== '')) {
-                                answeredQuestions++;
-                            }
-                        });
+                    // Check if section should be visible based on conditions
+                    const sectionVisible = !section.condition || (typeof checkCondition === 'function' && checkCondition(section));
+                    
+                    if (sectionVisible) {
+                        visibleSections++;
+                        if (section.fields) {
+                            section.fields.forEach(field => {
+                                // Count all visible questions
+                                totalQuestions++;
+                                // Count answered questions up to current section
+                                if (idx < AppState.currentStep || (idx === AppState.currentStep && AppState.answers[field.id] !== undefined && AppState.answers[field.id] !== '')) {
+                                    answeredQuestions++;
+                                }
+                            });
+                        }
                     }
                 });
                 
@@ -14613,7 +14617,7 @@ function clearUploadedDocuments() {
                 progressContainer?.setAttribute('aria-valuetext', `${Math.round(progressPercent)} Prozent abgeschlossen`);
                 
                 // Enhanced text with percentage and counts
-                const progressMessage = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                const progressMessage = `Sektion ${AppState.currentStep + 1} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
                 progressText.textContent = progressMessage;
                 
                 // Color coding based on progress
