@@ -48,7 +48,68 @@
 // =================================================================
 
 /**
+ * Helper function to get answers from the appropriate state object
+ * @returns {object} The answers object
+ */
+function getAnswers() {
+    return (typeof APP_STATE !== 'undefined' && APP_STATE.answers) 
+        ? APP_STATE.answers 
+        : (typeof AppState !== 'undefined' && AppState.answers) 
+            ? AppState.answers 
+            : {};
+}
+
+// Constants for computed field mappings
+const COMPUTED_FIELD_MAPPINGS = {
+    'calculated_gender': '0002',
+    'birthdate_day': '0003_tag',
+    'birthdate_month': '0003_monat',
+    'birthdate_year': '0003_jahr'
+};
+
+/**
+ * Calculates age from birthdate fields
+ * @returns {number|null} Age in years or null if incomplete or invalid
+ */
+function calculateAge() {
+    const answers = getAnswers();
+    
+    const day = parseInt(answers[COMPUTED_FIELD_MAPPINGS.birthdate_day], 10);
+    const month = parseInt(answers[COMPUTED_FIELD_MAPPINGS.birthdate_month], 10);
+    const year = parseInt(answers[COMPUTED_FIELD_MAPPINGS.birthdate_year], 10);
+    
+    // Validate inputs
+    if (!day || !month || !year || isNaN(day) || isNaN(month) || isNaN(year)) {
+        return null;
+    }
+    
+    // Validate month and day ranges
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+        return null;
+    }
+    
+    // Create date and validate it's a valid date
+    const birthDate = new Date(year, month - 1, day);
+    
+    // Check if the date is valid (handles cases like Feb 30)
+    if (birthDate.getDate() !== day || birthDate.getMonth() !== month - 1 || birthDate.getFullYear() !== year) {
+        return null;
+    }
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    
+    return age;
+}
+
+/**
  * Überprüft die Bedingungen für eine Frage oder Sektion.
+ * Enhanced to support computed fields and all operators.
  * @param {object} item - Die Frage oder Sektion mit einer optionalen 'condition' Eigenschaft.
  * @returns {boolean} - True, wenn die Bedingung erfüllt ist oder keine Bedingung existiert, sonst False.
  */
@@ -58,71 +119,18 @@ function checkCondition(item) {
     }
 
     const { field, value, operator = '==' } = item.condition;
-    const answer = APP_STATE.answers[field];
-
-    if (answer === undefined) {
-        return false; // Bedingung nicht erfüllt, wenn die abhängige Frage noch nicht beantwortet wurde
+    const answers = getAnswers();
+    
+    let answer;
+    
+    // Handle computed fields
+    if (field === 'calculated_age') {
+        answer = calculateAge();
+    } else if (field === 'calculated_gender') {
+        answer = answers[COMPUTED_FIELD_MAPPINGS.calculated_gender];
+    } else {
+        answer = answers[field];
     }
-
-    // Normalisiere die Antwort für den Vergleich (z.B. Multiselect-Antworten)
-    let normalizedAnswer = answer;
-    if (Array.isArray(answer)) {
-        // Für Multiselect: Prüfen, ob der Wert in der Liste der Antworten enthalten ist
-        if (operator === 'includes') {
-            return answer.includes(value);
-        }
-        // Ansonsten wird die Bedingung als nicht erfüllt betrachtet, da der einfache Vergleich nicht passt
-        return false;
-    }
-
-    // Führe den Vergleich basierend auf dem Operator durch
-    switch (operator) {
-        case '==':
-            return normalizedAnswer == value;
-        case '!=':
-            return normalizedAnswer != value;
-        case '>':
-            return parseFloat(normalizedAnswer) > parseFloat(value);
-        case '<':
-            return parseFloat(normalizedAnswer) < parseFloat(value);
-        case '>=':
-            return parseFloat(normalizedAnswer) >= parseFloat(value);
-        case '<=':
-            return parseFloat(normalizedAnswer) <= parseFloat(value);
-        default:
-            return false;
-    }
-}
-
-/**
- * Rendert eine einzelne Frage.
- * Fügt die Logik zur Anzeige/Ausblenden von Fragen basierend auf Bedingungen hinzu.
- * @param {object} question - Das Fragenobjekt.
- * @param {HTMLElement} container - Der Container, in den die Frage gerendert werden soll.
- */
-function renderQuestion(question, container) {
-    // ... (Originaler Code für renderQuestion)
-    // Wir müssen den Original-Code hier nicht einfügen, da wir ihn in der HTML-Datei direkt ersetzen/ergänzen.
-    // Stattdessen fügen wir die Logik in die Haupt-Rendering-Funktion ein.
-}
-
-/**
- * Rendert die aktuelle Sektion und alle Fragen.
- * Fügt die Logik zur dynamischen Anzeige von Fragen hinzu.
- */
-
-/**
- * Überprüft die Bedingungen für eine Frage oder Sektion.
- * @param {object} item - Die Frage oder Sektion mit einer optionalen 'condition' Eigenschaft.
- * @returns {boolean} - True, wenn die Bedingung erfüllt ist oder keine Bedingung existiert, sonst False.
- */
-function checkCondition(item) {
-    if (!item.condition) {
-        return true;
-    }
-
-    const { field, value, operator = '==' } = item.condition;
-    const answer = APP_STATE.answers[field];
 
     if (answer === undefined || answer === null || answer === '') {
         return false; // Bedingung nicht erfüllt, wenn die abhängige Frage noch nicht beantwortet wurde
@@ -9658,6 +9666,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q3000",
                         "title": "Wie lautet Ihre PLZ?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "3000",
@@ -9670,6 +9683,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q3001",
                         "title": "Wohnort",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "3001",
@@ -9682,6 +9700,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q3002",
                         "title": "Wohnanschrift",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "3002",
@@ -9730,6 +9753,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4000",
                         "title": "Wie groß sind Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4000",
@@ -9742,6 +9770,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4001",
                         "title": "Wie schwer sind Sie (in kg)?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4001",
@@ -9754,6 +9787,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4002",
                         "title": "Haben Sie jemals geraucht?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4002",
@@ -9772,6 +9810,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4003",
                         "title": "Durchschnittlich wie viele Zigaretten pro Tag?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4003",
@@ -9784,6 +9827,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4004",
                         "title": "Wie viele Jahre haben Sie geraucht?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4004",
@@ -9796,6 +9844,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4005",
                         "title": "Rauchen Sie immer noch?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4005",
@@ -9814,6 +9867,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4006",
                         "title": "Wann (Jahr) haben Sie aufgehört?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4006",
@@ -9826,6 +9884,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4100",
                         "title": "Haben Sie eine der folgenden Impfungen erhalten?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4100",
@@ -9904,6 +9967,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4110",
                         "title": "Gibt es in Ihrer Familie folgende Erkrankungen?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4110",
@@ -9952,6 +10020,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4120",
                         "title": "Berufliche Situation",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4120",
@@ -9964,6 +10037,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4121",
                         "title": "Stressbelastung",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4121",
@@ -9976,6 +10054,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4122",
                         "title": "Schlafqualität",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4122",
@@ -9988,6 +10071,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4123",
                         "title": "Bewegung im Alltag",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4123",
@@ -10000,6 +10088,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4130",
                         "title": "Alkoholkonsum",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4130",
@@ -10012,6 +10105,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4131",
                         "title": "Drogen/Substanzen",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4131",
@@ -10024,6 +10122,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q4140",
                         "title": "Haben Sie an folgenden Vorsorgeuntersuchungen teilgenommen?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "4140",
@@ -10078,6 +10181,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q5000",
                         "title": "Leiden Sie an Diabetes?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "5000",
@@ -10096,6 +10204,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q5001",
                         "title": "Welcher Typ?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "5001",
@@ -10108,6 +10221,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q5002",
                         "title": "Medikamentöse Diabetestherapie",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "5002",
@@ -10264,6 +10382,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q5003",
                         "title": "Haben Sie eine der folgenden Komplikationen?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "5003",
@@ -10294,6 +10417,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6000",
                         "title": "Haben Sie körperliche Beeinträchtigungen?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6000",
@@ -10342,6 +10470,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6001",
                         "title": "Welche Beeinträchtigungen haben Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6001",
@@ -10426,6 +10559,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6002",
                         "title": "Tragen Sie Implantate?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6002",
@@ -10444,6 +10582,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6003",
                         "title": "Welche Implantate?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6003",
@@ -10492,6 +10635,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6004",
                         "title": "Erhalten Sie blutverdünnende Medikamente?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6004",
@@ -10510,6 +10658,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6005",
                         "title": "Welche Blutverdünner erhalten Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6005",
@@ -10570,6 +10723,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6006",
                         "title": "Leiden Sie unter Allergien?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6006",
@@ -10588,6 +10746,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q6007",
                         "title": "Ich leide unter folgenden Allergien/Intoleranzen:",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "6007",
@@ -10660,6 +10823,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7000",
                         "title": "Haben Sie eine der folgenden Gesundheitsstörungen?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7000",
@@ -11013,6 +11181,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7001",
                         "title": "Welche Gerinnungsstörung haben Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7001",
@@ -11139,6 +11312,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7002",
                         "title": "Welche Lungenerkrankung haben Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7002",
@@ -11253,6 +11431,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7003",
                         "title": "Angaben zur Dialyseform",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7003",
@@ -11307,6 +11490,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7004",
                         "title": "Unter welcher Gemütsstörung leiden Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7004",
@@ -11397,6 +11585,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7005",
                         "title": "Angaben zu Herzerkrankungen",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7005",
@@ -11463,6 +11656,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7006",
                         "title": "Angaben zu Magen-Darmerkrankungen",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7006",
@@ -11613,6 +11811,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7007",
                         "title": "Angaben zu MRSA",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7007",
@@ -11643,6 +11846,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7008",
                         "title": "Um welchen Nierenerkrankung handelt es sich?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7008",
@@ -11709,6 +11917,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7009",
                         "title": "Welche Nervenerkrankung haben Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7009",
@@ -11799,6 +12012,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7010",
                         "title": "Welche Rheumerkrankung haben Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7010",
@@ -11841,6 +12059,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q7011",
                         "title": "Unter welcher Schilddrüsenerkrankung leiden Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "7011",
@@ -12164,6 +12387,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8000",
                         "title": "Gab es bei Ihnen bereits folgende Erkrankungen oder Eingriffe?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8000",
@@ -12242,6 +12470,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8001",
                         "title": "Wo befand sich das Aneurysma?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8001",
@@ -12320,6 +12553,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8002",
                         "title": "Wie wurde das Aneurysma behandelt?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8002",
@@ -12362,6 +12600,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8003",
                         "title": "Welche Arterienerkrankung hatten Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8003",
@@ -12428,6 +12671,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8004",
                         "title": "Welche Behandlungen wurden durchgeführt?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8004",
@@ -12518,6 +12766,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8005",
                         "title": "Wie oft hatten Sie eine Thrombose?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8005",
@@ -12536,6 +12789,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8006",
                         "title": "Wann und wo (Bein/Arm) hatten Sie eine Thrombose?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8006",
@@ -12554,6 +12812,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8007",
                         "title": "Welche Gefäß- oder Herzoperationen wurden durchgeführt?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8007",
@@ -12620,6 +12883,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8008",
                         "title": "Wann hatten Sie einen Herzinfarkt?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8008",
@@ -12638,6 +12906,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8009",
                         "title": "Welche Behandlung wurde durchgeführt?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8009",
@@ -12692,6 +12965,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8010",
                         "title": "Welche Krebserkrankungen hatten Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8010",
@@ -12830,6 +13108,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8011",
                         "title": "Welche Behandlung wurde durchgeführt?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8011",
@@ -12896,6 +13179,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8012",
                         "title": "Ist die Krebsbehandlung abgeschlossen?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8012",
@@ -12926,6 +13214,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8013",
                         "title": "Wann hatten Sie eine Lungenarterienembolie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8013",
@@ -12944,6 +13237,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8014",
                         "title": "Was wurde transplantiert?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8014",
@@ -13022,6 +13320,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8015",
                         "title": "Wann hatten Sie Ihren Schlaganfall?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8015",
@@ -13040,6 +13343,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8016",
                         "title": "Welche Infektionskrankheiten hatten Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8016",
@@ -13130,6 +13438,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8501",
                         "title": "Mammographie-Screening (Frauen ≥ 50 Jahre)",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8501",
@@ -13154,6 +13467,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8502",
                         "title": "Prostata-Tastuntersuchung (Männer ≥ 45 Jahre)",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8502",
@@ -13178,6 +13496,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8503",
                         "title": "Bauchaortenaneurysma-Screening (Männer ≥ 65 Jahre, einmalig)",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8503",
@@ -13202,6 +13525,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8504",
                         "title": "Menopausen-Status (Frauen ≥ 40 Jahre, optional)",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8504",
@@ -13238,6 +13566,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8800",
                         "title": "Nehmen Sie die Antibabypille?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8800",
@@ -13256,6 +13589,11 @@ function clearUploadedDocuments() {
                 {
                         "id": "q8900",
                         "title": "💊 Welche Medikamente erhalten Sie?",
+                        "condition": {
+                                "field": "2005",
+                                "operator": "==",
+                                "value": "Nein"
+                        },
                         "fields": [
                                 {
                                         "id": "8900",
@@ -13947,35 +14285,25 @@ function clearUploadedDocuments() {
                 AppState.currentStep = index;
                 const section = sections[index];
                 
-                // Check if section has a condition and if it's met
+                // Check if section has a condition and if it's met using the enhanced checkCondition function
                 if (section.condition) {
-                    const { field, value, operator = '==' } = section.condition;
-                    const answer = AppState.answers[field];
-                    
-                    let conditionMet = false;
-                    if (answer !== undefined && answer !== null && answer !== '') {
-                        switch (operator) {
-                            case '==':
-                                conditionMet = answer == value;
-                                break;
-                            case '!=':
-                                conditionMet = answer != value;
-                                break;
-                            case 'includes':
-                                conditionMet = Array.isArray(answer) && answer.includes(value);
-                                break;
+                    // checkCondition is a required function defined in the same script tag
+                    if (typeof checkCondition !== 'function') {
+                        console.error('[App] checkCondition function is not available. Conditional logic will not work properly.');
+                        // Don't skip sections if the function is missing - this ensures visibility
+                    } else {
+                        const conditionMet = checkCondition(section);
+                        
+                        // If condition not met, skip to next section
+                        if (!conditionMet) {
+                            // Auto-advance or go back depending on navigation direction
+                            if (index < sections.length - 1) {
+                                this.renderStep(index + 1);
+                            } else {
+                                this.renderStep(index - 1);
+                            }
+                            return;
                         }
-                    }
-                    
-                    // If condition not met, skip to next section
-                    if (!conditionMet) {
-                        // Auto-advance or go back depending on navigation direction
-                        if (index < sections.length - 1) {
-                            this.renderStep(index + 1);
-                        } else {
-                            this.renderStep(index - 1);
-                        }
-                        return;
                     }
                 }
                 
@@ -14285,22 +14613,41 @@ function clearUploadedDocuments() {
                 
                 if (!progressBar || !progressText) return;
                 
-                const totalSections = window.APP_DATA.sections.length;
-                const currentSection = AppState.currentStep;
-                
+                let visibleSections = 0;
                 let totalQuestions = 0;
                 let answeredQuestions = 0;
                 
+                // Check if checkCondition function is available
+                const hasCheckCondition = typeof checkCondition === 'function';
+                if (!hasCheckCondition) {
+                    console.warn('[App] checkCondition function not available. Progress calculation may be inaccurate.');
+                }
+                
                 window.APP_DATA.sections.forEach((section, idx) => {
-                    if (section.fields) {
-                        section.fields.forEach(field => {
-                            // Count all visible questions
-                            totalQuestions++;
-                            // Count answered questions up to current section
-                            if (idx < currentSection || (idx === currentSection && AppState.answers[field.id] !== undefined && AppState.answers[field.id] !== '')) {
-                                answeredQuestions++;
-                            }
-                        });
+                    // Check if section should be visible based on conditions
+                    let sectionVisible = true;
+                    if (section.condition) {
+                        if (hasCheckCondition) {
+                            sectionVisible = checkCondition(section);
+                        } else {
+                            // If checkCondition is not available, assume section is visible
+                            // This is safer than hiding sections incorrectly
+                            sectionVisible = true;
+                        }
+                    }
+                    
+                    if (sectionVisible) {
+                        visibleSections++;
+                        if (section.fields) {
+                            section.fields.forEach(field => {
+                                // Count all visible questions
+                                totalQuestions++;
+                                // Count answered questions up to current section
+                                if (idx < AppState.currentStep || (idx === AppState.currentStep && AppState.answers[field.id] !== undefined && AppState.answers[field.id] !== '')) {
+                                    answeredQuestions++;
+                                }
+                            });
+                        }
                     }
                 });
                 
@@ -14315,7 +14662,7 @@ function clearUploadedDocuments() {
                 progressContainer?.setAttribute('aria-valuetext', `${Math.round(progressPercent)} Prozent abgeschlossen`);
                 
                 // Enhanced text with percentage and counts
-                const progressMessage = `Sektion ${currentSection + 1} von ${totalSections} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
+                const progressMessage = `Sektion ${AppState.currentStep + 1} • ${answeredQuestions} von ${totalQuestions} Fragen beantwortet (${Math.round(progressPercent)}%)`;
                 progressText.textContent = progressMessage;
                 
                 // Color coding based on progress
