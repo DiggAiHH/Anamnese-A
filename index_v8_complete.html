@@ -109,7 +109,8 @@ function calculateAge() {
 
 /**
  * Updates visibility of conditional questions without full re-render.
- * Deletes answers for hidden questions.
+ * Deletes answers for hidden questions as per requirements.
+ * NOTE: This intentionally deletes answers immediately when questions become hidden.
  */
 function updateConditionalVisibility() {
     const section = APP_DATA.sections[APP_STATE.currentSectionIndex];
@@ -167,20 +168,37 @@ function updateNextButtonState() {
  * Aggregates DOB fields into ISO format YYYY-MM-DD.
  * Stores in APP_STATE.answers['0003'] when all three parts are provided.
  * Clears '0003' otherwise.
+ * @param {object} answers - The answers object (APP_STATE.answers or AppState.answers)
  */
-function aggregateDOBToISO() {
-    const day = APP_STATE.answers['0003_tag'];
-    const month = APP_STATE.answers['0003_monat'];
-    const year = APP_STATE.answers['0003_jahr'];
+function aggregateDOBToISO(answers) {
+    const day = parseInt(answers['0003_tag'], 10);
+    const month = parseInt(answers['0003_monat'], 10);
+    const year = parseInt(answers['0003_jahr'], 10);
     
-    if (day && month && year) {
+    if (day && month && year && !isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        // Validate date ranges
+        if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) {
+            delete answers['0003'];
+            return;
+        }
+        
+        // Validate day is valid for the given month/year
+        const daysInMonth = month === 2 
+            ? (((year % 4 === 0 && year % 100 !== 0) || year % 400 === 0) ? 29 : 28)
+            : ([4, 6, 9, 11].includes(month) ? 30 : 31);
+            
+        if (day > daysInMonth) {
+            delete answers['0003'];
+            return;
+        }
+        
         // Pad day and month with leading zeros
         const paddedDay = String(day).padStart(2, '0');
         const paddedMonth = String(month).padStart(2, '0');
-        APP_STATE.answers['0003'] = `${year}-${paddedMonth}-${paddedDay}`;
+        answers['0003'] = `${year}-${paddedMonth}-${paddedDay}`;
     } else {
         // Clear ISO date if any part is missing
-        delete APP_STATE.answers['0003'];
+        delete answers['0003'];
     }
 }
 
@@ -528,7 +546,7 @@ function handleAnswerChange(id, value) {
     
     // Aggregate DOB fields into ISO format
     if (id === '0003_tag' || id === '0003_monat' || id === '0003_jahr') {
-        aggregateDOBToISO();
+        aggregateDOBToISO(APP_STATE.answers);
     }
     
     // Update conditional question visibility
@@ -1075,6 +1093,7 @@ function formatAnswerValue(question, value) {
  */
 function jumpToQuestion(questionId) {
     const sectionIndex = APP_DATA.sections.findIndex(section => {
+        // NOTE: section.questions is deprecated, use section.fields instead
         const fields = section.fields || section.questions || [];
         return fields.some(q => q.id === questionId);
     });
@@ -14653,19 +14672,7 @@ function clearUploadedDocuments() {
                 
                 // Aggregate DOB fields into ISO format YYYY-MM-DD
                 if (fieldId === '0003_tag' || fieldId === '0003_monat' || fieldId === '0003_jahr') {
-                    const day = AppState.answers['0003_tag'];
-                    const month = AppState.answers['0003_monat'];
-                    const year = AppState.answers['0003_jahr'];
-                    
-                    if (day && month && year) {
-                        // Pad day and month with leading zeros
-                        const paddedDay = String(day).padStart(2, '0');
-                        const paddedMonth = String(month).padStart(2, '0');
-                        AppState.answers['0003'] = `${year}-${paddedMonth}-${paddedDay}`;
-                    } else {
-                        // Clear ISO date if any part is missing
-                        delete AppState.answers['0003'];
-                    }
+                    aggregateDOBToISO(AppState.answers);
                 }
                 
                 // Schedule auto-save after changes
@@ -14940,9 +14947,10 @@ function clearUploadedDocuments() {
                 
                 let html = '';
                 window.APP_DATA.sections.forEach((section, sectionIndex) => {
-                    if (!section.fields) return;
+                    const fields = section.fields || section.questions || [];
+                    if (!fields.length) return;
                     
-                    section.fields.forEach(field => {
+                    fields.forEach(field => {
                         const val = AppState.answers[field.id];
                         if (val && (Array.isArray(val) ? val.length > 0 : val.toString().trim())) {
                             const displayVal = Array.isArray(val) ? val.join(', ') : val;
