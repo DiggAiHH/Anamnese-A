@@ -14715,15 +14715,65 @@ function clearUploadedDocuments() {
                     return;
                 }
 
-                if (AppState.currentStep < window.APP_DATA.sections.length - 1) {
-                    this.renderStep(AppState.currentStep + 1);
+                // Intelligentes Springen: Finde den nächsten sichtbaren Schritt
+                let nextIndex = AppState.currentStep + 1;
+                const maxSteps = window.APP_DATA.sections.length;
+                
+                // Versuche bis zu 50 Schritte vorwärts (um unendliche Schleifen zu vermeiden)
+                let attempts = 0;
+                while (nextIndex < maxSteps && attempts < 50) {
+                    const nextSection = window.APP_DATA.sections[nextIndex];
+                    
+                    // Wenn keine Bedingung vorhanden ist, zeige diese Sektion
+                    if (!nextSection.condition) {
+                        this.renderStep(nextIndex);
+                        return;
+                    }
+                    
+                    // Prüfe ob die Bedingung erfüllt ist
+                    if (typeof checkCondition === 'function' && checkCondition(nextSection)) {
+                        this.renderStep(nextIndex);
+                        return;
+                    }
+                    
+                    // Bedingung nicht erfüllt, weiter zum nächsten
+                    nextIndex++;
+                    attempts++;
+                }
+                
+                // Wenn kein gültiger nächster Schritt gefunden wurde, zeige Summary
+                if (nextIndex >= maxSteps) {
+                    this.showSummary();
                 }
             },
 
             prevStep() {
-                if (AppState.currentStep > 0) {
-                    this.renderStep(AppState.currentStep - 1);
+                // Intelligentes Zurückspringen: Finde den vorherigen sichtbaren Schritt
+                let prevIndex = AppState.currentStep - 1;
+                
+                // Versuche bis zu 50 Schritte rückwärts
+                let attempts = 0;
+                while (prevIndex >= 0 && attempts < 50) {
+                    const prevSection = window.APP_DATA.sections[prevIndex];
+                    
+                    // Wenn keine Bedingung vorhanden ist, zeige diese Sektion
+                    if (!prevSection.condition) {
+                        this.renderStep(prevIndex);
+                        return;
+                    }
+                    
+                    // Prüfe ob die Bedingung erfüllt ist
+                    if (typeof checkCondition === 'function' && checkCondition(prevSection)) {
+                        this.renderStep(prevIndex);
+                        return;
+                    }
+                    
+                    // Bedingung nicht erfüllt, weiter zurück
+                    prevIndex--;
+                    attempts++;
                 }
+                
+                // Wenn am Anfang angekommen, nichts tun
             },
 
             goToStep(index) {
