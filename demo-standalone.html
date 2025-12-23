@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Praxis-Code-Generator - DEMO (Offline Version)</title>
+    
+    <style>
+        /* ========================================
+           EMBEDDED CSS - NO EXTERNAL DEPENDENCIES
+           ======================================== */
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-blue: #2563eb;
+            --primary-blue-dark: #1e40af;
+            --secondary-purple: #7c3aed;
+            --accent-cyan: #06b6d4;
+            --success-green: #10b981;
+            --danger-red: #ef4444;
+            --light-bg: #f0f9ff;
+            --card-bg: #ffffff;
+            --text-dark: #1e293b;
+            --border-color: #e2e8f0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            position: relative;
+            padding: 20px;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.3) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .demo-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        /* Cards */
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Language Selector */
+        .language-card {
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+        }
+        
+        /* Progress Bar */
+        .progress-bar-container {
+            background: rgba(255, 255, 255, 0.3);
+            height: 40px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-blue) 0%, var(--accent-cyan) 100%);
+            height: 100%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.5);
+        }
+        
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-purple) 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.39);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-success {
+            background: var(--success-green);
+            color: white;
+        }
+        
+        .btn-block {
+            width: 100%;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        /* User Type Selection Cards */
+        .user-type-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+        
+        .user-type-card {
+            background: white;
+            border: 3px solid var(--border-color);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .user-type-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-color: var(--primary-blue);
+        }
+        
+        .user-type-card.practice {
+            border-color: var(--primary-blue);
+        }
+        
+        .user-type-card.practice:hover {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%);
+        }
+        
+        .user-type-card.selftest {
+            border-color: var(--success-green);
+        }
+        
+        .user-type-card.selftest:hover {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+        }
+        
+        .user-type-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+        
+        .user-type-card.practice .user-type-icon {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-cyan) 100%);
+            color: white;
+        }
+        
+        .user-type-card.selftest .user-type-icon {
+            background: linear-gradient(135deg, var(--success-green) 0%, #34d399 100%);
+            color: white;
+        }
+        
+        .user-type-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--text-dark);
+        }
+        
+        .user-type-description {
+            color: #64748b;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .user-type-features {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        
+        .user-type-features li {
+            padding: 8px 0;
+            color: var(--text-dark);
+        }
+        
+        .user-type-features li::before {
+            content: "✓ ";
+            color: var(--success-green);
+            font-weight: 700;
+            margin-right: 8px;
+        }
+        
+        .user-type-price {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--primary-blue);
+            margin-top: 15px;
+        }
+        
+        .user-type-card.selftest .user-type-price {
+            color: var(--success-green);
+        }
+        
+        /* Radio Buttons */
+        .radio-group {
+            margin: 20px 0;
+        }
+        
+        .radio-option {
+            background: white;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .radio-option:hover {
+            border-color: var(--primary-blue);
+            background: rgba(37, 99, 235, 0.05);
+        }
+        
+        .radio-option input[type="radio"] {
+            margin-right: 15px;
+        }
+        
+        .radio-option label {
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .radio-description {
+            margin-top: 8px;
+            margin-left: 35px;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        
+        /* Code Display */
+        .code-display-area {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid var(--primary-blue);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .qr-code-container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            display: inline-block;
+            margin: 20px 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .generated-code {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px dashed var(--primary-blue);
+            margin: 20px 0;
+            word-break: break-all;
+            color: var(--primary-blue);
+            font-weight: 700;
+        }
+        
+        /* Summary Box */
+        .summary-box {
+            background: #f8fafc;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .summary-title {
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 15px;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+        
+        .summary-label {
+            font-weight: 600;
+            color: #64748b;
+        }
+        
+        .summary-value {
+            color: var(--text-dark);
+            font-weight: 600;
+        }
+        
+        /* Alert/Notice */
+        .alert {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            border: 2px solid #93c5fd;
+            color: #1e40af;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            border: 2px solid #6ee7b7;
+            color: #065f46;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            border: 2px solid #fcd34d;
+            color: #92400e;
+        }
+        
+        .alert-danger {
+            background: #fee2e2;
+            border: 2px solid #fca5a5;
+            color: #991b1b;
+        }
+        
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Text Utilities */
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-muted {
+            color: #64748b;
+        }
+        
+        .mb-3 {
+            margin-bottom: 1rem;
+        }
+        
+        .mt-4 {
+            margin-top: 1.5rem;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .user-type-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏥 Praxis-Code-Generator</h1>
+            <p>Digitale Anamnese - Zugangscodes generieren</p>
+            <span class="demo-badge">🧪 DEMO VERSION - Offline / Keine echte Zahlung</span>
+        </div>
+
+        <!-- Language Selection -->
+        <div class="card language-card">
+            <h3 class="mb-3">🌍 Sprache wählen / Choose Language</h3>
+            <select id="globalLanguage" class="form-control" onchange="updateGlobalLanguage()">
+                <option value="">-- Bitte wählen / Please select --</option>
+                <option value="de">🇩🇪 Deutsch</option>
+                <option value="de-en">🇩🇪🇬🇧 Deutsch + English</option>
+                <option value="de-ar">🇩🇪🇸🇦 Deutsch + العربية (Arabic)</option>
+                <option value="de-tr">🇩🇪🇹🇷 Deutsch + Türkçe</option>
+                <option value="de-uk">🇩🇪🇺🇦 Deutsch + Українська</option>
+                <option value="de-pl">🇩🇪🇵🇱 Deutsch + Polski</option>
+                <option value="de-fa">🇩🇪🇮🇷 Deutsch + فارسی (Farsi)</option>
+                <option value="de-ur">🇩🇪🇵🇰 Deutsch + اردو (Urdu)</option>
+                <option value="de-ps">🇩🇪🇦🇫 Deutsch + پښتو (Pashto)</option>
+                <option value="de-es">🇩🇪🇪🇸 Deutsch + Español</option>
+                <option value="de-fr">🇩🇪🇫🇷 Deutsch + Français</option>
+                <option value="de-it">🇩🇪🇮🇹 Deutsch + Italiano</option>
+                <option value="de-ru">🇩🇪🇷🇺 Deutsch + Русский</option>
+            </select>
+            <div id="languageNotice" class="alert alert-info hidden mt-4">
+                ✓ <strong>Sprache ausgewählt!</strong> Der Anamnese-Link wird in dieser Sprache erstellt.
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar-container">
+            <div id="progressBar" class="progress-bar" style="width: 0%;">
+                <span id="progressText">Schritt 0 von 7</span>
+            </div>
+        </div>
+
+        <!-- Form Container -->
+        <div class="card">
+            <div id="formContainer">
+                <!-- Step 0: User Type Selection -->
+                <div id="step0" class="form-step">
+                    <h2 class="text-center mb-3">Willkommen</h2>
+                    <p class="text-center text-muted mb-3">Wählen Sie eine Option:</p>
+                    
+                    <div class="user-type-grid">
+                        <!-- Practice Option -->
+                        <div class="user-type-card practice" onclick="selectUserType('practice')">
+                            <div class="user-type-icon">🏥</div>
+                            <h3 class="user-type-title">Medizinische Einrichtung</h3>
+                            <p class="user-type-description">
+                                Ich bin eine Praxis/Klinik und möchte Codes für meine Patienten erstellen
+                            </p>
+                            <ul class="user-type-features">
+                                <li>Praxis-ID Login</li>
+                                <li>Mehrere Codes erstellen</li>
+                                <li>Patientendaten-Eingabe</li>
+                            </ul>
+                            <div class="user-type-price">0,99€ <small>pro Code</small></div>
+                        </div>
+                        
+                        <!-- Self-test Option -->
+                        <div class="user-type-card selftest" onclick="selectUserType('selftest')">
+                            <div class="user-type-icon">👤</div>
+                            <h3 class="user-type-title">Selbst-Test</h3>
+                            <p class="user-type-description">
+                                Ich möchte selbst einen Code kaufen und testen
+                            </p>
+                            <ul class="user-type-features">
+                                <li>Keine Anmeldung nötig</li>
+                                <li>Sofort testen</li>
+                                <li>Einmaliger Zugang</li>
+                            </ul>
+                            <div class="user-type-price">1,00€ <small>einmalig</small></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 1: Practice Login (Practice flow only) -->
+                <div id="step1" class="form-step hidden">
+                    <h2 class="mb-3">🔐 Praxis-ID Anmeldung</h2>
+                    <div class="form-group">
+                        <label class="form-label" for="practiceId">Praxis-ID (UUID) *</label>
+                        <input type="text" id="practiceId" class="form-control" 
+                               placeholder="z.B. 123e4567-e89b-12d3-a456-426614174000">
+                        <small class="text-muted">Demo: Geben Sie eine beliebige UUID ein oder drücken Sie "Weiter"</small>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">◀ Zurück</button>
+                        <button type="button" class="btn btn-primary" onclick="validatePracticeId()">Weiter ▶</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Mode Selection (Practice flow only) -->
+                <div id="step2" class="form-step hidden">
+                    <h2 class="mb-3">📋 Eingabemodus wählen</h2>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" name="mode" id="modePractice" value="practice" 
+                                   onchange="formData.mode = 'practice'">
+                            <label for="modePractice">
+                                <strong>Praxis gibt Patientendaten ein</strong>
+                            </label>
+                            <div class="radio-description">
+                                Sie geben die Patientendaten direkt ein
+                            </div>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" name="mode" id="modePatient" value="patient" 
+                                   onchange="formData.mode = 'patient'">
+                            <label for="modePatient">
+                                <strong>Patient füllt selbst aus</strong>
+                            </label>
+                            <div class="radio-description">
+                                Patient erhält Link zum selbständigen Ausfüllen
+                            </div>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">◀ Zurück</button>
+                        <button type="button" class="btn btn-primary" onclick="validateAndNextStep()">Weiter ▶</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Language Selection -->
+                <div id="step3" class="form-step hidden">
+                    <h2 class="mb-3">🌍 Sprache wählen</h2>
+                    <div class="alert alert-info">
+                        Die gewählte Sprache oben wird automatisch übernommen.
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="languageStep">Anamnese-Sprache *</label>
+                        <select id="languageStep" class="form-control" onchange="formData.language = this.value">
+                            <option value="">-- Wird automatisch übernommen --</option>
+                            <option value="de">🇩🇪 Deutsch</option>
+                            <option value="de-en">🇩🇪🇬🇧 Deutsch + English</option>
+                            <option value="de-ar">🇩🇪🇸🇦 Deutsch + العربية</option>
+                            <option value="de-tr">🇩🇪🇹🇷 Deutsch + Türkçe</option>
+                            <option value="de-uk">🇩🇪🇺🇦 Deutsch + Українська</option>
+                            <option value="de-pl">🇩🇪🇵🇱 Deutsch + Polski</option>
+                            <option value="de-fa">🇩🇪🇮🇷 Deutsch + فارسی</option>
+                            <option value="de-ur">🇩🇪🇵🇰 Deutsch + اردو</option>
+                            <option value="de-ps">🇩🇪🇦🇫 Deutsch + پښتو</option>
+                            <option value="de-es">🇩🇪🇪🇸 Deutsch + Español</option>
+                            <option value="de-fr">🇩🇪🇫🇷 Deutsch + Français</option>
+                            <option value="de-it">🇩🇪🇮🇹 Deutsch + Italiano</option>
+                            <option value="de-ru">🇩🇪🇷🇺 Deutsch + Русский</option>
+                        </select>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">◀ Zurück</button>
+                        <button type="button" class="btn btn-primary" onclick="validateAndNextStep()">Weiter ▶</button>
+                    </div>
+                </div>
+
+                <!-- Step 4: Patient Data (Practice flow, practice mode only) -->
+                <div id="step4" class="form-step hidden">
+                    <h2 class="mb-3">👤 Patientendaten eingeben</h2>
+                    <div class="form-group">
+                        <label class="form-label" for="firstName">Vorname *</label>
+                        <input type="text" id="firstName" class="form-control" 
+                               oninput="formData.patientData.firstName = this.value">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="lastName">Nachname *</label>
+                        <input type="text" id="lastName" class="form-control" 
+                               oninput="formData.patientData.lastName = this.value">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="birthDate">Geburtsdatum *</label>
+                        <input type="date" id="birthDate" class="form-control" 
+                               oninput="formData.patientData.birthDate = this.value">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="address">Adresse (optional)</label>
+                        <textarea id="address" class="form-control" rows="3" 
+                                  placeholder="Straße, PLZ, Stadt"
+                                  oninput="formData.patientData.address = this.value"></textarea>
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">◀ Zurück</button>
+                        <button type="button" class="btn btn-primary" onclick="validateAndNextStep()">Weiter ▶</button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Payment Summary -->
+                <div id="step5" class="form-step hidden">
+                    <h2 class="mb-3">💳 Zahlungsübersicht</h2>
+                    
+                    <div class="summary-box">
+                        <h3 class="summary-title">Zusammenfassung:</h3>
+                        <div id="summaryContent">
+                            <!-- Will be filled by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <strong>🧪 DEMO MODUS:</strong> Dies ist eine Demo-Version. Es wird keine echte Zahlung durchgeführt. 
+                        In der Produktionsversion würde hier die Stripe-Zahlung starten.
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">◀ Zurück</button>
+                        <button type="button" class="btn btn-success btn-block" onclick="simulatePayment()">
+                            💳 Zur Demo-Zahlung (€<span id="paymentAmount">0,99</span>)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 6: Code Display -->
+                <div id="step6" class="form-step hidden">
+                    <h2 class="text-center mb-3">✅ Zugangscode generiert!</h2>
+                    
+                    <div class="code-display-area">
+                        <h3 class="mb-3">QR-Code scannen</h3>
+                        <div class="qr-code-container">
+                            <div id="qrcodeDisplay"></div>
+                        </div>
+                        
+                        <h4 class="mt-4 mb-3">Oder Code kopieren:</h4>
+                        <div class="generated-code" id="generatedCodeText">
+                            <!-- Will be filled by JavaScript -->
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary" onclick="copyCode()">
+                            📋 Code kopieren
+                        </button>
+                        
+                        <div class="alert alert-info mt-4">
+                            <strong>Anamnese-URL:</strong><br>
+                            <span id="generatedUrl"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group mt-4">
+                        <button type="button" class="btn btn-primary btn-block" onclick="downloadPDF()">
+                            📄 Als PDF herunterladen
+                        </button>
+                        <button type="button" class="btn btn-success btn-block" onclick="resetForm()">
+                            🔄 Neuen Code erstellen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ========================================
+           EMBEDDED JAVASCRIPT - COMPLETE LOGIC
+           ======================================== */
+        
+        // Global State
+        let currentStep = 0;
+        let userType = null; // 'practice' or 'selftest'
+        let formData = {
+            practiceId: null,
+            mode: null,
+            language: null,
+            patientData: {
+                firstName: '',
+                lastName: '',
+                birthDate: '',
+                address: ''
+            }
+        };
+        let generatedCode = null;
+        
+        // Language Names
+        const LANGUAGE_NAMES = {
+            'de': 'Deutsch',
+            'de-en': 'Deutsch + English',
+            'de-ar': 'Deutsch + Arabic',
+            'de-tr': 'Deutsch + Türkçe',
+            'de-uk': 'Deutsch + Українська',
+            'de-pl': 'Deutsch + Polski',
+            'de-fa': 'Deutsch + Farsi',
+            'de-ur': 'Deutsch + Urdu',
+            'de-ps': 'Deutsch + Pashto',
+            'de-es': 'Deutsch + Español',
+            'de-fr': 'Deutsch + Français',
+            'de-it': 'Deutsch + Italiano',
+            'de-ru': 'Deutsch + Русский'
+        };
+        
+        // Helper Functions
+        function getTotalSteps() {
+            return userType === 'selftest' ? 5 : 7;
+        }
+        
+        function getCurrentStepNumber() {
+            if (userType === 'selftest') {
+                const stepMap = { 0: 0, 3: 1, 5: 2, 6: 3 };
+                return stepMap[currentStep] || 0;
+            }
+            return currentStep;
+        }
+        
+        function updateProgress() {
+            const totalSteps = getTotalSteps();
+            const displayStep = getCurrentStepNumber();
+            const percentage = (displayStep / totalSteps) * 100;
+            
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = `Schritt ${displayStep} von ${totalSteps}`;
+        }
+        
+        function showStep(stepNum) {
+            // Hide all steps
+            const steps = document.querySelectorAll('.form-step');
+            steps.forEach(step => step.classList.add('hidden'));
+            
+            // Show current step
+            const currentStepEl = document.getElementById('step' + stepNum);
+            if (currentStepEl) {
+                currentStepEl.classList.remove('hidden');
+            }
+            
+            currentStep = stepNum;
+            updateProgress();
+        }
+        
+        // Global Language Selection
+        function updateGlobalLanguage() {
+            const globalLang = document.getElementById('globalLanguage').value;
+            const notice = document.getElementById('languageNotice');
+            const stepLang = document.getElementById('languageStep');
+            
+            if (globalLang) {
+                formData.language = globalLang;
+                stepLang.value = globalLang;
+                notice.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    notice.classList.add('hidden');
+                }, 3000);
+            }
+        }
+        
+        // User Type Selection
+        function selectUserType(type) {
+            userType = type;
+            
+            if (type === 'practice') {
+                // Practice flow: 7 steps (0 -> 1 -> 2 -> 3 -> 4/5 -> 5 -> 6)
+                showStep(1);
+            } else if (type === 'selftest') {
+                // Self-test flow: 5 steps (0 -> 3 -> 5 -> 6)
+                // Skip steps 1 (login), 2 (mode), 4 (patient data)
+                formData.mode = 'patient'; // Auto-set for self-test
+                showStep(3);
+            }
+        }
+        
+        // Step 1: Practice ID Validation (DEMO)
+        function validatePracticeId() {
+            const practiceId = document.getElementById('practiceId').value.trim();
+            
+            // Demo: Accept any UUID-like format or just proceed
+            if (!practiceId) {
+                // Generate demo UUID
+                formData.practiceId = 'demo-' + Math.random().toString(36).substring(2, 15);
+            } else {
+                formData.practiceId = practiceId;
+            }
+            
+            showStep(2);
+        }
+        
+        // Validate and go to next step
+        function validateAndNextStep() {
+            if (currentStep === 2) {
+                // Validate mode selection
+                if (!formData.mode) {
+                    alert('Bitte wählen Sie einen Eingabemodus!');
+                    return;
+                }
+                
+                // Decide next step based on mode
+                if (formData.mode === 'practice') {
+                    showStep(3); // Go to language
+                } else {
+                    showStep(3); // Go to language (skip patient data)
+                }
+                
+            } else if (currentStep === 3) {
+                // Validate language
+                if (!formData.language) {
+                    alert('Bitte wählen Sie eine Sprache!');
+                    return;
+                }
+                
+                // Decide next step
+                if (userType === 'practice' && formData.mode === 'practice') {
+                    showStep(4); // Go to patient data
+                } else {
+                    showStep(5); // Go to payment
+                }
+                
+            } else if (currentStep === 4) {
+                // Validate patient data (if in practice mode)
+                if (userType === 'practice' && formData.mode === 'practice') {
+                    if (!formData.patientData.firstName || !formData.patientData.lastName || !formData.patientData.birthDate) {
+                        alert('Bitte füllen Sie alle Pflichtfelder aus!');
+                        return;
+                    }
+                }
+                
+                showStep(5); // Go to payment
+            }
+            
+            // Update summary if going to step 5
+            if (currentStep === 5) {
+                updateSummary();
+            }
+        }
+        
+        // Go Back
+        function goBack() {
+            if (currentStep === 1) {
+                showStep(0);
+            } else if (currentStep === 2) {
+                showStep(1);
+            } else if (currentStep === 3) {
+                if (userType === 'selftest') {
+                    showStep(0);
+                } else {
+                    showStep(2);
+                }
+            } else if (currentStep === 4) {
+                showStep(3);
+            } else if (currentStep === 5) {
+                if (userType === 'selftest') {
+                    showStep(3);
+                } else if (formData.mode === 'practice') {
+                    showStep(4);
+                } else {
+                    showStep(3);
+                }
+            }
+        }
+        
+        // Update Payment Summary
+        function updateSummary() {
+            const summaryContent = document.getElementById('summaryContent');
+            const paymentAmount = document.getElementById('paymentAmount');
+            
+            let html = '';
+            
+            if (userType === 'practice') {
+                html += `<div class="summary-item">
+                    <span class="summary-label">Praxis:</span>
+                    <span class="summary-value">${formData.practiceId || 'Demo'}</span>
+                </div>`;
+                
+                html += `<div class="summary-item">
+                    <span class="summary-label">Modus:</span>
+                    <span class="summary-value">${formData.mode === 'practice' ? 'Praxis-Eingabe' : 'Patient selbst'}</span>
+                </div>`;
+                
+                paymentAmount.textContent = '0,99';
+            } else {
+                html += `<div class="summary-item">
+                    <span class="summary-label">Typ:</span>
+                    <span class="summary-value">Selbst-Test</span>
+                </div>`;
+                
+                paymentAmount.textContent = '1,00';
+            }
+            
+            html += `<div class="summary-item">
+                <span class="summary-label">Sprache:</span>
+                <span class="summary-value">${LANGUAGE_NAMES[formData.language] || 'Nicht gewählt'}</span>
+            </div>`;
+            
+            if (userType === 'practice' && formData.mode === 'practice' && formData.patientData.firstName) {
+                html += `<div class="summary-item">
+                    <span class="summary-label">Patient:</span>
+                    <span class="summary-value">${formData.patientData.firstName} ${formData.patientData.lastName}</span>
+                </div>`;
+            }
+            
+            summaryContent.innerHTML = html;
+        }
+        
+        // Simulate Payment (DEMO)
+        function simulatePayment() {
+            // Show loading
+            alert('🧪 Demo-Zahlung wird simuliert...');
+            
+            // Simulate delay
+            setTimeout(() => {
+                // Generate code
+                generateCode();
+                showStep(6);
+            }, 1500);
+        }
+        
+        // Generate Access Code (DEMO)
+        function generateCode() {
+            // Generate random code (in production, this would be AES-256 encrypted)
+            const randomPart = Math.random().toString(36).substring(2, 15);
+            const timestamp = Date.now().toString(36);
+            generatedCode = `DEMO-${randomPart}-${timestamp}`.toUpperCase();
+            
+            // Create URL
+            const baseUrl = 'https://anamnese.example.com';
+            const langSegment = formData.language || 'de';
+            const generatedUrl = `${baseUrl}/${langSegment}?code=${encodeURIComponent(generatedCode)}`;
+            
+            // Display code
+            document.getElementById('generatedCodeText').textContent = generatedCode;
+            document.getElementById('generatedUrl').textContent = generatedUrl;
+            
+            // Generate QR code (simple text representation for demo)
+            generateQRCode(generatedUrl);
+        }
+        
+        // Generate QR Code (Simple Demo Version)
+        function generateQRCode(url) {
+            const qrContainer = document.getElementById('qrcodeDisplay');
+            
+            // For demo: Display a simple QR-like grid
+            qrContainer.innerHTML = `
+                <div style="width: 200px; height: 200px; background: white; border: 2px solid black; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 20px; text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 10px;">📱</div>
+                    <div style="font-size: 0.8rem; font-weight: 600;">QR-Code</div>
+                    <div style="font-size: 0.7rem; color: #666; margin-top: 10px;">Demo: In der Produktionsversion würde hier ein echter QR-Code angezeigt</div>
+                </div>
+            `;
+        }
+        
+        // Copy Code to Clipboard
+        function copyCode() {
+            const codeText = generatedCode;
+            
+            // Create temporary textarea
+            const textarea = document.createElement('textarea');
+            textarea.value = codeText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            
+            alert('✅ Code wurde in die Zwischenablage kopiert!');
+        }
+        
+        // Download PDF (DEMO)
+        function downloadPDF() {
+            alert('📄 PDF-Download würde in der Produktionsversion starten.\n\n' +
+                  'Der PDF würde enthalten:\n' +
+                  '- QR-Code\n' +
+                  '- Zugangscode: ' + generatedCode + '\n' +
+                  '- Anamnese-URL\n' +
+                  '- Praxis-Logo\n' +
+                  '- Anleitung für den Patienten');
+        }
+        
+        // Reset Form
+        function resetForm() {
+            // Reset all data
+            currentStep = 0;
+            userType = null;
+            formData = {
+                practiceId: null,
+                mode: null,
+                language: null,
+                patientData: {
+                    firstName: '',
+                    lastName: '',
+                    birthDate: '',
+                    address: ''
+                }
+            };
+            generatedCode = null;
+            
+            // Reset form inputs
+            document.getElementById('practiceId').value = '';
+            document.getElementById('globalLanguage').value = '';
+            document.getElementById('languageStep').value = '';
+            document.getElementById('firstName').value = '';
+            document.getElementById('lastName').value = '';
+            document.getElementById('birthDate').value = '';
+            document.getElementById('address').value = '';
+            
+            // Uncheck radio buttons
+            document.querySelectorAll('input[type="radio"]').forEach(radio => {
+                radio.checked = false;
+            });
+            
+            // Go back to start
+            showStep(0);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            showStep(0);
+            console.log('🧪 Praxis-Code-Generator DEMO geladen!');
+            console.log('Dies ist eine Offline-Demo-Version ohne Backend-Verbindung.');
+        });
+    </script>
+</body>
+</html>
