@@ -5136,15 +5136,13 @@ function clearUploadedDocuments() {
                                         "id": "1000",
                                         "type": "radio",
                                         "label": "Ja",
-                                        "required": false,
-                                        "dataNext": "#q1001"
+                                        "required": false
                                 },
                                 {
                                         "id": "1000",
                                         "type": "radio",
                                         "label": "Nein",
-                                        "required": false,
-                                        "dataNext": "#q2000"
+                                        "required": false
                                 }
                         ]
                 },
@@ -5161,8 +5159,7 @@ function clearUploadedDocuments() {
                                         "id": "1001_select",
                                         "type": "select",
                                         "label": "1001_select",
-                                        "required": false,
-                                        "dataToggle": "#q1002"
+                                        "required": false
                                 }
                         ]
                 },
@@ -5179,8 +5176,7 @@ function clearUploadedDocuments() {
                                         "id": "1002_select",
                                         "type": "select",
                                         "label": "1002_select",
-                                        "required": false,
-                                        "dataToggle": "#q1003"
+                                        "required": false
                                 }
                         ]
                 },
@@ -5197,43 +5193,37 @@ function clearUploadedDocuments() {
                                         "id": "1003",
                                         "type": "checkbox",
                                         "label": "Belastung/Gehen",
-                                        "required": false,
-                                        "dataToggle": "#q1004"
+                                        "required": false
                                 },
                                 {
                                         "id": "1003",
                                         "type": "checkbox",
                                         "label": "Kälteexposition",
-                                        "required": false,
-                                        "dataToggle": "#q1004"
+                                        "required": false
                                 },
                                 {
                                         "id": "1003",
                                         "type": "checkbox",
                                         "label": "Längeres Stehen oder Sitzen",
-                                        "required": false,
-                                        "dataToggle": "#q1004"
+                                        "required": false
                                 },
                                 {
                                         "id": "1003",
                                         "type": "checkbox",
                                         "label": "Nahrungsaufnahme",
-                                        "required": false,
-                                        "dataToggle": "#q1004"
+                                        "required": false
                                 },
                                 {
                                         "id": "1003",
                                         "type": "checkbox",
                                         "label": "Wärme",
-                                        "required": false,
-                                        "dataToggle": "#q1004"
+                                        "required": false
                                 },
                                 {
                                         "id": "1003",
                                         "type": "checkbox",
                                         "label": "ohne Auslöser",
-                                        "required": false,
-                                        "dataToggle": "#q1004"
+                                        "required": false
                                 },
                                 {
                                         "id": "1003_freitext",
@@ -5256,8 +5246,7 @@ function clearUploadedDocuments() {
                                         "id": "1004_select",
                                         "type": "select",
                                         "label": "1004_select",
-                                        "required": false,
-                                        "dataNext": "#q1005,#q1006,#q2000"
+                                        "required": false
                                 }
                         ]
                 },
@@ -5274,15 +5263,13 @@ function clearUploadedDocuments() {
                                         "id": "1005",
                                         "type": "checkbox",
                                         "label": "Fieber",
-                                        "required": false,
-                                        "dataToggle": "#q1105,#q1205,#q1305,#q1405"
+                                        "required": false
                                 },
                                 {
                                         "id": "1005",
                                         "type": "checkbox",
                                         "label": "Kraftlosigkeit",
-                                        "required": false,
-                                        "dataToggle": "#q1805,#q1815,#q1825,#q1835"
+                                        "required": false
                                 },
                                 {
                                         "id": "1005",
@@ -5294,8 +5281,7 @@ function clearUploadedDocuments() {
                                         "id": "1005",
                                         "type": "checkbox",
                                         "label": "ungewollter Gewichtsverlust",
-                                        "required": false,
-                                        "dataToggle": "#q1505,#q1605,#q1705"
+                                        "required": false
                                 },
                                 {
                                         "id": "1005_freitext",
@@ -5318,85 +5304,73 @@ function clearUploadedDocuments() {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Angiologische Beschwerden - Durchblutungsprobleme (Blut und Lymphgefäße)",
-                                        "required": false,
-                                        "dataToggle": "#q1010"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Atemwegs- und Lungenbeschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1020"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Augenbeschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1A00"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Haut und Weichteilbeschwerden (z.B. Wunden/Ekzem)",
-                                        "required": false,
-                                        "dataToggle": "#q1040"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Herz-Kreislaufbeschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1050"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "HNO Beschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1B00"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Magen-Darm-Beschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1030"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Metabolische/Hormonelle Beschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1060"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Muskuloskelettale Beschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1070"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Neurologische Beschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1080"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Psychische/Psychosomatische Beschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1C00"
+                                        "required": false
                                 },
                                 {
                                         "id": "1006",
                                         "type": "checkbox",
                                         "label": "Urologische/Gynäkologische Beschwerden",
-                                        "required": false,
-                                        "dataToggle": "#q1090"
+                                        "required": false
                                 }
                         ]
                 },
@@ -13887,8 +13861,7 @@ function clearUploadedDocuments() {
             answers: {},
             language: 'en',  // Changed to English as default
             isDarkMode: false,
-            privacyAccepted: false,
-            useFlowSystem: true  // NEW: Enable data-next/data-toggle flow system
+            privacyAccepted: false
         };
 
         // =================================================================
@@ -14209,17 +14182,7 @@ function clearUploadedDocuments() {
                 if (AppState.privacyAccepted) {
                     document.getElementById('privacy-modal').classList.add('hidden');
                     document.getElementById('app-container').classList.remove('hidden');
-                    
-                    // Use flow system or step-by-step navigation based on configuration
-                    if (AppState.useFlowSystem) {
-                        this.renderAllSections();
-                        // Hide navigation buttons when using flow system
-                        document.getElementById('back-btn')?.classList.add('hidden');
-                        document.getElementById('next-btn')?.classList.add('hidden');
-                        document.getElementById('submit-btn')?.classList.remove('hidden');
-                    } else {
-                        this.renderStep(AppState.currentStep);
-                    }
+                    this.renderStep(AppState.currentStep);
                 } else {
                     // Also update texts in privacy modal
                     this.updateUITexts();
@@ -14232,17 +14195,7 @@ function clearUploadedDocuments() {
                 this.saveToStorage();
                 document.getElementById('privacy-modal').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
-                
-                // Use flow system or step-by-step navigation
-                if (AppState.useFlowSystem) {
-                    this.renderAllSections();
-                    // Hide navigation buttons when using flow system
-                    document.getElementById('back-btn')?.classList.add('hidden');
-                    document.getElementById('next-btn')?.classList.add('hidden');
-                    document.getElementById('submit-btn')?.classList.remove('hidden');
-                } else {
-                    this.renderStep(0);
-                }
+                this.renderStep(0);
             },
 
             // ----- LANGUAGE -----
@@ -14393,12 +14346,8 @@ function clearUploadedDocuments() {
                         : (currentValue === field.label ? 'checked' : '');
                     const selected = checked ? 'selected' : '';
                     
-                    // Add data-next or data-toggle attributes if present
-                    const dataNext = field.dataNext ? ` data-next="${field.dataNext}"` : '';
-                    const dataToggle = field.dataToggle ? ` data-toggle="${field.dataToggle}"` : '';
-                    
                     html += `<label class="option-item ${selected}">`;
-                    html += `<input type="${field.type}" name="${field.id}" value="${escapeHtml(field.label)}" ${checked} data-field-id="${field.id}"${dataNext}${dataToggle}>`;
+                    html += `<input type="${field.type}" name="${field.id}" value="${escapeHtml(field.label)}" ${checked} data-field-id="${field.id}">`;
                     html += `<span>${escapeHtml(field.label)}</span>`;
                     html += `</label>`;
                     html += `</div>`;
@@ -14433,10 +14382,7 @@ function clearUploadedDocuments() {
                         break;
 
                     case 'select':
-                        // Add data-toggle and data-next attributes if present
-                        const selectDataToggle = field.dataToggle ? ` data-toggle="${field.dataToggle}"` : '';
-                        const selectDataNext = field.dataNext ? ` data-next="${field.dataNext}"` : '';
-                        html += `<select id="${fieldId}" data-field-id="${field.id}" ${field.required ? 'required' : ''}${selectDataToggle}${selectDataNext}>`;
+                        html += `<select id="${fieldId}" data-field-id="${field.id}" ${field.required ? 'required' : ''}>`;
                         
                         // Special handling for birthdate fields (0003_tag, 0003_monat, 0003_jahr)
                         if (field.id === '0003_tag') {
@@ -14516,48 +14462,6 @@ function clearUploadedDocuments() {
 
                 html += `</div>`;
                 return html;
-            },
-
-            // NEW: Render all sections at once for data-next/data-toggle flow system
-            renderAllSections() {
-                console.log('[App] Rendering all sections for flow system');
-                const sections = window.APP_DATA.sections;
-                if (!sections) {
-                    console.error('[App] No sections data available');
-                    return;
-                }
-
-                const qa = document.getElementById('question-area');
-                let allHtml = '';
-
-                sections.forEach((section, index) => {
-                    // Add hidden attribute to all sections except q0000
-                    const hiddenAttr = section.id !== 'q0000' ? ' hidden' : '';
-                    const sectionClass = 'q question-card';
-                    
-                    // Title
-                    const titleKey = `title_${section.id}`;
-                    const title = T(titleKey) !== titleKey ? T(titleKey) : section.title;
-                    
-                    let sectionHtml = `<section class="${sectionClass}" id="${section.id}"${hiddenAttr}>`;
-                    sectionHtml += `<h2>${escapeHtml(title)}</h2>`;
-
-                    // Fields
-                    if (section.fields) {
-                        section.fields.forEach(field => {
-                            sectionHtml += this.renderField(field);
-                        });
-                    }
-
-                    sectionHtml += `</section>`;
-                    allHtml += sectionHtml;
-                });
-
-                qa.innerHTML = allHtml;
-                this.attachFieldListeners();
-                this.updateProgress();
-                
-                console.log('[App] All sections rendered');
             },
 
             attachFieldListeners() {
@@ -15242,160 +15146,6 @@ function clearUploadedDocuments() {
         }
 
         console.log('[App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization');
-    </script>
-
-    <!-- =================================================================
-         QUESTIONNAIRE FLOW LOGIC (data-next / data-toggle)
-         ================================================================= -->
-    <script>
-    // Questionnaire flow system adapted from master file
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('[Flow] Initializing questionnaire flow system');
-        
-        // Constants
-        const BASISDATEN_FIELDS = ['0000', '0001', '0002', '0003_tag', '0003_monat', '0003_jahr'];
-        
-        const form = document.getElementById('form') || document.querySelector('form') || document.getElementById('question-area');
-        if (!form) {
-            console.warn('[Flow] No form element found');
-            return;
-        }
-
-        // Show a section by removing hidden attribute
-        function showSection(selector) {
-            const targets = selector.split(',');
-            targets.forEach(function(sel) {
-                const section = document.querySelector(sel.trim());
-                if (section) {
-                    section.removeAttribute('hidden');
-                    section.style.display = '';
-                    console.log('[Flow] Showing section:', sel.trim());
-                }
-            });
-        }
-
-        // Hide a section by adding hidden attribute
-        function hideSection(selector) {
-            const targets = selector.split(',');
-            targets.forEach(function(sel) {
-                const section = document.querySelector(sel.trim());
-                if (section) {
-                    section.setAttribute('hidden', '');
-                    console.log('[Flow] Hiding section:', sel.trim());
-                }
-            });
-        }
-
-        // Check if Basisdaten (q0000) is complete
-        function checkBasisdatenComplete() {
-            const allFilled = BASISDATEN_FIELDS.every(function(name) {
-                const el = form.querySelector('[name="' + name + '"]') || 
-                           form.querySelector('[data-field-id="' + name + '"]');
-                if (!el) return false;
-                if (el.value && el.value !== '') return true;
-                // Check in AppState
-                if (typeof AppState !== 'undefined' && AppState.answers && AppState.answers[name]) {
-                    return true;
-                }
-                return false;
-            });
-            if (allFilled) {
-                showSection('#q1000');
-                console.log('[Flow] Basisdaten complete, showing q1000');
-            }
-        }
-
-        // Main change event handler
-        document.addEventListener('change', function(e) {
-            const input = e.target;
-            if (!input) return;
-
-            console.log('[Flow] Change event on:', input.name || input.dataset.fieldId, 'type:', input.type);
-
-            // Handle data-next (radio buttons)
-            if (input.type === 'radio' && input.hasAttribute('data-next')) {
-                const target = input.getAttribute('data-next');
-                console.log('[Flow] Radio with data-next:', target);
-                showSection(target);
-                // Scroll to the new section
-                const targetEl = document.querySelector(target.split(',')[0].trim());
-                if (targetEl) {
-                    setTimeout(function() {
-                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 100);
-                }
-            }
-
-            // Handle data-toggle on SELECT elements
-            if (input.tagName === 'SELECT' && input.hasAttribute('data-toggle')) {
-                if (input.value && input.value !== '') {
-                    const target = input.getAttribute('data-toggle');
-                    console.log('[Flow] Select with data-toggle:', target);
-                    showSection(target);
-                }
-            }
-
-            // Handle data-next on SELECT elements
-            if (input.tagName === 'SELECT' && input.hasAttribute('data-next')) {
-                if (input.value && input.value !== '') {
-                    const target = input.getAttribute('data-next');
-                    console.log('[Flow] Select with data-next:', target);
-                    showSection(target);
-                }
-            }
-
-            // Handle data-toggle on CHECKBOX elements
-            if (input.type === 'checkbox' && input.hasAttribute('data-toggle')) {
-                const target = input.getAttribute('data-toggle');
-                console.log('[Flow] Checkbox with data-toggle:', target, 'checked:', input.checked);
-                if (input.checked) {
-                    showSection(target);
-                } else {
-                    hideSection(target);
-                    // Clear inputs in hidden sections and sync with AppState
-                    const targets = target.split(',');
-                    targets.forEach(function(sel) {
-                        const section = document.querySelector(sel.trim());
-                        if (section) {
-                            section.querySelectorAll('input, select, textarea').forEach(function(el) {
-                                const fieldId = el.name || el.dataset.fieldId;
-                                if (fieldId && typeof AppState !== 'undefined' && AppState.answers) {
-                                    // Clear from AppState as well
-                                    delete AppState.answers[fieldId];
-                                }
-                                if (el.type === 'checkbox' || el.type === 'radio') {
-                                    el.checked = false;
-                                } else {
-                                    el.value = '';
-                                }
-                            });
-                        }
-                    });
-                }
-            }
-
-            // Check Basisdaten completion
-            const fieldId = input.name || input.dataset.fieldId || '';
-            if (BASISDATEN_FIELDS.indexOf(fieldId) !== -1) {
-                checkBasisdatenComplete();
-            }
-
-            // Update progress bar if function exists
-            if (typeof App !== 'undefined' && typeof App.updateProgress === 'function') {
-                App.updateProgress();
-            }
-        }, true); // Use capture phase to catch all events
-
-        // Initial check - wait for form fields to be rendered
-        // Use requestAnimationFrame to ensure DOM is fully rendered
-        requestAnimationFrame(function() {
-            setTimeout(function() {
-                checkBasisdatenComplete();
-            }, 100); // Reduced delay, just enough for rendering to complete
-        });
-        
-        console.log('[Flow] Questionnaire flow system initialized');
-    });
     </script>
 </body>
 </html>
