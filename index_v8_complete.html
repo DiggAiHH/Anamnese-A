@@ -968,7 +968,14 @@ function showUploadedDocumentsGDPR() {
     privacyNotice.style.cssText = 'margin-top: 20px; padding: 15px; background: #fff3e0; border-radius: 4px;';
     const noticeText = document.createElement('p');
     noticeText.style.cssText = 'margin: 0; font-size: 13px;';
-    noticeText.innerHTML = 'ℹ️ <strong>Datenschutz-Hinweis:</strong> Sie können einzelne Dokumente oder alle Dokumente gemäß Art. 17 DSGVO (Recht auf Vergessenwerden) jederzeit löschen.';
+    // Build text content safely without innerHTML
+    const icon = document.createTextNode('ℹ️ ');
+    const strong = document.createElement('strong');
+    strong.textContent = 'Datenschutz-Hinweis:';
+    const text = document.createTextNode(' Sie können einzelne Dokumente oder alle Dokumente gemäß Art. 17 DSGVO (Recht auf Vergessenwerden) jederzeit löschen.');
+    noticeText.appendChild(icon);
+    noticeText.appendChild(strong);
+    noticeText.appendChild(text);
     privacyNotice.appendChild(noticeText);
     
     const buttonDiv = document.createElement('div');
@@ -1466,7 +1473,8 @@ function renderCurrentSection() {
             helpText.id = question.id + '_help';
             helpText.className = 'help-text';
             helpText.style.cssText = 'display: block; margin-top: 0.25rem; color: #6c757d; font-size: 0.875rem;';
-            helpText.textContent = 'Bitte geben Sie hier weitere Details ein (optional)';
+            const helpTextContent = getTranslation('textarea_help') || 'Bitte geben Sie hier weitere Details ein';
+            helpText.textContent = helpTextContent;
             questionElement.appendChild(helpText);
         }
         
@@ -1596,17 +1604,20 @@ function createStandardInput(question) {
             input = document.createElement('input');
             input.type = question.type;
             input.value = currentAnswer || '';
-            // Füge Placeholder hinzu wenn nicht vorhanden
-            if (!input.placeholder) {
-                input.placeholder = getTranslation(question.id + '_placeholder') || '';
+            // Füge Placeholder hinzu
+            const placeholderKey = question.id + '_placeholder';
+            const placeholderText = getTranslation(placeholderKey);
+            if (placeholderText && placeholderText !== placeholderKey) {
+                input.placeholder = placeholderText;
             }
             break;
         case 'textarea':
             input = document.createElement('textarea');
             input.value = currentAnswer || '';
             input.rows = 4;
-            // Füge Placeholder für Textarea hinzu
-            input.placeholder = 'Bitte geben Sie hier weitere Details ein (optional)';
+            // Füge Placeholder für Textarea hinzu mit Übersetzung
+            const textareaPlaceholder = getTranslation('textarea_placeholder') || 'Bitte geben Sie hier weitere Details ein';
+            input.placeholder = textareaPlaceholder;
             // Füge Hilfetext hinzu
             input.setAttribute('aria-describedby', question.id + '_help');
             break;
@@ -15118,7 +15129,7 @@ function clearUploadedDocuments() {
                         ]
                 }
         ]
-};;;</script>
+};</script>
 
     <script>
         // =================================================================
