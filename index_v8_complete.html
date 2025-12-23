@@ -13864,7 +13864,8 @@ function clearUploadedDocuments() {
             answers: {},
             language: 'en',  // Changed to English as default
             isDarkMode: false,
-            privacyAccepted: false
+            privacyAccepted: false,
+            useFlowSystem: true  // NEW: Enable data-next/data-toggle flow system
         };
 
         // =================================================================
@@ -14185,7 +14186,17 @@ function clearUploadedDocuments() {
                 if (AppState.privacyAccepted) {
                     document.getElementById('privacy-modal').classList.add('hidden');
                     document.getElementById('app-container').classList.remove('hidden');
-                    this.renderStep(AppState.currentStep);
+                    
+                    // Use flow system or step-by-step navigation based on configuration
+                    if (AppState.useFlowSystem) {
+                        this.renderAllSections();
+                        // Hide navigation buttons when using flow system
+                        document.getElementById('back-btn')?.classList.add('hidden');
+                        document.getElementById('next-btn')?.classList.add('hidden');
+                        document.getElementById('submit-btn')?.classList.remove('hidden');
+                    } else {
+                        this.renderStep(AppState.currentStep);
+                    }
                 } else {
                     // Also update texts in privacy modal
                     this.updateUITexts();
@@ -14198,7 +14209,17 @@ function clearUploadedDocuments() {
                 this.saveToStorage();
                 document.getElementById('privacy-modal').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
-                this.renderStep(0);
+                
+                // Use flow system or step-by-step navigation
+                if (AppState.useFlowSystem) {
+                    this.renderAllSections();
+                    // Hide navigation buttons when using flow system
+                    document.getElementById('back-btn')?.classList.add('hidden');
+                    document.getElementById('next-btn')?.classList.add('hidden');
+                    document.getElementById('submit-btn')?.classList.remove('hidden');
+                } else {
+                    this.renderStep(0);
+                }
             },
 
             // ----- LANGUAGE -----
@@ -14471,6 +14492,48 @@ function clearUploadedDocuments() {
 
                 html += `</div>`;
                 return html;
+            },
+
+            // NEW: Render all sections at once for data-next/data-toggle flow system
+            renderAllSections() {
+                console.log('[App] Rendering all sections for flow system');
+                const sections = window.APP_DATA.sections;
+                if (!sections) {
+                    console.error('[App] No sections data available');
+                    return;
+                }
+
+                const qa = document.getElementById('question-area');
+                let allHtml = '';
+
+                sections.forEach((section, index) => {
+                    // Add hidden attribute to all sections except q0000
+                    const hiddenAttr = section.id !== 'q0000' ? ' hidden' : '';
+                    const sectionClass = 'q question-card';
+                    
+                    // Title
+                    const titleKey = `title_${section.id}`;
+                    const title = T(titleKey) !== titleKey ? T(titleKey) : section.title;
+                    
+                    let sectionHtml = `<section class="${sectionClass}" id="${section.id}"${hiddenAttr}>`;
+                    sectionHtml += `<h2>${escapeHtml(title)}</h2>`;
+
+                    // Fields
+                    if (section.fields) {
+                        section.fields.forEach(field => {
+                            sectionHtml += this.renderField(field);
+                        });
+                    }
+
+                    sectionHtml += `</section>`;
+                    allHtml += sectionHtml;
+                });
+
+                qa.innerHTML = allHtml;
+                this.attachFieldListeners();
+                this.updateProgress();
+                
+                console.log('[App] All sections rendered');
             },
 
             attachFieldListeners() {
