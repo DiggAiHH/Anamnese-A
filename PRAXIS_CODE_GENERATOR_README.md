@@ -13,6 +13,7 @@ Eine Single-Page Web Application für medizinische Einrichtungen zur Generierung
 - [Deployment](#deployment)
 - [Sicherheit](#sicherheit)
 - [DSGVO-Compliance](#dsgvo-compliance)
+- [Development & Testing](#-development--testing-neu)
 - [Troubleshooting](#troubleshooting)
 
 ## Überblick
@@ -459,6 +460,50 @@ Standardmäßig ja. Um die Verwendung zu limitieren, implementieren Sie eine Pr�
 UPDATE codes SET used = true, used_at = NOW() 
 WHERE code = 'encrypted_code' AND used = false;
 ```
+
+## 🧪 Development & Testing (NEU)
+
+### Dev Bypass Mode
+
+Für Test- und Entwicklungszwecke kann ein **Payment-Bypass-Modus** aktiviert werden, der es ermöglicht, alle Funktionen ohne echte Stripe-Zahlungen zu testen.
+
+**⚠️ WARNUNG: NUR für Development/Testing - NIEMALS in Production!**
+
+#### Aktivierung
+
+1. Erstellen Sie eine `.env` Datei:
+   ```bash
+   NODE_ENV=development
+   DEV_BYPASS_PAYMENT=true
+   # ... andere Variablen
+   ```
+
+2. Starten Sie den Server:
+   ```bash
+   npm run dev
+   ```
+
+3. Öffnen Sie die Test-Seite:
+   ```
+   http://localhost:3000/index_nopay.html
+   ```
+
+#### Sicherheitsmechanismen
+
+- **Production-Safety**: Bypass ist automatisch deaktiviert wenn `NODE_ENV=production`
+- **Explizite Opt-in**: Muss über `DEV_BYPASS_PAYMENT=true` aktiviert werden
+- **Audit-Logging**: Alle Bypass-Codes werden mit Status `dev_bypass` protokolliert
+- **Kennung**: Pseudo-Session-IDs beginnen mit `dev_bypass_`
+
+#### Funktionsweise
+
+Im Bypass-Modus:
+- Keine Stripe-SDK-Initialisierung
+- Sofortige Code-Generierung ohne Zahlung
+- UI zeigt "⚠️ Testmodus: Keine Zahlung erforderlich"
+- Alle anderen Features funktionieren normal (QR-Code, PDF, etc.)
+
+**Vollständige Dokumentation**: Siehe [README_DEV_BYPASS.md](README_DEV_BYPASS.md)
 
 ## Support
 
