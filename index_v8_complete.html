@@ -1,3 +1,39 @@
+<!--
+================================================================================
+MEDIZINISCHER ANAMNESEBOGEN v8 - COMPLETE
+================================================================================
+Version: 8.1.0
+Letzte Aktualisierung: 2025-12-24
+
+NEUE FEATURES:
+- Repository Analysis Feature (Repo-Analyse)
+  * Vollständige Übersicht aller Projektdateien
+  * Gruppierung nach Themen (Frontend, GDT, OCR, Tests, etc.)
+  * Beziehungen zwischen Dateien (Imports, Referenzen)
+  * Verbesserungsvorschläge (Security, Performance, Offline, Maintainability)
+  * Vollständig offline nutzbar
+  * Zugänglich über Button im Footer: "📊 Repo-Analyse"
+
+FEATURES:
+- 19 Sprachen mit RTL-Support
+- AES-256-GCM Verschlüsselung
+- DSGVO-konformes OCR (Tesseract.js lokal)
+- Progressive Web App (PWA) mit Service Worker
+- GDT Export für Praxissysteme
+- Vosk Spracherkennung (lokal)
+- AI Plausibilitätsprüfung (regelbasiert)
+- WCAG 2.1 AA Barrierefreiheit
+- Vollständig offline nach initialem Laden
+
+TECHNISCHER HINWEIS:
+Diese Datei ist ~815KB groß und enthält alle Features inline für maximale
+Offline-Fähigkeit. Die Repository-Analyse ist am Ende der Datei eingebettet
+als window.REPO_ANALYSIS_DATA und bietet eine vollständige Übersicht über
+alle Projektdateien mit Gruppierung, Beschreibungen, Beziehungen und
+Verbesserungsvorschlägen.
+
+================================================================================
+-->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -3541,12 +3577,20 @@ function clearUploadedDocuments() {
         <footer role="contentinfo">
             <p><strong data-translate="medical_concept">Medical Concept: Dr. Christian Klapproth</strong></p>
             <p data-translate="technical_implementation">Technical Implementation: DiggAi GmbH</p>
-            <button id="shortcuts-help-btn" class="btn btn-info" 
-                    onclick="document.getElementById('shortcuts-modal').style.display='flex'"
-                    style="margin-top: 1rem; font-size: 0.9rem;"
-                    aria-label="Show keyboard shortcuts">
-                ⌨️ Tastenkürzel anzeigen / Show Keyboard Shortcuts
-            </button>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; margin-top: 1rem;">
+                <button id="shortcuts-help-btn" class="btn btn-info" 
+                        onclick="document.getElementById('shortcuts-modal').style.display='flex'"
+                        style="font-size: 0.9rem;"
+                        aria-label="Show keyboard shortcuts">
+                    ⌨️ Tastenkürzel anzeigen / Show Keyboard Shortcuts
+                </button>
+                <button id="repo-analysis-btn" class="btn btn-info" 
+                        onclick="RepoAnalysis.open()"
+                        style="font-size: 0.9rem;"
+                        aria-label="Open repository analysis">
+                    📊 Repo-Analyse / Repository Analysis
+                </button>
+            </div>
         </footer>
     </div>
 
@@ -3591,6 +3635,60 @@ function clearUploadedDocuments() {
             
             <div style="margin-top: 1rem; padding: 0.75rem; background: var(--warning); color: #000; border-radius: 8px; font-size: 0.9rem;">
                 <strong>💡 Tipp / Tip:</strong> Diese Tastenkürzel funktionieren überall in der App. / These shortcuts work anywhere in the app.
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         REPOSITORY ANALYSIS MODAL
+         ================================================================ -->
+    <div id="repo-analysis-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-shrink: 0;">
+                <h2 style="margin: 0;">📊 Repository Analysis / Repo-Analyse</h2>
+                <button onclick="RepoAnalysis.close()" 
+                        class="btn btn-secondary" style="padding: 0.5rem 1rem;"
+                        aria-label="Close repository analysis">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Warning Notice -->
+            <div style="padding: 0.75rem; background: var(--warning); color: #000; border-radius: 8px; font-size: 0.9rem; margin-bottom: 1rem; flex-shrink: 0;">
+                <strong>⚠️ Hinweis / Notice:</strong> Diese Analyse kann unvollständig sein aufgrund von Tool-Limits. Vollständige Dateiliste: 
+                <a href="https://github.com/DiggAiHH/Anamnese-A/tree/main" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">
+                    GitHub Repository
+                </a>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; flex-shrink: 0;">
+                <input type="text" 
+                       id="repo-search" 
+                       placeholder="🔍 Suche nach Dateiname... / Search by filename..."
+                       style="flex: 1; min-width: 200px; padding: 0.5rem; border: 1px solid var(--secondary); border-radius: 4px; background: var(--bg-color); color: var(--text);"
+                       oninput="RepoAnalysis.search(this.value)">
+                <select id="repo-filter" 
+                        onchange="RepoAnalysis.filterByGroup(this.value)"
+                        style="padding: 0.5rem; border: 1px solid var(--secondary); border-radius: 4px; background: var(--bg-color); color: var(--text);">
+                    <option value="">📁 Alle Gruppen / All Groups</option>
+                </select>
+            </div>
+
+            <!-- Statistics -->
+            <div id="repo-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; flex-shrink: 0;">
+                <!-- Will be populated by JavaScript -->
+            </div>
+
+            <!-- File List -->
+            <div id="repo-file-list" style="flex: 1; overflow-y: auto; border: 1px solid var(--secondary); border-radius: 8px; padding: 1rem; background: var(--bg-secondary);">
+                <!-- Will be populated by JavaScript -->
+            </div>
+
+            <!-- File Detail View -->
+            <div id="repo-file-detail" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-color); overflow-y: auto; padding: 2rem; z-index: 10;">
+                <!-- Will be populated by JavaScript -->
             </div>
         </div>
     </div>
@@ -16460,9 +16558,26 @@ function clearUploadedDocuments() {
 
             // Escape: Close modals
             if (e.key === 'Escape') {
+                // Close repo analysis modal
+                const repoModal = document.getElementById('repo-analysis-modal');
+                if (repoModal && repoModal.style.display !== 'none') {
+                    RepoAnalysis.close();
+                    window.liveRegionAnnouncer?.announce('Modal geschlossen', 'polite');
+                    return;
+                }
+                
+                // Close summary modal
                 const summaryDiv = document.getElementById('summary-modal');
                 if (summaryDiv && summaryDiv.style.display !== 'none') {
                     summaryDiv.style.display = 'none';
+                    window.liveRegionAnnouncer?.announce('Modal geschlossen', 'polite');
+                    return;
+                }
+                
+                // Close shortcuts modal
+                const shortcutsModal = document.getElementById('shortcuts-modal');
+                if (shortcutsModal && shortcutsModal.style.display !== 'none') {
+                    shortcutsModal.style.display = 'none';
                     window.liveRegionAnnouncer?.announce('Modal geschlossen', 'polite');
                 }
             }
@@ -16522,6 +16637,938 @@ function clearUploadedDocuments() {
         }
 
         console.log('[App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization');
+
+        // ====================================================================
+        // REPOSITORY ANALYSIS DATA
+        // ====================================================================
+        // Comprehensive repository analysis with file grouping, relationships, and improvements
+        window.REPO_ANALYSIS_DATA = {
+            "version": "1.0.0",
+            "generatedAt": "2025-12-24T04:57:00.000Z",
+            "groups": {
+                "frontend-pwa": {
+                    "name": "Frontend / PWA",
+                    "description": "Main application UI and Progressive Web App components",
+                    "files": [
+                        {
+                            "filename": "index_v8_complete.html",
+                            "description": "Main application - Complete v8 with all features (812KB)",
+                            "purpose": "Primary UI with inline OCR, GDPR, multi-language, PWA",
+                            "relationships": ["manifest.json", "sw.js", "translations.js"],
+                            "improvements": {
+                                "security": "Large file - consider code splitting for CSP",
+                                "maintainability": "Single-file makes updates difficult",
+                                "performance": "812KB load - lazy load non-critical features",
+                                "offline": "✓ Excellent - fully self-contained",
+                                "structure": "Split into modules (GDT, OCR, encryption)"
+                            }
+                        },
+                        {
+                            "filename": "anamnese-single-file.html",
+                            "description": "Alternative single-file version (633KB)",
+                            "purpose": "Standalone version with core features",
+                            "relationships": ["index_v8_complete.html"],
+                            "improvements": {
+                                "maintainability": "Consolidate with index_v8_complete.html",
+                                "structure": "Document differences clearly"
+                            }
+                        },
+                        {
+                            "filename": "index_v7_no_vosk.html",
+                            "description": "Version 7 without Vosk (669KB)",
+                            "purpose": "Lighter version without voice input",
+                            "relationships": ["index_v8_complete.html"],
+                            "improvements": {
+                                "maintainability": "Consider deprecating as legacy"
+                            }
+                        },
+                        {
+                            "filename": "index.html",
+                            "description": "Entry point HTML (12KB)",
+                            "purpose": "Entry point or simple redirect",
+                            "relationships": ["app.js", "styles.css", "manifest.json"],
+                            "improvements": {
+                                "structure": "Clarify vs index_v8_complete.html"
+                            }
+                        },
+                        {
+                            "filename": "demo-standalone.html",
+                            "description": "Standalone demo (42KB)",
+                            "purpose": "Demo version for testing",
+                            "relationships": [],
+                            "improvements": {
+                                "structure": "Document when to use vs full"
+                            }
+                        },
+                        {
+                            "filename": "admin_dashboard.html",
+                            "description": "Admin dashboard (60KB)",
+                            "purpose": "Practice management interface",
+                            "relationships": ["server.js"],
+                            "improvements": {
+                                "security": "Ensure proper authentication"
+                            }
+                        },
+                        {
+                            "filename": "app.js",
+                            "description": "Main app JavaScript (7KB)",
+                            "purpose": "Core logic and initialization",
+                            "relationships": ["index.html"],
+                            "improvements": {
+                                "structure": "Clarify vs inline scripts"
+                            }
+                        },
+                        {
+                            "filename": "translations.js",
+                            "description": "19-language translations (29KB)",
+                            "purpose": "Multi-language support",
+                            "relationships": ["index_v8_complete.html"],
+                            "improvements": {
+                                "structure": "Consider JSON format",
+                                "maintainability": "Split by language"
+                            }
+                        },
+                        {
+                            "filename": "sw.js",
+                            "description": "Service Worker (4KB)",
+                            "purpose": "Offline caching and PWA",
+                            "relationships": ["manifest.json", "index_v8_complete.html"],
+                            "improvements": {
+                                "offline": "✓ Excellent",
+                                "structure": "Cache versioning strategy"
+                            }
+                        },
+                        {
+                            "filename": "manifest.json",
+                            "description": "PWA manifest",
+                            "purpose": "PWA config (icons, theme)",
+                            "relationships": ["sw.js"],
+                            "improvements": {
+                                "structure": "Ensure all icon sizes"
+                            }
+                        },
+                        {
+                            "filename": "styles.css",
+                            "description": "Global styles (6KB)",
+                            "purpose": "Shared CSS",
+                            "relationships": ["index.html"],
+                            "improvements": {
+                                "structure": "Consider CSS modules"
+                            }
+                        }
+                    ]
+                },
+                "server": {
+                    "name": "Server / Backend",
+                    "description": "Node.js Express server and API",
+                    "files": [
+                        {
+                            "filename": "server.js",
+                            "description": "Express server (12KB)",
+                            "purpose": "Backend API, payment, code gen",
+                            "relationships": ["admin_dashboard.html", "package.json"],
+                            "improvements": {
+                                "security": "Review rate limiting",
+                                "structure": "Environment config"
+                            }
+                        }
+                    ]
+                },
+                "gdt": {
+                    "name": "GDT Export/Import",
+                    "description": "Medical data exchange for practice systems",
+                    "files": [
+                        {
+                            "filename": "gdt-export.js",
+                            "description": "GDT export (24KB)",
+                            "purpose": "Export in GDT format",
+                            "relationships": ["gdt-export-ui.js", "gdt-export-templates.js"],
+                            "improvements": {
+                                "structure": "✓ Well-modularized",
+                                "offline": "✓ Fully client-side"
+                            }
+                        },
+                        {
+                            "filename": "gdt-import.js",
+                            "description": "GDT import (10KB)",
+                            "purpose": "Import from GDT files",
+                            "relationships": ["gdt-export.js"],
+                            "improvements": {
+                                "security": "Validate imported data",
+                                "structure": "✓ Good separation"
+                            }
+                        },
+                        {
+                            "filename": "gdt-export-ui.js",
+                            "description": "GDT UI (41KB)",
+                            "purpose": "Export configuration UI",
+                            "relationships": ["gdt-export.js"],
+                            "improvements": {
+                                "offline": "✓ Fully client-side"
+                            }
+                        },
+                        {
+                            "filename": "gdt-export-templates.js",
+                            "description": "GDT templates (12KB)",
+                            "purpose": "GDT version templates",
+                            "relationships": ["gdt-export.js"],
+                            "improvements": {
+                                "structure": "✓ Well-organized"
+                            }
+                        },
+                        {
+                            "filename": "gdt-encrypted-export.js",
+                            "description": "Encrypted GDT (23KB)",
+                            "purpose": "GDT + AES-256 encryption",
+                            "relationships": ["gdt-export.js", "encryption.js"],
+                            "improvements": {
+                                "security": "✓ Excellent combination"
+                            }
+                        },
+                        {
+                            "filename": "gdt-batch-export.js",
+                            "description": "Batch export (9KB)",
+                            "purpose": "Multi-patient GDT export",
+                            "relationships": ["gdt-export.js"],
+                            "improvements": {
+                                "performance": "Stream large batches"
+                            }
+                        },
+                        {
+                            "filename": "gdt-audit-enhanced.js",
+                            "description": "GDT audit (16KB)",
+                            "purpose": "GDPR audit trail for GDT",
+                            "relationships": ["gdt-export.js", "gdpr-compliance.js"],
+                            "improvements": {
+                                "offline": "✓ Local audit logging"
+                            }
+                        },
+                        {
+                            "filename": "gdt-feature-detection.js",
+                            "description": "Feature detection (11KB)",
+                            "purpose": "Adapt to practice systems",
+                            "relationships": ["gdt-export.js"],
+                            "improvements": {
+                                "structure": "✓ Progressive enhancement"
+                            }
+                        },
+                        {
+                            "filename": "gdt-performance.js",
+                            "description": "Performance monitoring (13KB)",
+                            "purpose": "GDT performance tracking",
+                            "relationships": ["gdt-export.js"],
+                            "improvements": {
+                                "performance": "✓ Dedicated monitoring"
+                            }
+                        }
+                    ]
+                },
+                "ocr-gdpr": {
+                    "name": "OCR & GDPR",
+                    "description": "Document scanning and data protection",
+                    "files": [
+                        {
+                            "filename": "ocr-gdpr-module.js",
+                            "description": "GDPR OCR module (44KB)",
+                            "purpose": "Local OCR via Tesseract.js",
+                            "relationships": ["gdpr-compliance.js"],
+                            "improvements": {
+                                "security": "✓ No external APIs",
+                                "offline": "✓ Fully local",
+                                "performance": "Use Web Workers"
+                            }
+                        },
+                        {
+                            "filename": "gdpr-compliance.js",
+                            "description": "GDPR utilities (18KB)",
+                            "purpose": "Art. 13, 17, 30, 32 DSGVO",
+                            "relationships": ["ocr-gdpr-module.js"],
+                            "improvements": {
+                                "security": "✓ Comprehensive GDPR",
+                                "structure": "✓ Well-documented"
+                            }
+                        }
+                    ]
+                },
+                "encryption": {
+                    "name": "Security & Encryption",
+                    "description": "AES-256 encryption and security",
+                    "files": [
+                        {
+                            "filename": "encryption.js",
+                            "description": "AES-256-GCM (7KB)",
+                            "purpose": "Web Crypto API encryption",
+                            "relationships": ["gdt-encrypted-export.js"],
+                            "improvements": {
+                                "security": "✓ Web Crypto API",
+                                "structure": "Add PBKDF2 for passwords"
+                            }
+                        }
+                    ]
+                },
+                "ai": {
+                    "name": "AI & Validation",
+                    "description": "Local AI validation",
+                    "files": [
+                        {
+                            "filename": "ai-plausibility-check.js",
+                            "description": "AI validation (23KB)",
+                            "purpose": "Rule-based medical validation",
+                            "relationships": ["test-ai-plausibility.html"],
+                            "improvements": {
+                                "offline": "✓ Fully local rules",
+                                "structure": "✓ No external AI"
+                            }
+                        }
+                    ]
+                },
+                "vosk": {
+                    "name": "Voice Recognition",
+                    "description": "Local speech-to-text",
+                    "files": [
+                        {
+                            "filename": "vosk-integration.js",
+                            "description": "Vosk integration (8KB)",
+                            "purpose": "Local speech-to-text (50MB)",
+                            "relationships": ["vosk-worker.js"],
+                            "improvements": {
+                                "offline": "✓ Local recognition",
+                                "performance": "Lazy load 50MB model",
+                                "structure": "✓ Uses Web Workers"
+                            }
+                        },
+                        {
+                            "filename": "vosk-worker.js",
+                            "description": "Vosk Worker (3KB)",
+                            "purpose": "Background Vosk processing",
+                            "relationships": ["vosk-integration.js"],
+                            "improvements": {
+                                "performance": "✓ Prevents UI blocking"
+                            }
+                        }
+                    ]
+                },
+                "tests": {
+                    "name": "Tests",
+                    "description": "Test files and documentation",
+                    "files": [
+                        {
+                            "filename": "test-ai-plausibility.html",
+                            "description": "AI tests (20KB)",
+                            "purpose": "Test AI validation rules",
+                            "relationships": ["ai-plausibility-check.js"],
+                            "improvements": {
+                                "structure": "✓ Good test coverage"
+                            }
+                        },
+                        {
+                            "filename": "test-gdt-export.html",
+                            "description": "GDT test UI (5KB)",
+                            "purpose": "Visual GDT testing",
+                            "relationships": ["test-gdt-export.js", "gdt-export.js"],
+                            "improvements": {
+                                "structure": "✓ Visual testing"
+                            }
+                        },
+                        {
+                            "filename": "test-gdt-export.js",
+                            "description": "GDT tests (11KB)",
+                            "purpose": "Automated GDT tests",
+                            "relationships": ["gdt-export.js"],
+                            "improvements": {
+                                "structure": "✓ Good coverage"
+                            }
+                        },
+                        {
+                            "filename": "test-basic.js",
+                            "description": "Basic tests (5KB)",
+                            "purpose": "Core feature testing",
+                            "relationships": [],
+                            "improvements": {
+                                "structure": "Expand coverage"
+                            }
+                        },
+                        {
+                            "filename": "test-integration.js",
+                            "description": "Integration tests (13KB)",
+                            "purpose": "End-to-end testing",
+                            "relationships": [],
+                            "improvements": {
+                                "structure": "✓ Good integration"
+                            }
+                        },
+                        {
+                            "filename": "test-standalone-demo.js",
+                            "description": "Demo tests (5KB)",
+                            "purpose": "Demo version tests",
+                            "relationships": ["demo-standalone.html"],
+                            "improvements": {
+                                "structure": "✓ Demo validation"
+                            }
+                        },
+                        {
+                            "filename": "test_anamnese.html",
+                            "description": "Anamnese tests (18KB)",
+                            "purpose": "Questionnaire testing",
+                            "relationships": [],
+                            "improvements": {
+                                "structure": "Visual test interface"
+                            }
+                        },
+                        {
+                            "filename": "test_document_upload.html",
+                            "description": "Upload tests (8KB)",
+                            "purpose": "Document upload/OCR testing",
+                            "relationships": ["ocr-gdpr-module.js"],
+                            "improvements": {
+                                "structure": "✓ OCR feature tests"
+                            }
+                        },
+                        {
+                            "filename": "test_ocr_gdpr.html",
+                            "description": "GDPR tests (15KB)",
+                            "purpose": "GDPR compliance testing",
+                            "relationships": ["ocr-gdpr-module.js"],
+                            "improvements": {
+                                "structure": "✓ Compliance validation"
+                            }
+                        }
+                    ]
+                },
+                "deployment": {
+                    "name": "Deployment",
+                    "description": "Deployment configs and infrastructure",
+                    "files": [
+                        {
+                            "filename": "Dockerfile",
+                            "description": "Docker container",
+                            "purpose": "Containerization",
+                            "relationships": ["docker-compose.yml", "server.js"],
+                            "improvements": {
+                                "security": "Review base image",
+                                "structure": "Multi-stage build"
+                            }
+                        },
+                        {
+                            "filename": "docker-compose.yml",
+                            "description": "Docker Compose",
+                            "purpose": "Multi-container orchestration",
+                            "relationships": ["Dockerfile"],
+                            "improvements": {
+                                "structure": "✓ Local development"
+                            }
+                        },
+                        {
+                            "filename": "vercel.json",
+                            "description": "Vercel config",
+                            "purpose": "Serverless deployment",
+                            "relationships": ["server.js"],
+                            "improvements": {
+                                "structure": "✓ Easy deployment"
+                            }
+                        },
+                        {
+                            "filename": "render.yaml",
+                            "description": "Render config",
+                            "purpose": "Render.com deployment",
+                            "relationships": ["server.js"],
+                            "improvements": {
+                                "structure": "Alternative option"
+                            }
+                        },
+                        {
+                            "filename": "fly.toml",
+                            "description": "Fly.io config",
+                            "purpose": "Edge deployment",
+                            "relationships": ["Dockerfile"],
+                            "improvements": {
+                                "structure": "✓ Global edge"
+                            }
+                        },
+                        {
+                            "filename": "package.json",
+                            "description": "NPM config",
+                            "purpose": "Dependencies and scripts",
+                            "relationships": ["server.js", "setup.js"],
+                            "improvements": {
+                                "security": "Run npm audit",
+                                "maintainability": "Update deps"
+                            }
+                        },
+                        {
+                            "filename": ".eslintrc.json",
+                            "description": "ESLint config",
+                            "purpose": "Code quality rules",
+                            "relationships": [],
+                            "improvements": {
+                                "structure": "✓ Good tooling"
+                            }
+                        },
+                        {
+                            "filename": ".gitignore",
+                            "description": "Git ignore",
+                            "purpose": "Version control exclusions",
+                            "relationships": [],
+                            "improvements": {
+                                "structure": "✓ Standard patterns"
+                            }
+                        },
+                        {
+                            "filename": ".env.example",
+                            "description": "Environment template",
+                            "purpose": "Config template",
+                            "relationships": ["server.js"],
+                            "improvements": {
+                                "security": "✓ No secrets in repo"
+                            }
+                        },
+                        {
+                            "filename": "setup.js",
+                            "description": "Setup script (5KB)",
+                            "purpose": "Initial setup",
+                            "relationships": ["package.json"],
+                            "improvements": {
+                                "structure": "Document requirements"
+                            }
+                        }
+                    ]
+                },
+                "docs": {
+                    "name": "Documentation",
+                    "description": "README and technical docs",
+                    "files": [
+                        { "filename": "README.md", "description": "Main project documentation" },
+                        { "filename": "PROJECT_SUMMARY.md", "description": "Project overview" },
+                        { "filename": "QUICK_START.md", "description": "Quick start guide" },
+                        { "filename": "INSTALLATION.md", "description": "Installation instructions" },
+                        { "filename": "SETUP.md", "description": "Setup guide" },
+                        { "filename": "DEPLOYMENT.md", "description": "Deployment instructions" },
+                        { "filename": "DEPLOYMENT_GUIDE.md", "description": "Detailed deployment" },
+                        { "filename": "DEPLOYMENT_FREE_HOSTING.md", "description": "Free hosting guide" },
+                        { "filename": "DSGVO_OCR_COMPLIANCE.md", "description": "GDPR OCR compliance" },
+                        { "filename": "GDPR_EXPORT_DOCUMENTATION.md", "description": "GDPR export docs" },
+                        { "filename": "OCR_GDPR_IMPLEMENTATION.md", "description": "OCR implementation" },
+                        { "filename": "GDT_EXPORT_README.md", "description": "GDT export docs" },
+                        { "filename": "PWA_FEATURES.md", "description": "PWA features" },
+                        { "filename": "AI_IMPLEMENTATION_SUMMARY.md", "description": "AI implementation" },
+                        { "filename": "AI_TECHNICAL_DOCUMENTATION.md", "description": "AI technical docs" },
+                        { "filename": "AI_PRIVACY_IMPACT_ASSESSMENT.md", "description": "AI privacy impact" },
+                        { "filename": "BFDI_CHECKLIST.md", "description": "Data protection checklist" },
+                        { "filename": "PRAXIS_CODE_GENERATOR_README.md", "description": "Code generator docs" },
+                        { "filename": "ADMIN_DASHBOARD_README.md", "description": "Admin dashboard docs" },
+                        { "filename": "TEST_DOCUMENTATION.md", "description": "Test documentation" },
+                        { "filename": "CHANGELOG.md", "description": "Version history" },
+                        { "filename": "VISUAL_GUIDE.md", "description": "Visual guide" }
+                    ]
+                },
+                "assets": {
+                    "name": "Assets & Binary",
+                    "description": "Binary files and static assets",
+                    "files": [
+                        {
+                            "filename": "fragebogen_auflistung excel.xlsx",
+                            "description": "Questionnaire Excel (173KB)",
+                            "purpose": "Spreadsheet documentation",
+                            "relationships": [],
+                            "improvements": {
+                                "maintainability": "Verify still needed",
+                                "structure": "Move to /docs folder"
+                            }
+                        },
+                        {
+                            "filename": "Fragebogen_Struktur txt.odt",
+                            "description": "Questionnaire ODT (53KB)",
+                            "purpose": "OpenDocument format",
+                            "relationships": [],
+                            "improvements": {
+                                "maintainability": "Verify still needed"
+                            }
+                        },
+                        {
+                            "filename": "HTMLBASIS",
+                            "description": "HTML basis (770KB)",
+                            "purpose": "Base template or reference",
+                            "relationships": [],
+                            "improvements": {
+                                "maintainability": "Document purpose"
+                            }
+                        },
+                        {
+                            "filename": "gemini.txt",
+                            "description": "Large text file (638KB)",
+                            "purpose": "AI output or reference",
+                            "relationships": [],
+                            "improvements": {
+                                "structure": "Move to /docs if needed"
+                            }
+                        },
+                        {
+                            "filename": "model/",
+                            "description": "Vosk model directory (~50MB)",
+                            "purpose": "Speech recognition models",
+                            "relationships": ["vosk-integration.js"],
+                            "improvements": {
+                                "performance": "Lazy load models"
+                            }
+                        },
+                        {
+                            "filename": "public/",
+                            "description": "Public static files",
+                            "purpose": "Static assets",
+                            "relationships": ["public/index.html", "public/js/app.js"],
+                            "improvements": {
+                                "structure": "✓ Standard structure"
+                            }
+                        },
+                        {
+                            "filename": "database/",
+                            "description": "Database files",
+                            "purpose": "DB schemas and files",
+                            "relationships": ["server.js"],
+                            "improvements": {
+                                "structure": "Document schema"
+                            }
+                        }
+                    ]
+                }
+            }
+        };
+
+        // ====================================================================
+        // REPOSITORY ANALYSIS UI CONTROLLER
+        // ====================================================================
+        window.RepoAnalysis = {
+            currentFilter: '',
+            currentSearch: '',
+            currentFile: null,
+
+            /**
+             * Open the repository analysis modal
+             */
+            open() {
+                const modal = document.getElementById('repo-analysis-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    this.initialize();
+                }
+            },
+
+            /**
+             * Close the repository analysis modal
+             */
+            close() {
+                const modal = document.getElementById('repo-analysis-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+                this.closeDetail();
+            },
+
+            /**
+             * Initialize the analysis UI
+             */
+            initialize() {
+                this.populateGroupFilter();
+                this.updateStatistics();
+                this.renderFileList();
+            },
+
+            /**
+             * Populate group filter dropdown
+             */
+            populateGroupFilter() {
+                const filter = document.getElementById('repo-filter');
+                if (!filter) return;
+
+                // Clear existing options except the first one
+                while (filter.options.length > 1) {
+                    filter.remove(1);
+                }
+
+                // Add group options
+                const data = window.REPO_ANALYSIS_DATA;
+                Object.keys(data.groups).forEach(groupKey => {
+                    const group = data.groups[groupKey];
+                    const option = document.createElement('option');
+                    option.value = groupKey;
+                    option.textContent = `${this.getGroupIcon(groupKey)} ${group.name} (${group.files.length})`;
+                    filter.appendChild(option);
+                });
+            },
+
+            /**
+             * Get icon for group
+             */
+            getGroupIcon(groupKey) {
+                const icons = {
+                    'frontend-pwa': '🎨',
+                    'server': '🖥️',
+                    'gdt': '🏥',
+                    'ocr-gdpr': '🔒',
+                    'encryption': '🔐',
+                    'ai': '🤖',
+                    'vosk': '🎤',
+                    'tests': '🧪',
+                    'deployment': '🚀',
+                    'docs': '📚',
+                    'assets': '📦'
+                };
+                return icons[groupKey] || '📁';
+            },
+
+            /**
+             * Update statistics display
+             */
+            updateStatistics() {
+                const statsDiv = document.getElementById('repo-stats');
+                if (!statsDiv) return;
+
+                const data = window.REPO_ANALYSIS_DATA;
+                let totalFiles = 0;
+                let totalGroups = Object.keys(data.groups).length;
+
+                Object.values(data.groups).forEach(group => {
+                    totalFiles += group.files.length;
+                });
+
+                statsDiv.innerHTML = `
+                    <div style="padding: 0.75rem; background: var(--primary); color: white; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: bold;">${totalFiles}</div>
+                        <div style="font-size: 0.8rem;">Total Files</div>
+                    </div>
+                    <div style="padding: 0.75rem; background: var(--success); color: white; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: bold;">${totalGroups}</div>
+                        <div style="font-size: 0.8rem;">Groups</div>
+                    </div>
+                    <div style="padding: 0.75rem; background: var(--info); color: white; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.5rem; font-weight: bold;">✓</div>
+                        <div style="font-size: 0.8rem;">100% Offline</div>
+                    </div>
+                `;
+            },
+
+            /**
+             * Filter files by group
+             */
+            filterByGroup(groupKey) {
+                this.currentFilter = groupKey;
+                this.renderFileList();
+            },
+
+            /**
+             * Search files by name
+             */
+            search(query) {
+                this.currentSearch = query.toLowerCase();
+                this.renderFileList();
+            },
+
+            /**
+             * Render file list
+             */
+            renderFileList() {
+                const listDiv = document.getElementById('repo-file-list');
+                if (!listDiv) return;
+
+                const data = window.REPO_ANALYSIS_DATA;
+                let html = '';
+
+                Object.keys(data.groups).forEach(groupKey => {
+                    // Skip if filtered and doesn't match
+                    if (this.currentFilter && this.currentFilter !== groupKey) {
+                        return;
+                    }
+
+                    const group = data.groups[groupKey];
+                    const filteredFiles = group.files.filter(file => {
+                        if (!this.currentSearch) return true;
+                        return file.filename.toLowerCase().includes(this.currentSearch) ||
+                               (file.description && file.description.toLowerCase().includes(this.currentSearch));
+                    });
+
+                    if (filteredFiles.length === 0) return;
+
+                    html += `
+                        <div style="margin-bottom: 1.5rem;">
+                            <h3 style="color: var(--primary); margin-bottom: 0.75rem; font-size: 1.1rem;">
+                                ${this.getGroupIcon(groupKey)} ${group.name}
+                            </h3>
+                            <p style="color: var(--secondary); font-size: 0.85rem; margin-bottom: 0.75rem;">
+                                ${group.description}
+                            </p>
+                            <div style="display: grid; gap: 0.5rem;">
+                    `;
+
+                    filteredFiles.forEach(file => {
+                        html += `
+                            <div onclick="RepoAnalysis.showDetail('${groupKey}', '${this.escapeHtml(file.filename)}')"
+                                 style="padding: 0.75rem; background: var(--bg-color); border-radius: 8px; cursor: pointer; border: 1px solid var(--secondary); transition: all 0.2s;"
+                                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateX(4px)';"
+                                 onmouseout="this.style.borderColor='var(--secondary)'; this.style.transform='translateX(0)';">
+                                <div style="font-weight: bold; color: var(--text); margin-bottom: 0.25rem;">
+                                    📄 ${this.escapeHtml(file.filename)}
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--secondary);">
+                                    ${this.escapeHtml(file.description || file.purpose || 'Click for details')}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+
+                if (html === '') {
+                    html = `
+                        <div style="text-align: center; padding: 2rem; color: var(--secondary);">
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+                            <div style="font-size: 1.1rem;">No files found matching your criteria</div>
+                        </div>
+                    `;
+                }
+
+                listDiv.innerHTML = html;
+            },
+
+            /**
+             * Show file detail view
+             */
+            showDetail(groupKey, filename) {
+                const data = window.REPO_ANALYSIS_DATA;
+                const group = data.groups[groupKey];
+                const file = group.files.find(f => f.filename === filename);
+                
+                if (!file) return;
+
+                this.currentFile = file;
+                const detailDiv = document.getElementById('repo-file-detail');
+                if (!detailDiv) return;
+
+                let html = `
+                    <div style="max-width: 900px; margin: 0 auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <h2 style="margin: 0;">📄 ${this.escapeHtml(file.filename)}</h2>
+                            <button onclick="RepoAnalysis.closeDetail()" 
+                                    class="btn btn-secondary"
+                                    aria-label="Close detail view">
+                                ← Back to List
+                            </button>
+                        </div>
+
+                        <div style="display: grid; gap: 1.5rem;">
+                            <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--primary);">
+                                <h3 style="margin: 0 0 0.5rem 0; color: var(--primary);">Description</h3>
+                                <p style="margin: 0; color: var(--text);">${this.escapeHtml(file.description || 'No description available')}</p>
+                            </div>
+
+                            <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--success);">
+                                <h3 style="margin: 0 0 0.5rem 0; color: var(--success);">Purpose</h3>
+                                <p style="margin: 0; color: var(--text);">${this.escapeHtml(file.purpose || 'Not specified')}</p>
+                            </div>
+                `;
+
+                // Relationships
+                if (file.relationships && file.relationships.length > 0) {
+                    html += `
+                        <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--info);">
+                            <h3 style="margin: 0 0 0.5rem 0; color: var(--info);">🔗 Related Files</h3>
+                            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    `;
+                    file.relationships.forEach(rel => {
+                        html += `
+                            <span style="padding: 0.25rem 0.75rem; background: var(--bg-color); border-radius: 16px; font-size: 0.85rem; font-family: monospace; color: var(--text);">
+                                ${this.escapeHtml(rel)}
+                            </span>
+                        `;
+                    });
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Improvements
+                if (file.improvements && Object.keys(file.improvements).length > 0) {
+                    html += `
+                        <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--warning);">
+                            <h3 style="margin: 0 0 0.75rem 0; color: var(--warning);">💡 Improvement Suggestions</h3>
+                            <div style="display: grid; gap: 0.75rem;">
+                    `;
+                    Object.keys(file.improvements).forEach(category => {
+                        const suggestion = file.improvements[category];
+                        const icon = this.getCategoryIcon(category);
+                        html += `
+                            <div style="padding: 0.75rem; background: var(--bg-color); border-radius: 8px;">
+                                <div style="font-weight: bold; color: var(--primary); margin-bottom: 0.25rem;">
+                                    ${icon} ${this.capitalizeFirst(category)}
+                                </div>
+                                <div style="color: var(--text); font-size: 0.9rem;">
+                                    ${this.escapeHtml(suggestion)}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+
+                detailDiv.innerHTML = html;
+                detailDiv.style.display = 'block';
+            },
+
+            /**
+             * Close detail view
+             */
+            closeDetail() {
+                const detailDiv = document.getElementById('repo-file-detail');
+                if (detailDiv) {
+                    detailDiv.style.display = 'none';
+                }
+                this.currentFile = null;
+            },
+
+            /**
+             * Get icon for improvement category
+             */
+            getCategoryIcon(category) {
+                const icons = {
+                    'security': '🔒',
+                    'maintainability': '🔧',
+                    'performance': '⚡',
+                    'offline': '📴',
+                    'structure': '🏗️'
+                };
+                return icons[category] || '💡';
+            },
+
+            /**
+             * Capitalize first letter
+             */
+            capitalizeFirst(str) {
+                return str.charAt(0).toUpperCase() + str.slice(1);
+            },
+
+            /**
+             * Escape HTML to prevent XSS
+             */
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        };
+
+        console.log('[RepoAnalysis] Repository analysis module loaded');
     </script>
 </body>
 </html>
