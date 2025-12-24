@@ -14,6 +14,12 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Dev bypass configuration - ONLY for testing, never in production
+const DEV_BYPASS_PAYMENT = process.env.DEV_BYPASS_PAYMENT === 'true' && process.env.NODE_ENV !== 'production';
+if (DEV_BYPASS_PAYMENT) {
+  logger.warn('⚠️  DEV_BYPASS_PAYMENT is ACTIVE - Payment bypass enabled for testing');
+}
+
 // Logger configuration
 const logger = winston.createLogger({
   level: 'info',
@@ -56,12 +62,12 @@ const limiter = rateLimit({
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      scriptSrc: ["'self'", "https://js.stripe.com", "https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https://api.stripe.com"],
-      frameSrc: ["https://js.stripe.com", "https://hooks.stripe.com"]
+      defaultSrc: ['\'self\''],
+      styleSrc: ['\'self\'', '\'unsafe-inline\'', 'https://cdn.jsdelivr.net'],
+      scriptSrc: ['\'self\'', 'https://js.stripe.com', 'https://cdn.jsdelivr.net'],
+      imgSrc: ['\'self\'', 'data:', 'https:'],
+      connectSrc: ['\'self\'', 'https://api.stripe.com'],
+      frameSrc: ['https://js.stripe.com', 'https://hooks.stripe.com']
     }
   }
 }));
@@ -132,6 +138,36 @@ async function logAudit(practiceId, action, details, req) {
   } catch (err) {
     logger.error('Audit logging failed:', err);
   }
+}
+
+// Shared code generation function
+// Used by both Stripe webhook and dev bypass mode
+async function generateAccessCode(metadata, sessionId) {
+  const codeData = {
+    practiceId: metadata.practiceId,
+    mode: metadata.mode,
+    language: metadata.language,
+    patientData: metadata.patientData,
+    timestamp: Date.now(),
+    sessionId: sessionId
+  };
+  
+  const encryptedCode = encryptData(JSON.stringify(codeData));
+  
+  // Store code in database
+  await pool.query(
+    `INSERT INTO codes (practice_id, code, mode, language, stripe_session_id, created_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [
+      metadata.practiceId,
+      encryptedCode,
+      metadata.mode,
+      metadata.language,
+      sessionId
+    ]
+  );
+  
+  return encryptedCode;
 }
 
 // API Routes
@@ -222,6 +258,56 @@ app.post('/api/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: error.details[0].message });
     }
     
+    // DEV BYPASS MODE: Generate code immediately without Stripe
+    if (DEV_BYPASS_PAYMENT) {
+      const pseudoSessionId = `dev_bypass_${crypto.randomBytes(16).toString('hex')}`;
+      
+      const metadata = {
+        practiceId: practiceId || 'SELFTEST',
+        mode,
+        language,
+        patientData: patientData ? JSON.stringify(patientData) : null
+      };
+      
+      try {
+        // Generate code using shared function
+        await generateAccessCode(metadata, pseudoSessionId);
+        
+        // Store pseudo-transaction for tracking
+        await pool.query(
+          `INSERT INTO transactions (practice_id, stripe_session_id, amount_total, amount_net, tax_amount, status, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [
+            metadata.practiceId,
+            pseudoSessionId,
+            0, // No payment in bypass mode
+            0,
+            0,
+            'dev_bypass'
+          ]
+        );
+        
+        await logAudit(
+          metadata.practiceId,
+          'CODE_GENERATED_BYPASS',
+          { sessionId: pseudoSessionId, mode, language },
+          req
+        );
+        
+        logger.warn('Dev bypass code generated', { sessionId: pseudoSessionId, practiceId: metadata.practiceId });
+        
+        // Return bypass indicator with sessionId
+        return res.json({ 
+          sessionId: pseudoSessionId,
+          bypass: true 
+        });
+      } catch (err) {
+        logger.error('Error in bypass mode:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+    
+    // NORMAL STRIPE MODE: Create Stripe checkout session
     // Determine price based on userType
     const unitAmount = userType === 'selftest' ? 100 : 99; // 1,00€ or 0,99€ in cents
     const description = userType === 'selftest' 
@@ -287,30 +373,8 @@ app.post('/webhook', async (req, res) => {
     const session = event.data.object;
     
     try {
-      // Generiere verschlüsselten Code
-      const codeData = {
-        practiceId: session.metadata.practiceId,
-        mode: session.metadata.mode,
-        language: session.metadata.language,
-        patientData: session.metadata.patientData,
-        timestamp: Date.now(),
-        sessionId: session.id
-      };
-      
-      const encryptedCode = encryptData(JSON.stringify(codeData));
-      
-      // Speichere in Datenbank
-      await pool.query(
-        `INSERT INTO codes (practice_id, code, mode, language, stripe_session_id, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
-        [
-          session.metadata.practiceId,
-          encryptedCode,
-          session.metadata.mode,
-          session.metadata.language,
-          session.id
-        ]
-      );
+      // Use shared code generation function
+      await generateAccessCode(session.metadata, session.id);
       
       // Speichere Transaktion
       await pool.query(
@@ -378,6 +442,11 @@ app.get('/api/code/:sessionId', async (req, res) => {
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Bypass status endpoint (for frontend to check)
+app.get('/api/bypass-status', (req, res) => {
+  res.json({ bypassEnabled: DEV_BYPASS_PAYMENT });
 });
 
 // Error handling middleware
