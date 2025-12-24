@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Repository Analysis Feature Test</h1>
+    <div id="results"></div>
+    <script>
+        fetch('index_v8_complete.html')
+            .then(response => response.text())
+            .then(html => {
+                const results = document.getElementById('results');
+                let output = '<h2>Test Results:</h2><ul>';
+                
+                const tests = [
+                    { name: 'REPO_ANALYSIS_DATA exists', check: html.includes('window.REPO_ANALYSIS_DATA') },
+                    { name: 'RepoAnalysis object exists', check: html.includes('window.RepoAnalysis') },
+                    { name: 'Modal HTML present', check: html.includes('repo-analysis-modal') },
+                    { name: 'Button present', check: html.includes('repo-analysis-btn') },
+                    { name: 'Open function exists', check: html.includes('RepoAnalysis.open()') },
+                    { name: 'File groups defined', check: html.includes('"frontend-pwa"') },
+                    { name: 'File relationships defined', check: html.includes('"relationships"') },
+                    { name: 'Improvements defined', check: html.includes('"improvements"') },
+                    { name: 'Search functionality', check: html.includes('RepoAnalysis.search') },
+                    { name: 'Filter functionality', check: html.includes('RepoAnalysis.filterByGroup') },
+                    { name: 'Detail view functionality', check: html.includes('RepoAnalysis.showDetail') },
+                    { name: 'GitHub link present', check: html.includes('github.com/DiggAiHH/Anamnese-A') },
+                    { name: 'ESC key handler updated', check: html.includes('repo-analysis-modal') && html.includes('RepoAnalysis.close()') }
+                ];
+                
+                let passed = 0;
+                tests.forEach(test => {
+                    const status = test.check ? '<span class="success">✓ PASS</span>' : '<span class="error">✗ FAIL</span>';
+                    output += `<li>${status} - ${test.name}</li>`;
+                    if (test.check) passed++;
+                });
+                
+                output += '</ul>';
+                output += `<h3>Summary: ${passed}/${tests.length} tests passed</h3>`;
+                
+                if (passed === tests.length) {
+                    output += '<p class="success" style="font-size: 1.2rem; font-weight: bold;">✓ All tests passed! Repository Analysis feature is properly integrated.</p>';
+                } else {
+                    output += '<p class="error">Some tests failed. Please review the implementation.</p>';
+                }
+                
+                results.innerHTML = output;
+            })
+            .catch(error => {
+                document.getElementById('results').innerHTML = '<p class="error">Error loading file: ' + error.message + '</p>';
+            });
+    </script>
+</body>
+</html>
