@@ -26,7 +26,7 @@ async function showGDTExportDialog() {
     content.innerHTML = `
         <h2>GDT-Export Konfiguration</h2>
         <p style="color: #666; margin-bottom: 20px;">
-            Konfigurieren Sie den DSGVO-konformen Export für Ihr Praxisverwaltungssystem (Medatixx, CGM, Quincy).
+            Konfigurieren Sie den DSGVO-konformen Export für Ihr Praxisverwaltungssystem.
         </p>
         
         <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
@@ -42,10 +42,23 @@ async function showGDTExportDialog() {
             </p>
             <select id="gdtTemplateSelect" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;">
                 <option value="">-- Keine Vorlage / Manuelle Konfiguration --</option>
-                <optgroup label="PVS-Systeme">
+                <optgroup label="Deutsche PVS-Systeme">
                     <option value="medatixx_standard">Medatixx Standard</option>
                     <option value="cgm_standard">CGM Standard</option>
                     <option value="quincy_standard">Quincy Standard</option>
+                </optgroup>
+                <optgroup label="Tomedo (macOS)">
+                    <option value="tomedo_standard">Tomedo PVS Standard</option>
+                    <option value="tomedo_minimal">Tomedo Minimal</option>
+                </optgroup>
+                <optgroup label="Tomedo AIR (Cloud)">
+                    <option value="tomedo_air_standard">Tomedo AIR Standard</option>
+                    <option value="tomedo_air_privacy">Tomedo AIR Datenschutz</option>
+                </optgroup>
+                <optgroup label="Doctolib">
+                    <option value="doctolib_standard">Doctolib PVS Standard</option>
+                    <option value="doctolib_minimal">Doctolib Minimal</option>
+                    <option value="doctolib_france">Doctolib France (RGPD)</option>
                 </optgroup>
                 <optgroup label="Anwendungsfälle">
                     <option value="complete_export">Vollständiger Export</option>
