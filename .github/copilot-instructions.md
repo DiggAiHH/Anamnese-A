@@ -1,4 +1,4 @@
-# Copilot Instructions for Anamnese-A
+# GitHub Copilot Instructions for Anamnese-A
 
 ## Project Overview
 This is a comprehensive offline medical questionnaire (Anamnese) application designed for healthcare settings. It's a Progressive Web App (PWA) with multi-language support, speech recognition, AES-256 encryption, and GDPR/DSGVO compliance. The application allows patients to fill out medical history forms securely, with all data processed locally on-device without external server communication.
@@ -12,10 +12,10 @@ This is a comprehensive offline medical questionnaire (Anamnese) application des
 - **Web APIs**: Web Crypto API (encryption), Web Audio API (speech), Web Workers, Service Workers (PWA)
 
 ### Backend (for practice code generator)
-- **Node.js**: 18.0.0+
-- **Express**: 4.18.2
+- **Node.js**: >=18.0.0
+- **Express**: ^4.18.2
 - **PostgreSQL**: Database for practice codes
-- **Stripe**: Payment integration
+- **Stripe**: ^14.10.0 payment integration
 
 ### Key Libraries
 - **CryptoJS**: AES-256-GCM encryption
@@ -112,12 +112,14 @@ This is a comprehensive offline medical questionnaire (Anamnese) application des
 
 ## Multi-Language Support
 
-### Supported Languages (19 total)
-German, English, French, Spanish, Italian, Portuguese, Dutch, Polish, Turkish, Arabic, Russian, Ukrainian, Farsi, Urdu, Chinese, Albanian, Romanian, Hindi, Japanese
+### Supported Languages
+- **Basic version** (`translations.js`): 10 languages (German, English, French, Spanish, Italian, Turkish, Polish, Russian, Arabic, Chinese)
+- **Production version** (`index_v8_complete.html`): 19 languages (adds Portuguese, Dutch, Ukrainian, Farsi, Urdu, Albanian, Romanian, Hindi, Japanese)
 
 ### Translation Guidelines
-- All UI text must be in `translations.js` with all 19 languages
-- Use translation keys, never hardcode strings
+- All UI text must use translation keys, never hardcode strings
+- For basic features, use `translations.js` (10 languages)
+- For production features, inline translations in `index_v8_complete.html` support all 19 languages
 - Support RTL layout for Arabic, Farsi, Urdu
 - Date and number formatting must respect locale
 - Error messages and help text must be translated
