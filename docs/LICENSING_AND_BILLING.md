@@ -905,7 +905,7 @@ CREATE TABLE usage_events (
 - **Technical Support:** support@anamnese-a.eu
 - **Billing Questions:** billing@anamnese-a.eu
 - **GDPR/Privacy:** privacy@anamnese-a.eu
-- **Emergency Hotline:** +49 XXX XXXXXXX
+- **Emergency Hotline:** +49 (0) 123 456789 *(placeholder - update before deployment)*
 
 ---
 

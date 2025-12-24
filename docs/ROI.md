@@ -408,7 +408,7 @@ Break-even: 0.5 days
 
 For questions about pricing or ROI calculations:
 - **Email:** sales@anamnese-a.eu
-- **Phone:** +49 XXX XXXXXXX (Mo-Fr, 9-17 Uhr)
+- **Phone:** +49 (0) 123 456789 (Mo-Fr, 9-17 Uhr) *(placeholder - update before deployment)*
 - **Chat:** [Live chat on website](https://anamnese-a.eu)
 
 ---

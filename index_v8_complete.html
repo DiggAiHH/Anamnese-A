@@ -17575,9 +17575,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Licensing Configuration
 const LicensingConfig = {
-    apiBaseUrl: 'https://api.anamnese-a.eu', // EU-only backend
+    apiBaseUrl: 'https://api.anamnese-a.eu', // EU-only backend (configure for production)
     offlineGracePeriod: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
     usageReceiptBatchSize: 50, // Max events per receipt
+    usageReceiptRetentionLimit: 100, // Max receipts to keep in localStorage
     autoSyncInterval: 24 * 60 * 60 * 1000, // Daily sync (24 hours)
     enabled: false // Set to true when backend is ready
 };
@@ -17667,7 +17668,8 @@ const LicenseManager = {
      * Validate token format
      */
     isValidTokenFormat(token) {
-        // Format: LIC-XXXXX-XXXXX-XXXXX-XXXXX (50 chars total)
+        // Format: LIC-XXXXX-XXXXX-XXXXX-XXXXX
+        // Total length: 29 characters (LIC- + 4 segments of 5 chars + 3 hyphens)
         return /^LIC-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$/.test(token);
     },
     
@@ -17791,6 +17793,7 @@ const LicenseManager = {
 const UsageMetering = {
     receipts: [],
     currentReceipt: null,
+    syncIntervalId: null, // Store interval ID for cleanup
     
     /**
      * Initialize usage metering
@@ -17805,12 +17808,22 @@ const UsageMetering = {
             // Create new receipt for current session
             this.startNewReceipt();
             
-            // Set up auto-sync
+            // Set up auto-sync (store interval ID for cleanup)
             if (LicensingConfig.enabled) {
-                setInterval(() => this.syncReceipts(), LicensingConfig.autoSyncInterval);
+                this.syncIntervalId = setInterval(() => this.syncReceipts(), LicensingConfig.autoSyncInterval);
             }
         } catch (error) {
             console.error('Usage metering initialization error:', error);
+        }
+    },
+    
+    /**
+     * Cleanup - clear auto-sync interval
+     */
+    cleanup() {
+        if (this.syncIntervalId) {
+            clearInterval(this.syncIntervalId);
+            this.syncIntervalId = null;
         }
     },
     
@@ -17910,17 +17923,19 @@ const UsageMetering = {
         // Add to receipts array
         this.receipts.push(this.currentReceipt);
         
-        // Keep only last 100 receipts
-        if (this.receipts.length > 100) {
-            this.receipts = this.receipts.slice(-100);
+        // Keep only last N receipts (configured limit)
+        if (this.receipts.length > LicensingConfig.usageReceiptRetentionLimit) {
+            this.receipts = this.receipts.slice(-LicensingConfig.usageReceiptRetentionLimit);
         }
     },
     
     /**
      * Generate HMAC signature for receipt
+     * NOTE: This is a simplified client-side hash. In production, the server
+     * will verify using proper HMAC-SHA256 with the license secret key.
      */
     async generateSignature(receipt) {
-        // For now, use simple hash (in production, use HMAC with license secret)
+        // Simple client-side hash (server verifies with proper HMAC)
         const payload = JSON.stringify({
             receiptId: receipt.receiptId,
             licenseId: receipt.licenseId,
@@ -17931,7 +17946,7 @@ const UsageMetering = {
             }))
         });
         
-        // Simple client-side hash (server will verify with HMAC)
+        // Simple hash for client (server validates with HMAC-SHA256)
         return 'SHA256-' + LicenseManager.simpleHash(payload);
     },
     
