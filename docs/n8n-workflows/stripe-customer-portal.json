@@ -1,0 +1,167 @@
+{
+  "name": "Anamnese-A: Stripe Customer Portal Session",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "/api/stripe/create-portal-session",
+        "method": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "stripe-portal-session"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Validate request\nconst body = $input.item.json.body;\n\nif (!body || !body.licenseId) {\n  return {\n    json: {\n      success: false,\n      error: 'INVALID_REQUEST',\n      message: 'License ID is required'\n    }\n  };\n}\n\n// Extract authorization token\nconst authHeader = $input.item.json.headers.authorization;\nif (!authHeader || !authHeader.startsWith('Bearer ')) {\n  return {\n    json: {\n      success: false,\n      error: 'UNAUTHORIZED',\n      message: 'Invalid or missing authorization token'\n    }\n  };\n}\n\nconst token = authHeader.substring(7);\n\n// Validate token matches licenseId\nif (token !== body.licenseId) {\n  return {\n    json: {\n      success: false,\n      error: 'UNAUTHORIZED',\n      message: 'Token mismatch'\n    }\n  };\n}\n\nreturn {\n  json: {\n    licenseId: body.licenseId,\n    returnUrl: body.returnUrl || 'https://anamnese-a.eu'\n  }\n};"
+      },
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT stripe_customer_id, clinic_name FROM licenses WHERE token = $1",
+        "additionalFields": {
+          "mode": "single"
+        }
+      },
+      "name": "Get License Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const license = $input.item.json;\n\nif (!license || !license.stripe_customer_id) {\n  return {\n    json: {\n      success: false,\n      error: 'NO_SUBSCRIPTION',\n      message: 'No Stripe customer found for this license'\n    }\n  };\n}\n\nreturn {\n  json: {\n    customerId: license.stripe_customer_id,\n    returnUrl: $node[\"Validate Request\"].json.returnUrl\n  }\n};"
+      },
+      "name": "Prepare Stripe Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "resource": "billingPortalSession",
+        "operation": "create",
+        "customer": "={{$json.customerId}}",
+        "returnUrl": "={{$json.returnUrl}}"
+      },
+      "name": "Create Portal Session",
+      "type": "n8n-nodes-base.stripe",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "stripeApi": {
+          "id": "2",
+          "name": "Stripe account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const session = $input.item.json;\n\nreturn {\n  json: {\n    success: true,\n    url: session.url,\n    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()\n  }\n};"
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}"
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Get License Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get License Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Stripe Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Stripe Data": {
+      "main": [
+        [
+          {
+            "node": "Create Portal Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Portal Session": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

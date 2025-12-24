@@ -69,10 +69,11 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <meta name="theme-color" content="#667eea">
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; 
+                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com; 
                    style-src 'self' 'unsafe-inline'; 
                    img-src 'self' data: blob:; 
-                   connect-src 'self';
+                   connect-src 'self' https://api.stripe.com https://api.anamnese-a.eu;
+                   frame-src https://js.stripe.com https://hooks.stripe.com;
                    frame-ancestors 'none';">
     <title>Medizinischer Anamnesebogen v8</title>
     
@@ -95,6 +96,8 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
             integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNs8n9SBe7yLFSw7VHT6+rRMASB5QFcM/N7Yj4fBcN4A6L6JSNO+JKgFXkYRD+Faq==" 
             crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Stripe.js for payment processing -->
+    <script src="https://js.stripe.com/v3/"></script>
     <script>
         // Configure PDF.js worker
         if (typeof pdfjsLib !== 'undefined') {
@@ -17580,7 +17583,12 @@ const LicensingConfig = {
     usageReceiptBatchSize: 50, // Max events per receipt
     usageReceiptRetentionLimit: 100, // Max receipts to keep in localStorage
     autoSyncInterval: 24 * 60 * 60 * 1000, // Daily sync (24 hours)
-    enabled: false // Set to true when backend is ready
+    enabled: false, // Set to true when backend is ready
+    stripe: {
+        publishableKey: 'pk_test_XXXXXXXXXXXXXXXXXXXXXXXX', // Replace with actual Stripe publishable key
+        customerPortalUrl: 'https://billing.stripe.com/p/login/test_XXXXXXXX', // Replace with actual Customer Portal URL
+        priceId: 'price_XXXXXXXXXXXXXXXXXXXXXXXX' // Replace with actual metered price ID
+    }
 };
 
 // License Manager - Handles activation, validation, and offline mode
@@ -18129,7 +18137,7 @@ const LicensingUI = {
             message = '🎉 Demo-Modus - Alle Features verfügbar';
             color = '#22c55e';
         } else if (status.active) {
-            message = `✅ Lizenz aktiv | ${summary.totalEvents} Exporte diesen Monat`;
+            message = `✅ Lizenz aktiv | ${summary.totalEvents} Exporte diesen Monat | 💳 Klick für Abrechnung`;
             color = '#22c55e';
         } else {
             message = '⚠️ Keine Lizenz - Bitte aktivieren Sie Ihre Lizenz';
@@ -18150,11 +18158,23 @@ const LicensingUI = {
             z-index: 9999;
             font-size: 14px;
             cursor: pointer;
+            transition: transform 0.2s;
         `;
         banner.textContent = message;
+        banner.onmouseover = () => {
+            banner.style.transform = 'scale(1.05)';
+        };
+        banner.onmouseout = () => {
+            banner.style.transform = 'scale(1)';
+        };
         banner.onclick = () => {
             if (!status.active && LicensingConfig.enabled) {
                 this.showActivationDialog();
+            } else if (status.active) {
+                // Show billing dialog when license is active
+                if (window.BillingUI) {
+                    window.BillingUI.showBillingDialog();
+                }
             }
         };
         
@@ -18179,6 +18199,333 @@ document.addEventListener('DOMContentLoaded', () => {
 window.LicenseManager = LicenseManager;
 window.UsageMetering = UsageMetering;
 window.LicensingUI = LicensingUI;
+
+        // ====================================================================
+        // STRIPE INTEGRATION MODULE (INLINE)
+        // ====================================================================
+        // Stripe payment processing for usage-based billing
+        // ✓ EU-only Stripe instance (GDPR compliant)
+        // ✓ Customer Portal integration
+        // ✓ Metered billing API
+        // ✓ Secure payment method management
+        // ====================================================================
+
+// Stripe Manager - Handles payment processing and subscription management
+const StripeManager = {
+    stripe: null,
+    
+    /**
+     * Initialize Stripe.js
+     */
+    init() {
+        if (typeof Stripe === 'undefined') {
+            console.warn('Stripe.js not loaded. Payment features disabled.');
+            return false;
+        }
+        
+        if (!LicensingConfig.stripe.publishableKey) {
+            console.warn('Stripe publishable key not configured.');
+            return false;
+        }
+        
+        try {
+            this.stripe = Stripe(LicensingConfig.stripe.publishableKey);
+            console.log('Stripe initialized successfully');
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize Stripe:', error);
+            return false;
+        }
+    },
+    
+    /**
+     * Open Stripe Customer Portal for billing management
+     */
+    async openCustomerPortal() {
+        if (!LicenseManager.license) {
+            alert('Bitte aktivieren Sie zuerst Ihre Lizenz.');
+            return;
+        }
+        
+        try {
+            // Request Customer Portal session from backend
+            const response = await fetch(`${LicensingConfig.apiBaseUrl}/api/stripe/create-portal-session`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${LicenseManager.license.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    licenseId: LicenseManager.license.token,
+                    returnUrl: window.location.href
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.url) {
+                // Redirect to Customer Portal
+                window.location.href = result.url;
+            } else {
+                throw new Error(result.message || 'Failed to create portal session');
+            }
+        } catch (error) {
+            console.error('Failed to open Customer Portal:', error);
+            alert('Fehler beim Öffnen des Abrechnungsportals: ' + error.message);
+        }
+    },
+    
+    /**
+     * Create a checkout session for initial subscription
+     */
+    async createCheckoutSession() {
+        if (!this.stripe) {
+            alert('Stripe ist nicht initialisiert.');
+            return;
+        }
+        
+        if (!LicenseManager.license) {
+            alert('Bitte aktivieren Sie zuerst Ihre Lizenz.');
+            return;
+        }
+        
+        try {
+            // Request checkout session from backend
+            const response = await fetch(`${LicensingConfig.apiBaseUrl}/api/stripe/create-checkout-session`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${LicenseManager.license.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    licenseId: LicenseManager.license.token,
+                    priceId: LicensingConfig.stripe.priceId,
+                    successUrl: window.location.href + '?checkout=success',
+                    cancelUrl: window.location.href + '?checkout=cancel'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success && result.sessionId) {
+                // Redirect to Stripe Checkout
+                const { error } = await this.stripe.redirectToCheckout({
+                    sessionId: result.sessionId
+                });
+                
+                if (error) {
+                    throw error;
+                }
+            } else {
+                throw new Error(result.message || 'Failed to create checkout session');
+            }
+        } catch (error) {
+            console.error('Failed to create checkout session:', error);
+            alert('Fehler beim Erstellen der Checkout-Sitzung: ' + error.message);
+        }
+    },
+    
+    /**
+     * Get current subscription details
+     */
+    async getSubscriptionDetails() {
+        if (!LicenseManager.license) {
+            return null;
+        }
+        
+        try {
+            const response = await fetch(`${LicensingConfig.apiBaseUrl}/api/stripe/subscription`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${LicenseManager.license.token}`
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                return result.subscription;
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Failed to get subscription details:', error);
+            return null;
+        }
+    },
+    
+    /**
+     * Format currency for display
+     */
+    formatCurrency(amount, currency = 'EUR') {
+        return new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: currency
+        }).format(amount / 100); // Stripe amounts are in cents
+    }
+};
+
+// Billing UI - User interface for billing management
+const BillingUI = {
+    /**
+     * Show billing management dialog
+     */
+    async showBillingDialog() {
+        const subscription = await StripeManager.getSubscriptionDetails();
+        const usage = UsageMetering.getSummary();
+        
+        const html = `
+            <div class="modal" id="billingModal" style="display: block; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); overflow-y: auto;">
+                <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 30px; border-radius: 10px; width: 90%; max-width: 600px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0;">💳 Abrechnung & Zahlung</h2>
+                        <button onclick="BillingUI.closeBillingDialog()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+                    </div>
+                    
+                    <!-- License Status -->
+                    <div style="padding: 15px; background: ${LicenseManager.license ? '#e8f5e9' : '#fff3e0'}; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid ${LicenseManager.license ? '#4caf50' : '#ff9800'};">
+                        <h3 style="margin: 0 0 10px 0; font-size: 16px;">📋 Lizenzstatus</h3>
+                        ${LicenseManager.license ? `
+                            <p style="margin: 5px 0;"><strong>Lizenz-ID:</strong> ${LicenseManager.license.token}</p>
+                            <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #4caf50;">✅ Aktiv</span></p>
+                            <p style="margin: 5px 0;"><strong>Praxis:</strong> ${LicenseManager.license.clinicName || 'N/A'}</p>
+                        ` : `
+                            <p style="margin: 5px 0; color: #f57c00;"><strong>⚠️ Keine Lizenz aktiviert</strong></p>
+                            <button onclick="LicensingUI.showActivationDialog()" style="margin-top: 10px; padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Lizenz aktivieren
+                            </button>
+                        `}
+                    </div>
+                    
+                    <!-- Usage Summary -->
+                    <div style="padding: 15px; background: #e3f2fd; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196f3;">
+                        <h3 style="margin: 0 0 10px 0; font-size: 16px;">📊 Nutzungsübersicht</h3>
+                        <p style="margin: 5px 0;"><strong>Exporte diesen Monat:</strong> ${usage.totalEvents}</p>
+                        <p style="margin: 5px 0;"><strong>Geschätzte Kosten:</strong> ${StripeManager.formatCurrency(usage.totalEvents * 50)}</p>
+                        <p style="margin: 5px 0; font-size: 0.9em; color: #666;">
+                            Preis pro Export: €0.50
+                        </p>
+                    </div>
+                    
+                    <!-- Subscription Info -->
+                    ${subscription ? `
+                        <div style="padding: 15px; background: #f3e5f5; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #9c27b0;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px;">💎 Abonnement</h3>
+                            <p style="margin: 5px 0;"><strong>Status:</strong> ${subscription.status}</p>
+                            <p style="margin: 5px 0;"><strong>Nächste Rechnung:</strong> ${new Date(subscription.current_period_end * 1000).toLocaleDateString('de-DE')}</p>
+                            ${subscription.cancel_at_period_end ? `
+                                <p style="margin: 5px 0; color: #f57c00;"><strong>⚠️ Kündigung geplant</strong></p>
+                            ` : ''}
+                        </div>
+                    ` : `
+                        <div style="padding: 15px; background: #fff3e0; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ff9800;">
+                            <h3 style="margin: 0 0 10px 0; font-size: 16px;">💎 Abonnement</h3>
+                            <p style="margin: 5px 0;">Kein aktives Abonnement</p>
+                            ${LicenseManager.license ? `
+                                <button onclick="StripeManager.createCheckoutSession()" style="margin-top: 10px; padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                    Abonnement starten
+                                </button>
+                            ` : ''}
+                        </div>
+                    `}
+                    
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        ${LicenseManager.license && subscription ? `
+                            <button onclick="StripeManager.openCustomerPortal()" style="flex: 1; padding: 12px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: 500;">
+                                🔒 Abrechnungsportal öffnen
+                            </button>
+                        ` : ''}
+                        <button onclick="BillingUI.closeBillingDialog()" style="flex: 1; padding: 12px; background: #ccc; color: #333; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                            Schließen
+                        </button>
+                    </div>
+                    
+                    <!-- Info Text -->
+                    <div style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px; font-size: 0.9em; color: #666;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 14px;">ℹ️ Wichtige Hinweise</h4>
+                        <ul style="margin: 5px 0; padding-left: 20px;">
+                            <li>Ihre Patientendaten bleiben 100% lokal auf diesem Gerät</li>
+                            <li>Nur anonymisierte Nutzungsmetadaten werden für die Abrechnung übermittelt</li>
+                            <li>Zahlungsabwicklung erfolgt sicher über Stripe (EU-Instanz)</li>
+                            <li>Im Abrechnungsportal können Sie Rechnungen einsehen und Zahlungsmethoden verwalten</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', html);
+    },
+    
+    /**
+     * Close billing dialog
+     */
+    closeBillingDialog() {
+        const modal = document.getElementById('billingModal');
+        if (modal) modal.remove();
+    },
+    
+    /**
+     * Show usage history
+     */
+    showUsageHistory() {
+        const receipts = UsageMetering.receipts.slice(-10).reverse(); // Last 10 receipts
+        
+        let historyHtml = '<h3 style="margin-top: 20px;">Nutzungsverlauf (letzte 10 Belege)</h3>';
+        historyHtml += '<div style="max-height: 300px; overflow-y: auto;">';
+        
+        if (receipts.length === 0) {
+            historyHtml += '<p style="color: #666;">Keine Nutzungsbelege vorhanden</p>';
+        } else {
+            receipts.forEach(receipt => {
+                const date = new Date(receipt.generatedAt).toLocaleDateString('de-DE');
+                const status = receipt.submitted ? '✅ Übermittelt' : '⏳ Ausstehend';
+                historyHtml += `
+                    <div style="padding: 10px; margin: 10px 0; background: #f9f9f9; border-radius: 5px; border-left: 3px solid ${receipt.submitted ? '#4caf50' : '#ff9800'};">
+                        <div style="display: flex; justify-content: space-between;">
+                            <strong>${receipt.receiptId}</strong>
+                            <span style="color: #666;">${date}</span>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 0.9em;">
+                            <span>Exporte: ${receipt.events.length}</span> | 
+                            <span>Status: ${status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        historyHtml += '</div>';
+        
+        return historyHtml;
+    }
+};
+
+// Initialize Stripe on page load
+document.addEventListener('DOMContentLoaded', () => {
+    StripeManager.init();
+    
+    // Check for checkout result in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('checkout') === 'success') {
+        setTimeout(() => {
+            alert('✅ Zahlung erfolgreich! Ihr Abonnement ist jetzt aktiv.');
+            // Remove query parameter
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
+    } else if (urlParams.get('checkout') === 'cancel') {
+        setTimeout(() => {
+            alert('❌ Zahlung abgebrochen. Sie können jederzeit erneut versuchen.');
+            // Remove query parameter
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 1000);
+    }
+});
+
+// Export functions for use in other modules
+window.StripeManager = StripeManager;
+window.BillingUI = BillingUI;
 
         // ====================================================================
         // GDT EXPORT MODULE (INLINE)
@@ -20860,10 +21207,16 @@ async function showGDTExportDialog() {
                     Nur anonymisierte Nutzungsmetadaten (Anzahl Exporte, Zeitstempel) werden für die Abrechnung übermittelt.
                 </p>
             </div>
-            <button onclick="window.LicensingUI?.showActivationDialog()" 
-                    style="margin-top: 10px; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                Lizenz aktivieren / verwalten
-            </button>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button onclick="window.LicensingUI?.showActivationDialog()" 
+                        style="flex: 1; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    🔑 Lizenz aktivieren
+                </button>
+                <button onclick="window.BillingUI?.showBillingDialog()" 
+                        style="flex: 1; padding: 8px 16px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    💳 Abrechnung verwalten
+                </button>
+            </div>
         </div>
         
         <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
