@@ -82,6 +82,24 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 - **Supported Formats**: Images (JPG, PNG), PDFs, text files
 - **Multi-Engine Ready**: Architecture supports fallback OCR engines (currently Tesseract only)
 
+#### 🔑 Licensing & Usage-Based Billing (NEW in v8.2.0)
+- **Offline-First License Activation**: Token-based licensing that works offline for 30 days
+- **Usage Metering**: Automatic tracking of billable events (GDT exports, JSON exports)
+- **Privacy Guaranteed**: Only anonymized metadata transmitted (license ID, event count, timestamp)
+- **EU-Only Backend**: All licensing infrastructure hosted exclusively in EU regions (GDPR compliant)
+- **Transparent Pricing**: €0.50 per export with clear ROI justification
+- **Stripe Integration**: Metered billing via Stripe Customer Portal
+- **Zero Patient Data Transmission**: Patient information NEVER leaves the device
+- **Signed Usage Receipts**: Tamper-proof receipts for accurate billing
+- **Grace Periods**: 7-day payment grace period to prevent service interruption
+- **Demo Mode**: Full functionality available when licensing is disabled
+
+**📋 See [docs/LICENSING_AND_BILLING.md](docs/LICENSING_AND_BILLING.md) for complete architecture**
+
+**📋 See [docs/ROI.md](docs/ROI.md) for ROI calculator and cost-benefit analysis**
+
+**📋 See [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md) for API integration**
+
 **📋 See [DSGVO_OCR_COMPLIANCE.md](DSGVO_OCR_COMPLIANCE.md) for complete compliance documentation**
 
 **📋 See [PWA_FEATURES.md](PWA_FEATURES.md) for PWA installation and usage guide**
@@ -338,6 +356,40 @@ For detailed GDT export documentation, see:
 - 📄 [GDT_EXPORT_README.md](GDT_EXPORT_README.md) - Quick start guide
 - 📄 [GDPR_EXPORT_DOCUMENTATION.md](GDPR_EXPORT_DOCUMENTATION.md) - Comprehensive GDPR documentation
 - 🧪 [test-gdt-export.html](test-gdt-export.html) - Test suite
+
+### License Activation (for Enterprise Use)
+
+For clinics using the usage-based billing model:
+
+1. **Obtain License Token**
+   - Register at the clinic portal (when available)
+   - Receive license token via email: `LIC-XXXXX-XXXXX-XXXXX-XXXXX`
+
+2. **Activate License**
+   - Open the GDT Export dialog or settings
+   - Click "Lizenz aktivieren / verwalten"
+   - Enter your license token
+   - Click "Aktivieren"
+
+3. **Automatic Usage Tracking**
+   - Each successful export (GDT, JSON, PDF) is automatically tracked
+   - Usage receipts are generated locally
+   - Receipts sync automatically when online (daily)
+   - View usage summary in the license dialog
+
+4. **Billing**
+   - Monthly invoices via Stripe (€0.50 per export)
+   - Manage billing via Stripe Customer Portal
+   - Download invoices and receipts
+
+**Privacy Guarantee**: Only anonymized metadata is transmitted (license ID, event count, timestamp). **Patient data NEVER leaves your device.**
+
+**Demo Mode**: If licensing is not enabled, all features remain fully functional.
+
+For detailed licensing documentation, see:
+- 📄 [docs/LICENSING_AND_BILLING.md](docs/LICENSING_AND_BILLING.md) - Complete architecture
+- 📄 [docs/ROI.md](docs/ROI.md) - ROI calculator
+- 📄 [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md) - API integration
 
 ### AI Plausibility Check (Privacy-Compliant)
 
