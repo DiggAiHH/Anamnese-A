@@ -7,10 +7,18 @@ const crypto = require('crypto');
 // Load environment variables
 require('dotenv').config();
 
+// SECURITY WARNING: This test key is for testing purposes ONLY.
+// It is deterministically generated from a seed to ensure reproducibility in tests.
+// NEVER use this key in production environments.
+// In production, always use a cryptographically secure random key from environment variables.
+const TEST_KEY_SEED = 'anamnese-test-suite-2025';
+const TEST_KEY = crypto.createHash('sha256').update(TEST_KEY_SEED).digest('hex');
+const MASTER_KEY = process.env.MASTER_KEY || TEST_KEY;
+
 // Helper function for AES-256 encryption (from server.js)
 function encryptData(data) {
   const algorithm = 'aes-256-gcm';
-  const key = Buffer.from(process.env.MASTER_KEY, 'hex');
+  const key = Buffer.from(MASTER_KEY, 'hex');
   const iv = crypto.randomBytes(12);
   
   const cipher = crypto.createCipheriv(algorithm, key, iv);
@@ -29,7 +37,7 @@ function encryptData(data) {
 // Helper function for AES-256 decryption
 function decryptData(encryptedData) {
   const algorithm = 'aes-256-gcm';
-  const key = Buffer.from(process.env.MASTER_KEY, 'hex');
+  const key = Buffer.from(MASTER_KEY, 'hex');
   const buffer = Buffer.from(encryptedData, 'base64');
   
   const iv = buffer.slice(0, 12);
@@ -128,13 +136,13 @@ function testSessionSecret() {
   try {
     const practiceId = '123e4567-e89b-12d3-a456-426614174000';
     const timestamp1 = Date.now();
-    const secret1 = crypto.createHmac('sha256', process.env.MASTER_KEY)
+    const secret1 = crypto.createHmac('sha256', MASTER_KEY)
       .update(practiceId + timestamp1)
       .digest('hex');
     
     // Generate another secret with different timestamp
     const timestamp2 = timestamp1 + 1000; // 1 second later
-    const secret2 = crypto.createHmac('sha256', process.env.MASTER_KEY)
+    const secret2 = crypto.createHmac('sha256', MASTER_KEY)
       .update(practiceId + timestamp2)
       .digest('hex');
     

@@ -137,6 +137,207 @@ const GDT_EXPORT_TEMPLATES = {
         },
         requiredFields: [],
         pvs: 'generic'
+    },
+    
+    // =========================================================================
+    // TOMEDO PVS INTEGRATION
+    // Tomedo is a Mac-based practice management system popular in Germany
+    // Uses GDT 3.0/3.1 format with specific field mappings
+    // =========================================================================
+    tomedo_standard: {
+        name: 'Tomedo PVS Standard',
+        description: 'Optimiert für Tomedo Praxisverwaltungssystem (macOS)',
+        config: {
+            pseudonymizeData: false,
+            includeFullName: true,
+            includeAddress: true,
+            includeContactData: true,
+            includeInsuranceData: true,
+            includeMedicalCodes: true,
+            validateBeforeExport: true
+        },
+        requiredFields: ['bsnr', 'lanr'],
+        pvs: 'tomedo',
+        // Tomedo-specific settings
+        pvsSpecific: {
+            gdtVersion: '3.1',
+            encoding: 'UTF-8', // Tomedo supports UTF-8 unlike older systems
+            fileExtension: '.gdt',
+            // Tomedo import directory hint (user must configure actual path)
+            importPathHint: '~/Library/Application Support/Tomedo/Import/',
+            supportsDirectImport: true,
+            supportsBDT: true // Tomedo also supports BDT format
+        }
+    },
+    
+    tomedo_minimal: {
+        name: 'Tomedo Minimal',
+        description: 'Minimaler Datenexport für Tomedo (nur Pflichtfelder)',
+        config: {
+            pseudonymizeData: true,
+            includeFullName: true,
+            includeAddress: false,
+            includeContactData: false,
+            includeInsuranceData: false,
+            includeMedicalCodes: false,
+            validateBeforeExport: true
+        },
+        requiredFields: [],
+        pvs: 'tomedo',
+        pvsSpecific: {
+            gdtVersion: '3.1',
+            encoding: 'UTF-8',
+            fileExtension: '.gdt'
+        }
+    },
+    
+    // =========================================================================
+    // TOMEDO AIR INTEGRATION  
+    // Cloud/Web-based version of Tomedo
+    // Uses same GDT format but with cloud-ready considerations
+    // NOTE: All data remains local - no direct cloud upload (DSGVO compliance)
+    // =========================================================================
+    tomedo_air_standard: {
+        name: 'Tomedo AIR Standard',
+        description: 'Optimiert für Tomedo AIR (Cloud-Version) - Lokaler Export',
+        config: {
+            pseudonymizeData: false,
+            includeFullName: true,
+            includeAddress: true,
+            includeContactData: true,
+            includeInsuranceData: true,
+            includeMedicalCodes: true,
+            validateBeforeExport: true
+        },
+        requiredFields: ['bsnr', 'lanr'],
+        pvs: 'tomedo_air',
+        pvsSpecific: {
+            gdtVersion: '3.1',
+            encoding: 'UTF-8',
+            fileExtension: '.gdt',
+            // DSGVO Note: No direct cloud upload - file must be manually imported
+            cloudUploadEnabled: false,
+            requiresManualImport: true,
+            importInstructions: 'Exportierte Datei über Tomedo AIR Web-Interface importieren'
+        }
+    },
+    
+    tomedo_air_privacy: {
+        name: 'Tomedo AIR Datenschutz',
+        description: 'Maximaler Datenschutz für Tomedo AIR',
+        config: {
+            pseudonymizeData: true,
+            includeFullName: false,
+            includeAddress: false,
+            includeContactData: false,
+            includeInsuranceData: false,
+            includeMedicalCodes: false,
+            validateBeforeExport: true
+        },
+        requiredFields: [],
+        pvs: 'tomedo_air',
+        pvsSpecific: {
+            gdtVersion: '3.1',
+            encoding: 'UTF-8',
+            fileExtension: '.gdt',
+            cloudUploadEnabled: false,
+            requiresManualImport: true
+        }
+    },
+    
+    // =========================================================================
+    // DOCTOLIB PVS INTEGRATION
+    // European practice management and appointment system
+    // Primarily used in Germany, France, and Italy
+    // NOTE: Doctolib typically uses REST API, but for DSGVO compliance
+    // we provide file-based export that can be manually imported
+    // =========================================================================
+    doctolib_standard: {
+        name: 'Doctolib PVS Standard',
+        description: 'Optimiert für Doctolib Praxisverwaltung - Lokaler Export',
+        config: {
+            pseudonymizeData: false,
+            includeFullName: true,
+            includeAddress: true,
+            includeContactData: true,
+            includeInsuranceData: true,
+            includeMedicalCodes: true,
+            validateBeforeExport: true
+        },
+        requiredFields: ['bsnr', 'lanr'],
+        pvs: 'doctolib',
+        pvsSpecific: {
+            // Doctolib accepts GDT format for German practices
+            gdtVersion: '3.1',
+            encoding: 'UTF-8',
+            fileExtension: '.gdt',
+            // Alternative: CSV export for broader compatibility
+            alternativeFormats: ['csv', 'json'],
+            // DSGVO: No direct API calls - manual import only
+            apiIntegrationEnabled: false,
+            requiresManualImport: true,
+            importInstructions: 'Datei über Doctolib Praxis-Dashboard importieren',
+            // Doctolib-specific fields mapping
+            fieldMapping: {
+                patientId: 'external_id',
+                firstName: 'first_name',
+                lastName: 'last_name',
+                dateOfBirth: 'birthdate',
+                email: 'email',
+                phone: 'phone_number'
+            }
+        }
+    },
+    
+    doctolib_minimal: {
+        name: 'Doctolib Minimal',
+        description: 'Minimaler Export für Doctolib (nur Basisdaten)',
+        config: {
+            pseudonymizeData: true,
+            includeFullName: true,
+            includeAddress: false,
+            includeContactData: true, // Doctolib needs contact for appointments
+            includeInsuranceData: false,
+            includeMedicalCodes: false,
+            validateBeforeExport: true
+        },
+        requiredFields: [],
+        pvs: 'doctolib',
+        pvsSpecific: {
+            gdtVersion: '3.1',
+            encoding: 'UTF-8',
+            fileExtension: '.gdt',
+            apiIntegrationEnabled: false,
+            requiresManualImport: true
+        }
+    },
+    
+    doctolib_france: {
+        name: 'Doctolib France',
+        description: 'Optimiert für Doctolib Frankreich (RGPD-konform)',
+        config: {
+            pseudonymizeData: false,
+            includeFullName: true,
+            includeAddress: true,
+            includeContactData: true,
+            includeInsuranceData: true, // Carte Vitale data
+            includeMedicalCodes: true,
+            validateBeforeExport: true
+        },
+        requiredFields: [],
+        pvs: 'doctolib',
+        pvsSpecific: {
+            // French-specific settings
+            gdtVersion: '3.1',
+            encoding: 'UTF-8',
+            fileExtension: '.gdt',
+            locale: 'fr-FR',
+            // CNIL/RGPD compliance (French GDPR)
+            rgpdCompliant: true,
+            apiIntegrationEnabled: false,
+            requiresManualImport: true,
+            importInstructions: 'Importer via le tableau de bord Doctolib Pro'
+        }
     }
 };
 
