@@ -3,22 +3,44 @@ let currentStep = 0;  // Start at step 0 (user type selection)
 let userType = null;  // 'practice' or 'selftest'
 let practiceSecret = null;
 let practiceData = {
-    id: null,
-    name: null
+  id: null,
+  name: null
 };
 let formData = {
-    mode: null,
-    language: null,
-    patientData: null
+  mode: null,
+  language: null,
+  patientData: null
 };
 let generatedCode = null;
 let generatedUrl = null;
+let bypassMode = false; // Will be set from server
 
 // Initialize Stripe
 // In production, this should be configured via a config endpoint or build-time injection
 // For now, replace 'YOUR_PUBLISHABLE_KEY' with your actual Stripe publishable key
 const STRIPE_KEY = document.querySelector('meta[name="stripe-key"]')?.content || 'pk_test_YOUR_PUBLISHABLE_KEY';
-const stripe = Stripe(STRIPE_KEY);
+let stripe = null; // Will be initialized conditionally
+
+// Check bypass mode status on load
+async function checkBypassMode() {
+  try {
+    const response = await fetch('/api/bypass-status');
+    const data = await response.json();
+    bypassMode = data.bypassEnabled;
+    
+    if (bypassMode) {
+      // eslint-disable-next-line no-console
+      console.warn('⚠️  Dev Bypass Mode Active - No payment required');
+    } else {
+      // Initialize Stripe only if bypass is disabled
+      stripe = Stripe(STRIPE_KEY);
+    }
+  } catch (error) {
+    // If bypass check fails, assume normal mode
+    bypassMode = false;
+    stripe = Stripe(STRIPE_KEY);
+  }
+}
 
 // Language mappings
 const LANGUAGE_NAMES = {
@@ -311,85 +333,102 @@ function getCurrentStepNumber() {
 
 // Update Summary
 function updateSummary() {
-    const summaryPractice = document.getElementById('summaryPractice');
-    const summaryMode = document.getElementById('summaryMode');
-    const summaryLanguage = document.getElementById('summaryLanguage');
-    const summaryPatientRow = document.getElementById('summaryPatientRow');
-    const paymentInfoText = document.getElementById('paymentInfoText');
-    
-    if (userType === 'selftest') {
-        summaryPractice.textContent = 'Selbst-Test';
-        summaryMode.textContent = 'Patient füllt selbst aus';
-        // Update payment amount for self-test
-        paymentInfoText.innerHTML = 'Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>1,00 € (inkl. MwSt.)</strong> zu tätigen.';
+  const summaryPractice = document.getElementById('summaryPractice');
+  const summaryMode = document.getElementById('summaryMode');
+  const summaryLanguage = document.getElementById('summaryLanguage');
+  const summaryPatientRow = document.getElementById('summaryPatientRow');
+  const paymentInfoText = document.getElementById('paymentInfoText');
+  
+  if (userType === 'selftest') {
+    summaryPractice.textContent = 'Selbst-Test';
+    summaryMode.textContent = 'Patient füllt selbst aus';
+    // Update payment text based on bypass mode
+    if (bypassMode) {
+      paymentInfoText.innerHTML = '<strong>⚠️ Testmodus: Keine Zahlung erforderlich</strong><br>Der Code wird sofort generiert.';
     } else {
-        summaryPractice.textContent = practiceData.name;
-        summaryMode.textContent = MODE_NAMES[formData.mode];
-        // Payment amount for practice
-        paymentInfoText.innerHTML = 'Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>0,99 € (inkl. MwSt.)</strong> zu tätigen.';
+      paymentInfoText.innerHTML = 'Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>1,00 € (inkl. MwSt.)</strong> zu tätigen.';
     }
-    
-    summaryLanguage.textContent = LANGUAGE_NAMES[formData.language];
-    
-    if (formData.mode === 'practice' && formData.patientData) {
-        summaryPatientRow.style.display = 'block';
-        document.getElementById('summaryPatient').textContent = 
-            `${formData.patientData.firstName} ${formData.patientData.lastName} (${formData.patientData.birthDate})`;
+  } else {
+    summaryPractice.textContent = practiceData.name;
+    summaryMode.textContent = MODE_NAMES[formData.mode];
+    // Update payment text based on bypass mode
+    if (bypassMode) {
+      paymentInfoText.innerHTML = '<strong>⚠️ Testmodus: Keine Zahlung erforderlich</strong><br>Der Code wird sofort generiert.';
     } else {
-        summaryPatientRow.style.display = 'none';
+      paymentInfoText.innerHTML = 'Sie werden zu Stripe weitergeleitet, um die Zahlung von <strong>0,99 € (inkl. MwSt.)</strong> zu tätigen.';
     }
+  }
+  
+  summaryLanguage.textContent = LANGUAGE_NAMES[formData.language];
+  
+  if (formData.mode === 'practice' && formData.patientData) {
+    summaryPatientRow.style.display = 'block';
+    document.getElementById('summaryPatient').textContent = 
+      `${formData.patientData.firstName} ${formData.patientData.lastName} (${formData.patientData.birthDate})`;
+  } else {
+    summaryPatientRow.style.display = 'none';
+  }
 }
 
 // Initiate Stripe Payment
 async function initiatePayment() {
-    if (!validateCurrentStep()) {
-        return;
+  if (!validateCurrentStep()) {
+    return;
+  }
+  
+  updateSummary();
+  showSpinner('paymentSpinner', true);
+  
+  try {
+    const requestBody = {
+      userType: userType,
+      mode: formData.mode,
+      language: formData.language,
+      patientData: formData.patientData
+    };
+    
+    // Only add practiceId for practice users
+    if (userType === 'practice') {
+      requestBody.practiceId = practiceData.id;
     }
     
-    updateSummary();
-    showSpinner('paymentSpinner', true);
+    const response = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
     
-    try {
-        const requestBody = {
-            userType: userType,
-            mode: formData.mode,
-            language: formData.language,
-            patientData: formData.patientData
-        };
-        
-        // Only add practiceId for practice users
-        if (userType === 'practice') {
-            requestBody.practiceId = practiceData.id;
-        }
-        
-        const response = await fetch('/api/create-checkout-session', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
+    const data = await response.json();
+    
+    if (response.ok && data.sessionId) {
+      // BYPASS MODE: Skip Stripe redirect and go directly to code display
+      if (data.bypass || bypassMode) {
+        showToast('Info', 'Testmodus: Code wird generiert...');
+        // Wait a moment to simulate processing
+        setTimeout(() => {
+          displayCodeFromSession(data.sessionId);
+        }, 1000);
+      } else {
+        // NORMAL MODE: Redirect to Stripe Checkout
+        const result = await stripe.redirectToCheckout({
+          sessionId: data.sessionId
         });
         
-        const data = await response.json();
-        
-        if (response.ok && data.sessionId) {
-            // Redirect to Stripe Checkout
-            const result = await stripe.redirectToCheckout({
-                sessionId: data.sessionId
-            });
-            
-            if (result.error) {
-                showToast('Fehler', result.error.message, true);
-            }
-        } else {
-            showToast('Fehler', data.error || 'Fehler beim Erstellen der Zahlungssitzung', true);
+        if (result.error) {
+          showToast('Fehler', result.error.message, true);
         }
-    } catch (error) {
-        console.error('Payment error:', error);
-        showToast('Fehler', 'Verbindungsfehler. Bitte versuchen Sie es erneut.', true);
-    } finally {
-        showSpinner('paymentSpinner', false);
+      }
+    } else {
+      showToast('Fehler', data.error || 'Fehler beim Erstellen der Zahlungssitzung', true);
     }
+  } catch (error) {
+    console.error('Payment error:', error);
+    showToast('Fehler', 'Verbindungsfehler. Bitte versuchen Sie es erneut.', true);
+  } finally {
+    showSpinner('paymentSpinner', false);
+  }
 }
 
 // Display Code after successful payment
@@ -506,17 +545,20 @@ function resetForm() {
 }
 
 // Check for success redirect from Stripe
-window.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sessionId = urlParams.get('session_id');
+window.addEventListener('DOMContentLoaded', async () => {
+  // Check bypass mode first
+  await checkBypassMode();
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const sessionId = urlParams.get('session_id');
+  
+  if (sessionId) {
+    // Coming back from successful payment
+    displayCodeFromSession(sessionId);
     
-    if (sessionId) {
-        // Coming back from successful payment
-        displayCodeFromSession(sessionId);
-        
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    // Clean up URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
 });
 
 // Form validation on input
