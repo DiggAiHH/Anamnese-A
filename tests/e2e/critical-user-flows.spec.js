@@ -59,7 +59,11 @@ test.describe('Critical User Flows - Blind Audit', () => {
     // Select gender
     const genderSelect = page.locator('select[name="0002"]');
     if (await genderSelect.isVisible()) {
-      await genderSelect.selectOption({ label: /männlich|male/i });
+      const options = await genderSelect.locator('option').allTextContents();
+      const maleOption = options.find(opt => /männlich|male/i.test(opt));
+      if (maleOption) {
+        await genderSelect.selectOption({ label: maleOption });
+      }
     }
     
     // Fill birthdate - Test for invalid dates (Bug #4)
@@ -210,6 +214,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
     
     // Get total number of sections
     const sectionCount = await page.evaluate(() => {
+      // @ts-ignore - APP_DATA is defined in the application's global scope
       return window.APP_DATA && window.APP_DATA.sections ? window.APP_DATA.sections.length : 0;
     });
     
