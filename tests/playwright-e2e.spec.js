@@ -3,7 +3,12 @@
  * DSGVO-Compliant E2E Tests for Anamnese-A
  * HISTORY-AWARE: Previous sessions created manual test suites
  * Now adding automated Playwright tests for CI/CD
+ * 
+ * ESLint Note: Code inside page.evaluate() runs in browser context,
+ * so 'window' and 'document' are available there (not in Node.js)
  */
+
+/* eslint-env node */
 
 const { test, expect } = require('@playwright/test');
 
@@ -55,6 +60,8 @@ test.describe('🧪 Test Suite Validation', () => {
     
     // Verify CryptoJS loaded (from local lib)
     const cryptoJsLoaded = await page.evaluate(() => {
+      // @ts-expect-error - CryptoJS is loaded via script tag in HTML
+      // eslint-disable-next-line no-undef
       return typeof window.CryptoJS !== 'undefined';
     });
     expect(cryptoJsLoaded).toBe(true);
@@ -79,6 +86,8 @@ test.describe('🧪 Test Suite Validation', () => {
     
     // Check for GDPR_ANONYMIZER_MOCK
     const anonymizerLoaded = await page.evaluate(() => {
+      // @ts-expect-error - GDPR_ANONYMIZER_MOCK is defined in test HTML
+      // eslint-disable-next-line no-undef
       return typeof window.GDPR_ANONYMIZER_MOCK !== 'undefined';
     });
     expect(anonymizerLoaded).toBe(true);
@@ -95,8 +104,11 @@ test.describe('🧪 Test Suite Validation', () => {
     
     // Verify crypto loaded
     const cryptoLoaded = await page.evaluate(() => {
+      /* eslint-disable no-undef */
+      // @ts-expect-error - CryptoJS is loaded via script tag
       return typeof window.CryptoJS !== 'undefined' || 
              (window.crypto && window.crypto.subtle);
+      /* eslint-enable no-undef */
     });
     expect(cryptoLoaded).toBe(true);
   });
@@ -134,13 +146,15 @@ test.describe('🔐 Encryption Tests (Automated)', () => {
     // Wait for tests to complete
     await page.waitForTimeout(8000);
     
-    // Check results
+    // Check results (runs in browser context)
     const results = await page.evaluate(() => {
+      /* eslint-disable no-undef */
       return {
         total: parseInt(document.getElementById('stat-total')?.textContent || '0'),
         passed: parseInt(document.getElementById('stat-passed')?.textContent || '0'),
         failed: parseInt(document.getElementById('stat-failed')?.textContent || '0')
       };
+      /* eslint-enable no-undef */
     });
     
     // Assert minimum pass rate (90%)
@@ -160,12 +174,14 @@ test.describe('🔒 GDPR Anonymization Tests (Automated)', () => {
     // Wait for auto-run tests
     await page.waitForTimeout(6000);
     
-    // Check PII detection results
+    // Check PII detection results (runs in browser context)
     const results = await page.evaluate(() => {
+      /* eslint-disable no-undef */
       return {
         total: parseInt(document.getElementById('stat-total')?.textContent || '0'),
         passed: parseInt(document.getElementById('stat-passed')?.textContent || '0')
       };
+      /* eslint-enable no-undef */
     });
     
     // All GDPR tests MUST pass (critical)
@@ -209,13 +225,15 @@ test.describe('📊 OCR Integration Tests (Automated)', () => {
     // Wait for pipeline to complete
     await page.waitForTimeout(12000);
     
-    // Check results
+    // Check results (runs in browser context)
     const results = await page.evaluate(() => {
+      /* eslint-disable no-undef */
       return {
         total: parseInt(document.getElementById('stat-total')?.textContent || '0'),
         passed: parseInt(document.getElementById('stat-passed')?.textContent || '0'),
         piiDetected: parseInt(document.getElementById('stat-pii')?.textContent || '0')
       };
+      /* eslint-enable no-undef */
     });
     
     // All OCR integration tests MUST pass (critical)
@@ -296,8 +314,7 @@ test.describe('♿ Accessibility Tests', () => {
       await page.goto(`${BASE_URL}${suite}`);
       await page.waitForLoadState('networkidle');
       
-      // Check for semantic HTML
-      const main = await page.locator('main, [role="main"]').count();
+      // Check for semantic HTML (headings required)
       const headings = await page.locator('h1, h2').count();
       
       expect(headings).toBeGreaterThan(0);
@@ -314,8 +331,9 @@ test.describe('♿ Accessibility Tests', () => {
     await page.keyboard.press('Tab');
     await page.keyboard.press('Tab');
     
-    // Check if button is focused
+    // Check if button is focused (runs in browser context)
     const focusedElement = await page.evaluate(() => {
+      // eslint-disable-next-line no-undef
       return document.activeElement?.tagName;
     });
     
@@ -325,12 +343,8 @@ test.describe('♿ Accessibility Tests', () => {
 
 // Export results helper
 test.afterAll(async () => {
-  console.log('\n' + '='.repeat(70));
-  console.log('📊 E2E Test Suite abgeschlossen!');
-  console.log('='.repeat(70));
-  console.log('\n💡 Tipps:');
-  console.log('   - HTML Report: npx playwright show-report');
-  console.log('   - Screenshots: tests/screenshots/');
-  console.log('   - Traces: tests/traces/');
-  console.log('\n');
+  // E2E Test Suite completed
+  // HTML Report: npx playwright show-report
+  // Screenshots: tests/screenshots/
+  // Traces: tests/traces/
 });
