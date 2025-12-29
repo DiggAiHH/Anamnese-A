@@ -88,18 +88,91 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <!-- Android PWA Support -->
     <meta name="mobile-web-app-capable" content="yes">
     
-    <!-- Tesseract.js for OCR -->
-    <script src="public/lib/tesseract.min.js"></script>
-    <!-- PDF.js for PDF text extraction -->
-    <script src="public/lib/pdf.min.js"></script>
+    <!-- LAZY LOADING: Tesseract.js, PDF.js werden dynamisch geladen -->
+    <!-- Tesseract.js for OCR - LAZY LOADED -->
+    <!-- <script src="public/lib/tesseract.min.js"></script> -->
+    <!-- PDF.js for PDF text extraction - LAZY LOADED -->
+    <!-- <script src="public/lib/pdf.min.js"></script> -->
     <!-- CryptoJS for encryption -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
             integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNs8n9SBe7yLFSw7VHT6+rRMASB5QFcM/N7Yj4fBcN4A6L6JSNO+JKgFXkYRD+Faq==" 
             crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Stripe.js for payment processing -->
     <script src="https://js.stripe.com/v3/"></script>
+    
+    <!-- ====================================================================
+         LAZY LOADING MODULE - UI zuerst, dann Background-Downloads
+         ================================================================== -->
     <script>
-        // Configure PDF.js worker
+        // ====================================================================
+        // LAZY LOADING: UI zuerst laden, dann Tesseract, PDF.js, Vosk
+        // ====================================================================
+        window.LAZY_LOADING_STATUS = {
+            tesseract: false,
+            pdfjs: false,
+            vosk: false,
+            errors: []
+        };
+
+        // Funktion: Script dynamisch laden
+        function loadScript(src, name) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.onload = () => {
+                    window.LAZY_LOADING_STATUS[name] = true;
+                    resolve();
+                };
+                script.onerror = (e) => {
+                    window.LAZY_LOADING_STATUS.errors.push({ name, error: e });
+                    console.error(`[Lazy Loading] Failed to load ${name}:`, e);
+                    reject(e);
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // Funktion: Lazy Loading nach Page Load
+        window.addEventListener('load', () => {
+            // PHASE 1: UI ist jetzt vollständig geladen
+            // PHASE 2: Background Downloads (nicht blockierend)
+            
+            setTimeout(() => {
+                // Tesseract.js (OCR) - ca. 5-10 MB
+                loadScript('public/lib/tesseract.min.js', 'tesseract')
+                    .then(() => {
+                        // PDF.js worker konfigurieren
+                        if (typeof pdfjsLib !== 'undefined') {
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'public/lib/pdf.worker.min.js';
+                        }
+                    })
+                    .catch(() => {
+                        // Fallback: OCR deaktiviert
+                        console.warn('[Lazy Loading] OCR nicht verfügbar (Tesseract.js failed)');
+                    });
+
+                // PDF.js - ca. 2-5 MB
+                loadScript('public/lib/pdf.min.js', 'pdfjs')
+                    .catch(() => {
+                        console.warn('[Lazy Loading] PDF-Extraktion nicht verfügbar');
+                    });
+
+                // Vosk Models (optional) - 136 MB
+                // Wird nur geladen, wenn User Speech Recognition aktiviert
+                // Siehe Speech Recognition Section für on-demand loading
+                
+            }, 500); // 500ms Delay, damit UI butterweich bleibt
+        });
+        
+        // Helper: Prüfe ob Feature verfügbar ist
+        window.isFeatureReady = function(featureName) {
+            return window.LAZY_LOADING_STATUS[featureName] === true;
+        };
+    </script>
+    
+    <script>
+        // Configure PDF.js worker (nach Lazy Loading)
         if (typeof pdfjsLib !== 'undefined') {
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'public/lib/pdf.worker.min.js';
         }
@@ -614,7 +687,7 @@ const DOCUMENT_STORAGE_GDPR = {
                             const decrypted = await decryptData(encryptedData, key);
                             // BUG FIX #8: Use SafeJSON
                             this.documents = SafeJSON.parse(decrypted, []);
-                            console.log('✓ Dokumente erfolgreich entschlüsselt geladen');
+                            // ✓ Dokumente erfolgreich entschlüsselt geladen (console.log removed)
                             return;
                         } catch (decryptError) {
                             console.error('Entschlüsselung fehlgeschlagen:', decryptError);
@@ -792,9 +865,17 @@ const DOCUMENT_STORAGE_GDPR = {
  */
 async function extractTextFromPDF(file) {
     try {
-        // Prüfe ob PDF.js geladen ist
+        // LAZY LOADING CHECK: Warte auf PDF.js
         if (typeof pdfjsLib === 'undefined') {
-            throw new Error('PDF.js Bibliothek nicht geladen');
+            // Wenn nicht geladen, zeige Hinweis und warte max 5 Sekunden
+            let attempts = 0;
+            while (typeof pdfjsLib === 'undefined' && attempts < 10) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
+            if (typeof pdfjsLib === 'undefined') {
+                throw new Error('PDF.js Bibliothek konnte nicht geladen werden (Lazy Loading timeout)');
+            }
         }
         
         const arrayBuffer = await file.arrayBuffer();
@@ -821,6 +902,18 @@ async function extractTextFromPDF(file) {
  * @returns {Promise<string>} - Der erkannte Text
  */
 async function performOCRWithAudit(file) {
+    // LAZY LOADING CHECK: Warte auf Tesseract.js
+    if (typeof Tesseract === 'undefined') {
+        let attempts = 0;
+        while (typeof Tesseract === 'undefined' && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+        }
+        if (typeof Tesseract === 'undefined') {
+            throw new Error('Tesseract.js Bibliothek konnte nicht geladen werden (Lazy Loading timeout). Bitte Seite neu laden.');
+        }
+    }
+    
     // Audit-Log: OCR gestartet
     OCR_AUDIT.log('ocr_started', file.name, {
         fileSize: file.size,
@@ -840,7 +933,7 @@ async function performOCRWithAudit(file) {
             {
                 logger: m => {
                     if (m.status === 'recognizing text') {
-                        console.log('OCR Fortschritt:', Math.round(m.progress * 100) + '%');
+                        // OCR Fortschritt: Math.round(m.progress * 100) + '%' (console.log removed per ESLint)
                     }
                 }
             }
@@ -1278,7 +1371,7 @@ function showAuditReportGDPR() {
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
         DOCUMENT_STORAGE_GDPR.loadDocuments();
-        console.log('[OCR-GDPR] Module initialized (inline) - DSGVO-konform');
+        // [OCR-GDPR] Module initialized (inline) - DSGVO-konform (console.log removed)
     });
 }
 
@@ -3087,13 +3180,25 @@ async function extractTextFromPDF(file) {
  */
 async function performOCR(file) {
     try {
+        // LAZY LOADING CHECK: Warte auf Tesseract.js
+        if (typeof Tesseract === 'undefined') {
+            let attempts = 0;
+            while (typeof Tesseract === 'undefined' && attempts < 10) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
+            if (typeof Tesseract === 'undefined') {
+                throw new Error('Tesseract.js nicht geladen (Lazy Loading timeout). Bitte Seite neu laden.');
+            }
+        }
+        
         const result = await Tesseract.recognize(
             file,
             'deu', // Deutsch als Hauptsprache, kann auf 'eng' oder 'deu+eng' geändert werden
             {
                 logger: m => {
                     if (m.status === 'recognizing text') {
-                        console.log('OCR Fortschritt:', Math.round(m.progress * 100) + '%');
+                        // OCR Fortschritt: Math.round(m.progress * 100) + '%' (console.log removed per ESLint)
                     }
                 }
             }
@@ -3208,14 +3313,14 @@ function getAnswerJsonWithDocuments() {
         const documents = DOCUMENT_STORAGE_GDPR.getAllDocuments();
         if (documents.length > 0) {
             baseJson.attachedDocuments = documents;
-            console.log(`✓ ${documents.length} Dokument(e) aus GDPR-Storage hinzugefügt`);
+            // ✓ ${documents.length} Dokument(e) aus GDPR-Storage hinzugefügt (console.log removed)
         }
     } else {
         // Fallback auf altes System (falls GDPR-Modul nicht geladen)
         console.warn('⚠️ GDPR-Modul nicht geladen - verwende Legacy-Storage');
         if (typeof DOCUMENT_STORAGE !== 'undefined' && DOCUMENT_STORAGE.documents.length > 0) {
             baseJson.attachedDocuments = DOCUMENT_STORAGE.documents;
-            console.log(`✓ ${DOCUMENT_STORAGE.documents.length} Dokument(e) aus Legacy-Storage hinzugefügt`);
+            // ✓ ${DOCUMENT_STORAGE.documents.length} Dokument(e) aus Legacy-Storage hinzugefügt (console.log removed)
         }
     }
     
@@ -3493,7 +3598,7 @@ function applyDocumentActions() {
     const updatedDocs = [];
     DOCUMENT_STORAGE.documents.forEach((doc, idx) => {
         if (actions[idx] === 'delete') {
-            console.log(`Dokument ${idx} gelöscht: ${doc.filename}`);
+            // Dokument ${idx} gelöscht: ${doc.filename} (console.log removed)
         } else if (actions[idx] === 'anonymize') {
             updatedDocs.push({
                 ...doc,
@@ -4244,7 +4349,7 @@ function clearUploadedDocuments() {
                 No data is transmitted to external servers (except for one-time loading of language models, if online). 
                 By clicking 'Accept & Start' you agree to local processing.
             </p>
-            <button class="btn btn-primary" onclick="App.acceptPrivacy()">
+            <button id="privacy-accept-btn" class="btn btn-primary" data-action="acceptPrivacy">
                 ✓ <span data-translate="accept_start">Accept & Start</span>
             </button>
         </div>
@@ -4261,7 +4366,7 @@ function clearUploadedDocuments() {
             const isTestMode = urlParams.get('test') === 'true';
             
             if (isTestMode) {
-                console.log('🧪 TEST MODE AKTIV - Privacy-Dialog wird sofort versteckt');
+                // TEST MODE AKTIV - Privacy-Dialog wird sofort versteckt (keine console.log per ESLint)
                 // Privacy-Modal sofort verstecken
                 const privacyModal = document.getElementById('privacy-modal');
                 const appContainer = document.getElementById('app-container');
@@ -16067,9 +16172,7 @@ function clearUploadedDocuments() {
         const urlParams = new URLSearchParams(window.location.search);
         const isTestMode = urlParams.get('test') === 'true';
         
-        if (isTestMode) {
-            console.log('🧪 TEST MODE AKTIV - Privacy-Dialog wird übersprungen');
-        }
+        // TEST MODE AKTIV - Privacy-Dialog wird übersprungen (console.log removed per ESLint)
         
         // =================================================================
         // APP STATE
@@ -16436,7 +16539,7 @@ function clearUploadedDocuments() {
         // =================================================================
         const App = {
             async init() {
-                console.log('🏥 Anamnese App v2.0 initialisiert');
+                // 🏥 Anamnese App v2.0 initialisiert (console.log removed per ESLint)
                 
                 if (!window.APP_DATA?.sections) {
                     document.getElementById('question-area').innerHTML = 
@@ -17384,6 +17487,16 @@ function clearUploadedDocuments() {
                 }
             }
             
+            // BUGFIX: Privacy Accept Button Event Listener (statt onclick)
+            const privacyAcceptBtn = document.getElementById('privacy-accept-btn');
+            if (privacyAcceptBtn) {
+                privacyAcceptBtn.addEventListener('click', () => {
+                    if (typeof App !== 'undefined' && typeof App.acceptPrivacy === 'function') {
+                        App.acceptPrivacy();
+                    }
+                });
+            }
+            
             App.init();
         });
 
@@ -17395,21 +17508,22 @@ function clearUploadedDocuments() {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
-                        console.log('[PWA] Service Worker registered:', registration.scope);
+                        // [PWA] Service Worker registered: registration.scope (console.log removed)
                         
                         // Check for updates
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('[PWA] New version available! Reload to update.');
+                                    // [PWA] New version available! Reload to update. (console.log removed)
                                     // Could show a notification to user here
                                 }
                             });
                         });
                     })
                     .catch(error => {
-                        console.log('[PWA] Service Worker registration failed:', error);
+                        // [PWA] Service Worker registration failed (console.log removed, use console.error)
+                        console.error('[PWA] Service Worker registration failed:', error);
                     });
             });
         }
@@ -17554,13 +17668,13 @@ function clearUploadedDocuments() {
         // ONLINE/OFFLINE STATUS
         // ====================================================================
         window.addEventListener('online', () => {
-            console.log('[Network] Online');
+            // [Network] Online (console.log removed)
             window.liveRegionAnnouncer?.announce('Verbindung wiederhergestellt', 'polite');
             document.body.classList.remove('offline');
         });
 
         window.addEventListener('offline', () => {
-            console.log('[Network] Offline');
+            // [Network] Offline (console.log removed)
             window.liveRegionAnnouncer?.announce('Keine Internetverbindung', 'assertive');
             document.body.classList.add('offline');
         });
@@ -17592,7 +17706,7 @@ function clearUploadedDocuments() {
             });
         }
 
-        console.log('[App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization');
+        // [App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization (console.log removed)
 
         // ====================================================================
         // TRANSLATIONS MODULE (INLINE)
@@ -18541,7 +18655,7 @@ const LicenseManager = {
      */
     async activateLicense(token) {
         if (!LicensingConfig.enabled) {
-            console.log('Licensing not enabled, skipping activation');
+            // Licensing not enabled, skipping activation (console.log removed)
             return { success: true, mode: 'demo' };
         }
         
@@ -18780,7 +18894,7 @@ const UsageMetering = {
      */
     recordEvent(eventType, metadata = {}) {
         if (!LicensingConfig.enabled) {
-            console.log('Usage metering not enabled, skipping event:', eventType);
+            // Usage metering not enabled, skipping event: eventType (console.log removed)
             return;
         }
         
@@ -18802,7 +18916,7 @@ const UsageMetering = {
         // Save to localStorage
         this.saveReceipts();
         
-        console.log('Billable event recorded:', eventType);
+        // Billable event recorded: eventType (console.log removed)
     },
     
     /**
@@ -18921,7 +19035,7 @@ const UsageMetering = {
             });
             
             this.saveReceipts();
-            console.log('Usage receipts synced successfully');
+            // Usage receipts synced successfully (console.log removed)
         } catch (error) {
             console.error('Failed to sync usage receipts:', error);
         }
