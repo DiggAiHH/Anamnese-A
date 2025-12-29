@@ -1,0 +1,45 @@
+{
+  "name": "anamnese-a-unit-tests",
+  "version": "1.0.0",
+  "description": "Unit tests for Anamnese-A critical modules",
+  "scripts": {
+    "test": "jest --coverage --verbose",
+    "test:watch": "jest --watch",
+    "test:crypto": "jest tests/unit/encryption.test.js",
+    "test:coverage": "jest --coverage --coverageReporters=html text",
+    "test:ci": "jest --ci --coverage --maxWorkers=2"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "coverageDirectory": "./coverage",
+    "collectCoverageFrom": [
+      "encryption.js",
+      "gdpr-compliance.js",
+      "gdt-export.js",
+      "!node_modules/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 90,
+        "lines": 90,
+        "statements": 90
+      },
+      "./encryption.js": {
+        "branches": 95,
+        "functions": 100,
+        "lines": 95,
+        "statements": 95
+      }
+    },
+    "testMatch": [
+      "**/tests/unit/**/*.test.js"
+    ]
+  },
+  "devDependencies": {
+    "@peculiar/webcrypto": "^1.5.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "jsdom": "^23.2.0"
+  }
+}

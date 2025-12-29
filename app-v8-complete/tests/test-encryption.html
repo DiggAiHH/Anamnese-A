@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verschlüsselungs-Tests - AES-256-GCM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-card .label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .test-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .test-section.passed {
+            border-color: #4CAF50;
+            background: #f1f8f4;
+        }
+        
+        .test-section.failed {
+            border-color: #f44336;
+            background: #fef1f1;
+        }
+        
+        .test-section.running {
+            border-color: #2196F3;
+            background: #e3f2fd;
+        }
+        
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .test-result.success {
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .test-result.error {
+            border-left: 4px solid #f44336;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 5px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+        
+        .log-box {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+        }
+        
+        .log-entry.error {
+            color: #ff4444;
+        }
+        
+        .log-entry.success {
+            color: #44ff44;
+        }
+        
+        .log-entry.info {
+            color: #4444ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Verschlüsselungs-Tests</h1>
+        <p class="subtitle">AES-256-GCM Encryption Testing Suite</p>
+        
+        <!-- Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="value" id="total-tests">0</div>
+                <div class="label">Gesamt Tests</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="passed-tests">0</div>
+                <div class="label">✅ Bestanden</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="failed-tests">0</div>
+                <div class="label">❌ Fehlgeschlagen</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="test-duration">0ms</div>
+                <div class="label">⏱️ Dauer</div>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="controls">
+            <button onclick="runAllTests()" id="run-button">▶️ Alle Tests ausführen</button>
+            <button onclick="clearResults()">🗑️ Ergebnisse löschen</button>
+            <button onclick="exportResults()">💾 Ergebnisse exportieren</button>
+            <button onclick="testDictionaryEncryption()">🔑 Dictionary-Test</button>
+            <button onclick="testFragebogenEncryption()">📋 Fragebogen-Test</button>
+        </div>
+        
+        <!-- Test Sections -->
+        <div id="test-results"></div>
+        
+        <!-- Console Log -->
+        <div class="log-box" id="log-box"></div>
+    </div>
+    
+    <!-- CryptoJS Library -->
+    <script src="/public/lib/crypto-js.min.js"></script>
+    
+    <script>
+        // ============================================================================
+        // TEST FRAMEWORK
+        // ============================================================================
+        
+        let testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            startTime: 0,
+            endTime: 0
+        };
+        
+        function log(message, type = 'info') {
+            const logBox = document.getElementById('log-box');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logBox.appendChild(entry);
+            logBox.scrollTop = logBox.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+        
+        function updateStats() {
+            document.getElementById('total-tests').textContent = testResults.total;
+            document.getElementById('passed-tests').textContent = testResults.passed;
+            document.getElementById('failed-tests').textContent = testResults.failed;
+            
+            if (testResults.endTime > 0) {
+                const duration = testResults.endTime - testResults.startTime;
+                document.getElementById('test-duration').textContent = duration + 'ms';
+            }
+            
+            const progress = testResults.total > 0 ? (testResults.passed + testResults.failed) / testResults.total * 100 : 0;
+            document.getElementById('progress-bar').style.width = progress + '%';
+        }
+        
+        function createTestSection(testName) {
+            const section = document.createElement('div');
+            section.className = 'test-section running';
+            section.id = `test-${testName.replace(/\s+/g, '-')}`;
+            section.innerHTML = `<h3>⏳ ${testName}</h3><div class="test-content"></div>`;
+            document.getElementById('test-results').appendChild(section);
+            return section;
+        }
+        
+        function markTestPassed(section, message) {
+            section.className = 'test-section passed';
+            section.querySelector('h3').innerHTML = `✅ ${section.querySelector('h3').textContent.substring(2)}`;
+            
+            const result = document.createElement('div');
+            result.className = 'test-result success';
+            result.textContent = message;
+            section.querySelector('.test-content').appendChild(result);
+            
+            testResults.passed++;
+            updateStats();
+            log(`✅ ${section.querySelector('h3').textContent}: ${message}`, 'success');
+        }
+        
+        function markTestFailed(section, error) {
+            section.className = 'test-section failed';
+            section.querySelector('h3').innerHTML = `❌ ${section.querySelector('h3').textContent.substring(2)}`;
+            
+            const result = document.createElement('div');
+            result.className = 'test-result error';
+            result.textContent = error.message || error;
+            section.querySelector('.test-content').appendChild(result);
+            
+            testResults.failed++;
+            updateStats();
+            log(`❌ ${section.querySelector('h3').textContent}: ${error.message || error}`, 'error');
+        }
+        
+        // ============================================================================
+        // ENCRYPTION FUNCTIONS (from index.html)
+        // ============================================================================
+        
+        async function encryptData(data, password = null) {
+            if (!password) {
+                password = sessionStorage.getItem('encryptionKey');
+                if (!password) {
+                    password = prompt('Master-Passwort eingeben (min. 16 Zeichen):');
+                    if (!password || password.length < 16) {
+                        throw new Error('Master-Passwort zu kurz (min. 16 Zeichen)');
+                    }
+                    sessionStorage.setItem('encryptionKey', password);
+                }
+            }
+            
+            const encrypted = CryptoJS.AES.encrypt(data, password).toString();
+            return encrypted;
+        }
+        
+        async function decryptData(encryptedData, password = null) {
+            if (!password) {
+                password = sessionStorage.getItem('encryptionKey');
+                if (!password) {
+                    password = prompt('Master-Passwort eingeben:');
+                    if (!password) {
+                        throw new Error('Master-Passwort erforderlich');
+                    }
+                }
+            }
+            
+            try {
+                const bytes = CryptoJS.AES.decrypt(encryptedData, password);
+                const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                
+                if (!decrypted) {
+                    throw new Error('Falsches Passwort oder beschädigte Daten');
+                }
+                
+                return decrypted;
+            } catch (error) {
+                throw new Error('Entschlüsselung fehlgeschlagen: ' + error.message);
+            }
+        }
+        
+        // ============================================================================
+        // TEST CASES
+        // ============================================================================
+        
+        async function test1_BasicEncryption() {
+            const section = createTestSection('Test 1: Basic Encryption');
+            testResults.total++;
+            
+            try {
+                const testData = 'Hello, World! 🌍';
+                const password = 'test-password-1234567890'; // 26 chars
+                
+                const encrypted = await encryptData(testData, password);
+                
+                if (!encrypted || encrypted === testData) {
+                    throw new Error('Encryption failed: Output equals input');
+                }
+                
+                markTestPassed(section, `Encrypted: ${testData} → ${encrypted.substring(0, 50)}...`);
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        async function test2_DecryptionRoundtrip() {
+            const section = createTestSection('Test 2: Encryption → Decryption Roundtrip');
+            testResults.total++;
+            
+            try {
+                const original = 'Test data with special chars: äöüß 🔐';
+                const password = 'roundtrip-test-password-secure-1234';
+                
+                const encrypted = await encryptData(original, password);
+                const decrypted = await decryptData(encrypted, password);
+                
+                if (decrypted !== original) {
+                    throw new Error(`Roundtrip failed: "${original}" !== "${decrypted}"`);
+                }
+                
+                markTestPassed(section, `Original === Decrypted: "${original}"`);
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        async function test3_WrongPassword() {
+            const section = createTestSection('Test 3: Wrong Password Detection');
+            testResults.total++;
+            
+            try {
+                const data = 'Secret data';
+                const correctPassword = 'correct-password-1234567890';
+                const wrongPassword = 'wrong-password-0987654321';
+                
+                const encrypted = await encryptData(data, correctPassword);
+                
+                let errorThrown = false;
+                try {
+                    await decryptData(encrypted, wrongPassword);
+                } catch (error) {
+                    errorThrown = true;
+                }
+                
+                if (!errorThrown) {
+                    throw new Error('Should have thrown error for wrong password');
+                }
+                
+                markTestPassed(section, 'Wrong password correctly detected');
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        async function test4_LargeData() {
+            const section = createTestSection('Test 4: Large Data Encryption (1MB)');
+            testResults.total++;
+            
+            try {
+                const largeData = 'A'.repeat(1024 * 1024); // 1MB
+                const password = 'large-data-test-password-12345';
+                
+                const startTime = Date.now();
+                const encrypted = await encryptData(largeData, password);
+                const encryptTime = Date.now() - startTime;
+                
+                const decryptStart = Date.now();
+                const decrypted = await decryptData(encrypted, password);
+                const decryptTime = Date.now() - decryptStart;
+                
+                if (decrypted !== largeData) {
+                    throw new Error('Large data roundtrip failed');
+                }
+                
+                markTestPassed(section, 
+                    `1MB encrypted in ${encryptTime}ms, decrypted in ${decryptTime}ms`
+                );
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        async function test5_JSONEncryption() {
+            const section = createTestSection('Test 5: JSON Object Encryption');
+            testResults.total++;
+            
+            try {
+                const jsonData = {
+                    name: 'Max Mustermann',
+                    address: 'Hauptstraße 123',
+                    phone: '+49 30 12345678',
+                    answers: ['Ja', 'Nein', 'Vielleicht']
+                };
+                
+                const jsonString = JSON.stringify(jsonData);
+                const password = 'json-test-password-secure-99';
+                
+                const encrypted = await encryptData(jsonString, password);
+                const decrypted = await decryptData(encrypted, password);
+                const parsed = JSON.parse(decrypted);
+                
+                if (JSON.stringify(parsed) !== JSON.stringify(jsonData)) {
+                    throw new Error('JSON roundtrip failed');
+                }
+                
+                markTestPassed(section, 
+                    `JSON object encrypted and restored: ${Object.keys(parsed).length} keys`
+                );
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        async function testDictionaryEncryption() {
+            const section = createTestSection('Test 6: GDPR Dictionary Encryption');
+            testResults.total++;
+            
+            try {
+                const dictionary = {
+                    'Person_a1b2c3d4': 'Max Mustermann',
+                    'Telefon_e5f6g7h8': '+49 30 12345678',
+                    'Email_i9j0k1l2': 'max@example.com',
+                    'Stadt_m3n4o5p6': 'Berlin'
+                };
+                
+                const dictString = JSON.stringify(dictionary);
+                const password = 'dictionary-encryption-password-secure-123';
+                
+                log('Dictionary: ' + Object.keys(dictionary).length + ' Einträge', 'info');
+                
+                const encrypted = await encryptData(dictString, password);
+                const decrypted = await decryptData(encrypted, password);
+                const parsed = JSON.parse(decrypted);
+                
+                if (JSON.stringify(parsed) !== JSON.stringify(dictionary)) {
+                    throw new Error('Dictionary encryption failed');
+                }
+                
+                markTestPassed(section, 
+                    `Dictionary encrypted: ${Object.keys(dictionary).length} mappings preserved`
+                );
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        async function testFragebogenEncryption() {
+            const section = createTestSection('Test 7: Fragebogen Encryption (1554 Questions)');
+            testResults.total++;
+            
+            try {
+                // Simulate 1554 questions with answers
+                const fragebogen = {
+                    version: '8.0',
+                    timestamp: new Date().toISOString(),
+                    sections: []
+                };
+                
+                for (let i = 0; i < 1554; i++) {
+                    fragebogen.sections.push({
+                        id: `q${i}`,
+                        question: `Frage ${i + 1}`,
+                        answer: `Antwort ${i + 1}`
+                    });
+                }
+                
+                const jsonString = JSON.stringify(fragebogen);
+                const password = 'fragebogen-master-password-secure-2025';
+                
+                log(`Fragebogen: ${fragebogen.sections.length} Fragen, ${jsonString.length} bytes`, 'info');
+                
+                const startEncrypt = Date.now();
+                const encrypted = await encryptData(jsonString, password);
+                const encryptTime = Date.now() - startEncrypt;
+                
+                const startDecrypt = Date.now();
+                const decrypted = await decryptData(encrypted, password);
+                const decryptTime = Date.now() - startDecrypt;
+                
+                const parsed = JSON.parse(decrypted);
+                
+                if (parsed.sections.length !== 1554) {
+                    throw new Error(`Expected 1554 questions, got ${parsed.sections.length}`);
+                }
+                
+                markTestPassed(section, 
+                    `1554 Fragen (${jsonString.length} bytes): ` +
+                    `Encrypt ${encryptTime}ms, Decrypt ${decryptTime}ms`
+                );
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        async function test8_UnicodeSupport() {
+            const section = createTestSection('Test 8: Unicode & Special Characters');
+            testResults.total++;
+            
+            try {
+                const unicodeData = '🔐 German: äöüß, Russian: привет, Chinese: 你好, Arabic: مرحبا';
+                const password = 'unicode-test-password-secure-42';
+                
+                const encrypted = await encryptData(unicodeData, password);
+                const decrypted = await decryptData(encrypted, password);
+                
+                if (decrypted !== unicodeData) {
+                    throw new Error('Unicode characters not preserved');
+                }
+                
+                markTestPassed(section, 'All Unicode characters preserved');
+            } catch (error) {
+                markTestFailed(section, error);
+            }
+        }
+        
+        // ============================================================================
+        // MAIN TEST RUNNER
+        // ============================================================================
+        
+        async function runAllTests() {
+            log('🚀 Starting encryption test suite...', 'info');
+            
+            // Reset stats
+            testResults = {
+                total: 0,
+                passed: 0,
+                failed: 0,
+                startTime: Date.now(),
+                endTime: 0
+            };
+            
+            // Clear results
+            document.getElementById('test-results').innerHTML = '';
+            
+            // Disable button
+            document.getElementById('run-button').disabled = true;
+            
+            // Set master password for all tests
+            sessionStorage.setItem('encryptionKey', 'test-master-password-1234567890-secure');
+            
+            // Run tests sequentially
+            await test1_BasicEncryption();
+            await test2_DecryptionRoundtrip();
+            await test3_WrongPassword();
+            await test4_LargeData();
+            await test5_JSONEncryption();
+            await testDictionaryEncryption();
+            await testFragebogenEncryption();
+            await test8_UnicodeSupport();
+            
+            // Finalize
+            testResults.endTime = Date.now();
+            updateStats();
+            
+            const duration = testResults.endTime - testResults.startTime;
+            const successRate = testResults.total > 0 ? (testResults.passed / testResults.total * 100).toFixed(1) : 0;
+            
+            log(`✅ Test suite completed in ${duration}ms`, 'success');
+            log(`📊 Success Rate: ${successRate}% (${testResults.passed}/${testResults.total})`, 
+                testResults.failed === 0 ? 'success' : 'error');
+            
+            // Re-enable button
+            document.getElementById('run-button').disabled = false;
+            
+            if (testResults.failed === 0) {
+                alert(`🎉 Alle Tests bestanden!\n\n✅ ${testResults.passed}/${testResults.total} Tests\n⏱️ ${duration}ms`);
+            } else {
+                alert(`⚠️ ${testResults.failed} Tests fehlgeschlagen\n\n✅ ${testResults.passed}/${testResults.total} bestanden\n❌ ${testResults.failed} fehlgeschlagen`);
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('log-box').innerHTML = '';
+            testResults = { total: 0, passed: 0, failed: 0, startTime: 0, endTime: 0 };
+            updateStats();
+            log('Results cleared', 'info');
+        }
+        
+        function exportResults() {
+            const results = {
+                timestamp: new Date().toISOString(),
+                stats: testResults,
+                tests: Array.from(document.querySelectorAll('.test-section')).map(section => ({
+                    name: section.querySelector('h3').textContent,
+                    status: section.classList.contains('passed') ? 'passed' : 'failed',
+                    result: section.querySelector('.test-result')?.textContent || ''
+                }))
+            };
+            
+            const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'encryption-test-results-' + Date.now() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            log('Results exported', 'success');
+        }
+        
+        // Auto-run on load
+        log('Test suite loaded. Click "Alle Tests ausführen" to start.', 'info');
+    </script>
+</body>
+</html>

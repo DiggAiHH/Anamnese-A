@@ -96,6 +96,8 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <script src="/public/lib/pdf.min.js"></script>
     <!-- CryptoJS for encryption -->
     <script src="/public/lib/crypto-js.min.js"></script>
+    <!-- GDPR Anonymization Engine (PII Detection & Dictionary Export) -->
+    <script src="/public/gdpr-anonymizer.js"></script>
     <!-- Login UI Styles (WCAG 2.1 AA konform) -->
     <link rel="stylesheet" href="/public/login-ui.css">
     <!-- Login UI Script (sessionStorage, JWT, XSS-Schutz) -->
@@ -861,6 +863,52 @@ async function performOCRWithAudit(file) {
             }
         });
         
+        // ✨ NEU: DSGVO-Anonymisierung (optional, mit Consent)
+        if (typeof GDPR_ANONYMIZER !== 'undefined') {
+            const shouldAnonymize = confirm(
+                '🔒 DSGVO-Anonymisierung\n\n' +
+                'Möchten Sie personenbezogene Daten in diesem Dokument anonymisieren?\n\n' +
+                '✅ Empfohlen für medizinische Dokumente mit Patientendaten\n' +
+                '📋 Dictionary wird für Rückverfolgbarkeit gespeichert\n' +
+                '🔐 Alle Daten bleiben lokal auf Ihrem Gerät'
+            );
+            
+            if (shouldAnonymize) {
+                try {
+                    const anonymized = GDPR_ANONYMIZER.anonymizeOCRResult(extractedText, {
+                        aggressiveMode: true, // Für medizinische Dokumente empfohlen
+                        preserveStructure: true
+                    });
+                    
+                    // Audit-Log: Anonymisierung durchgeführt
+                    OCR_AUDIT.log('anonymization_completed', file.name, {
+                        originalLength: extractedText.length,
+                        anonymizedLength: anonymized.anonymizedText.length,
+                        piiDetected: anonymized.detectedPII.length,
+                        piiTypes: Object.keys(anonymized.stats.byType)
+                    });
+                    
+                    console.log('[GDPR-OCR] ✅', anonymized.detectedPII.length, 'PII anonymisiert');
+                    
+                    // Return anonymized text + metadata
+                    return {
+                        text: anonymized.anonymizedText,
+                        original: extractedText,
+                        anonymized: true,
+                        piiDetected: anonymized.detectedPII.length,
+                        piiTypes: anonymized.stats.byType,
+                        dictionary: anonymized.dictionary
+                    };
+                } catch (error) {
+                    console.error('[GDPR-OCR] ❌ Anonymisierung fehlgeschlagen:', error);
+                    OCR_AUDIT.log('anonymization_failed', file.name, {
+                        errorMessage: error.message
+                    });
+                    // Fallback: Return original text
+                }
+            }
+        }
+        
         return extractedText;
     } catch (error) {
         // Audit-Log: OCR fehlgeschlagen
@@ -886,7 +934,10 @@ async function processUploadedFileWithGDPR(file) {
     const fileType = file.type;
     
     let extractedText = '';
+    let originalText = '';
     let processType = '';
+    let isAnonymized = false;
+    let piiData = null;
     
     try {
         if (fileType === 'application/pdf') {
@@ -902,9 +953,24 @@ async function processUploadedFileWithGDPR(file) {
                 success: true
             });
         } else if (fileType.startsWith('image/')) {
-            // Bildverarbeitung mit OCR
+            // Bildverarbeitung mit OCR (jetzt mit optionaler Anonymisierung)
             processType = 'ocr';
-            extractedText = await performOCRWithAudit(file);
+            const ocrResult = await performOCRWithAudit(file);
+            
+            // Check if anonymization was performed
+            if (typeof ocrResult === 'object' && ocrResult.anonymized) {
+                extractedText = ocrResult.text;
+                originalText = ocrResult.original;
+                isAnonymized = true;
+                piiData = {
+                    detected: ocrResult.piiDetected,
+                    types: ocrResult.piiTypes,
+                    dictionary: ocrResult.dictionary
+                };
+                console.log('[GDPR-Upload] 📄', file.name, '→', ocrResult.piiDetected, 'PII anonymisiert');
+            } else {
+                extractedText = ocrResult;
+            }
         } else if (fileType.startsWith('text/')) {
             // Textdatei direkt lesen
             processType = 'text-file';
@@ -924,9 +990,12 @@ async function processUploadedFileWithGDPR(file) {
         return {
             filename: file.name,
             text: extractedText,
+            originalText: originalText || extractedText,
             timestamp: timestamp,
             type: processType,
-            originalSize: file.size
+            originalSize: file.size,
+            anonymized: isAnonymized,
+            piiData: piiData
         };
     } catch (error) {
         throw new Error('Fehler beim Verarbeiten von ' + file.name + ': ' + error.message);
@@ -3332,6 +3401,320 @@ function showUploadedDocuments() {
     alert(message);
 }
 
+// ============================================================================
+// ✨ NEU: GDPR-ANONYMISIERTE EXPORT-FUNKTIONEN
+// ============================================================================
+
+/**
+ * Exportiert JSON mit optionaler GDPR-Anonymisierung
+ * @param {boolean} encrypted - Ob die Daten verschlüsselt werden sollen
+ * @param {boolean} anonymize - Ob personenbezogene Daten anonymisiert werden sollen
+ */
+async function exportJsonFileWithAnonymization(encrypted = true, anonymize = false) {
+    let answerJson = getAnswerJson();
+    let dictionary = null;
+    let anonymizationStats = null;
+    
+    // GDPR-Anonymisierung wenn aktiviert
+    if (anonymize && typeof GDPR_ANONYMIZER !== 'undefined') {
+        const jsonString = JSON.stringify(answerJson, null, 2);
+        
+        try {
+            const anonymized = GDPR_ANONYMIZER.anonymizeText(jsonString, {
+                aggressiveMode: true,
+                preserveStructure: true
+            });
+            
+            //Parse anonymized JSON back
+            answerJson = JSON.parse(anonymized.anonymizedText);
+            dictionary = GDPR_ANONYMIZER.exportDictionary(true);
+            anonymizationStats = {
+                piiDetected: anonymized.detectedPII.length,
+                piiTypes: anonymized.stats.byType,
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('[GDPR-Export] ✅', anonymized.detectedPII.length, 'PII anonymisiert');
+            
+            // Add anonymization metadata
+            answerJson._gdpr_metadata = {
+                anonymized: true,
+                anonymizationDate: new Date().toISOString(),
+                stats: anonymizationStats
+            };
+        } catch (error) {
+            console.error('[GDPR-Export] ❌ Anonymisierung fehlgeschlagen:', error);
+            alert('Anonymisierung fehlgeschlagen: ' + error.message);
+            return;
+        }
+    }
+    
+    const jsonString = JSON.stringify(answerJson, null, 2);
+    let dataToExport = jsonString;
+    let filename = anonymize ? 'anamnese_anonymized.json' : 'anamnese_antworten.json';
+    
+    // Verschlüsselung
+    if (encrypted) {
+        try {
+            dataToExport = await encryptData(jsonString);
+            filename = anonymize ? 'anamnese_anonymized_enc.txt' : 'anamnese_antworten_enc.txt';
+        } catch (e) {
+            alert('Encryption error: ' + e.message);
+            return;
+        }
+    }
+    
+    // Export Haupt-Datei
+    const blob = new Blob([dataToExport], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Export Dictionary separat (falls anonymisiert)
+    if (anonymize && dictionary) {
+        const exportDict = confirm(
+            '🔑 Dictionary exportieren?\n\n' +
+            'Das Dictionary ermöglicht die Rückverfolgung der anonymisierten Daten.\n' +
+            'Es wird verschlüsselt gespeichert.'
+        );
+        
+        if (exportDict) {
+            GDPR_ANONYMIZER.exportDictionaryToFile();
+        }
+    }
+}
+
+/**
+ * Sendet E-Mail mit optionaler GDPR-Anonymisierung
+ * @param {boolean} anonymize - Ob Daten anonymisiert werden sollen
+ */
+async function sendEmailWithAnonymization(anonymize = false) {
+    let answerJson = getAnswerJson();
+    let dictionary = null;
+    
+    // GDPR-Anonymisierung
+    if (anonymize && typeof GDPR_ANONYMIZER !== 'undefined') {
+        const jsonString = JSON.stringify(answerJson, null, 2);
+        
+        try {
+            const anonymized = GDPR_ANONYMIZER.anonymizeText(jsonString, {
+                aggressiveMode: true
+            });
+            
+            answerJson = JSON.parse(anonymized.anonymizedText);
+            dictionary = GDPR_ANONYMIZER.exportDictionary(true);
+            
+            console.log('[GDPR-Email] ✅', anonymized.detectedPII.length, 'PII anonymisiert');
+        } catch (error) {
+            console.error('[GDPR-Email] ❌ Anonymisierung fehlgeschlagen:', error);
+            alert('Anonymisierung fehlgeschlagen: ' + error.message);
+            return;
+        }
+    }
+    
+    const jsonString = JSON.stringify(answerJson, null, 2);
+    
+    try {
+        const encryptedData = await encryptData(jsonString);
+        
+        const subject = anonymize 
+            ? 'Anamnese (Anonymisiert & Verschlüsselt)' 
+            : getTranslation('email_subject');
+        
+        let body = anonymize
+            ? '🔒 Anonymisierte und verschlüsselte Anamnese-Daten\n\n'
+            : getTranslation('email_body') + '\n\n';
+        
+        if (anonymize) {
+            body += '⚠️ WICHTIG: Dictionary separat anfordern für Deanonymisierung!\n\n';
+        }
+        
+        body += encryptedData;
+        
+        const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailtoLink;
+        
+        // Dictionary-Export anbieten
+        if (anonymize && dictionary) {
+            setTimeout(() => {
+                const exportDict = confirm('Dictionary jetzt exportieren?');
+                if (exportDict) {
+                    GDPR_ANONYMIZER.exportDictionaryToFile();
+                }
+            }, 1000);
+        }
+    } catch (e) {
+        alert('Encryption error for email: ' + e.message);
+    }
+}
+
+/**
+ * Exportiert über NFC mit optionaler GDPR-Anonymisierung
+ * @param {boolean} anonymize - Ob Daten anonymisiert werden sollen
+ */
+async function exportNFCWithAnonymization(anonymize = false) {
+    let answerJson = getAnswerJson();
+    
+    // GDPR-Anonymisierung
+    if (anonymize && typeof GDPR_ANONYMIZER !== 'undefined') {
+        const jsonString = JSON.stringify(answerJson, null, 2);
+        
+        try {
+            const anonymized = GDPR_ANONYMIZER.anonymizeText(jsonString, {
+                aggressiveMode: true
+            });
+            
+            answerJson = JSON.parse(anonymized.anonymizedText);
+            console.log('[GDPR-NFC] ✅', anonymized.detectedPII.length, 'PII anonymisiert');
+        } catch (error) {
+            console.error('[GDPR-NFC] ❌ Anonymisierung fehlgeschlagen:', error);
+            alert('Anonymisierung fehlgeschlagen: ' + error.message);
+            return;
+        }
+    }
+    
+    const jsonString = JSON.stringify(answerJson, null, 2);
+    
+    if ('NDEFReader' in window) {
+        try {
+            const encryptedData = await encryptData(jsonString);
+            
+            const reader = new NDEFReader();
+            reader.write({ 
+                records: [{ 
+                    recordType: "text", 
+                    data: encryptedData 
+                }] 
+            })
+            .then(() => {
+                alert(anonymize 
+                    ? '✅ Anonymisierte Daten per NFC übertragen!' 
+                    : getTranslation('nfc_success')
+                );
+                
+                if (anonymize) {
+                    const exportDict = confirm('Dictionary jetzt exportieren?');
+                    if (exportDict) {
+                        GDPR_ANONYMIZER.exportDictionaryToFile();
+                    }
+                }
+            })
+            .catch(error => alert(getTranslation('nfc_error') + error));
+        } catch (e) {
+            alert('Encryption error for NFC: ' + e.message);
+        }
+    } else {
+        // Fallback/Simulation
+        alert(anonymize 
+            ? '📱 NFC-Simulation (Anonymisiert)' 
+            : getTranslation('nfc_simulation')
+        );
+        
+        try {
+            const encryptedData = await encryptData(jsonString);
+            document.getElementById('json-answer-box').value = encryptedData;
+            
+            if (anonymize) {
+                alert('💡 Hinweis: Dictionary separat exportieren für Deanonymisierung!');
+            }
+        } catch (e) {
+            alert('Encryption error: ' + e.message);
+        }
+    }
+}
+
+/**
+ * Zeigt Dialog zur Auswahl der Export-Optionen (mit GDPR-Anonymisierung)
+ */
+function showGDPRExportDialog() {
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        z-index: 10000;
+        max-width: 500px;
+        width: 90%;
+    `;
+    
+    dialog.innerHTML = `
+        <h3 style="margin-top: 0;">📤 Daten exportieren</h3>
+        
+        <div style="margin: 20px 0;">
+            <label style="display: block; margin-bottom: 10px;">
+                <input type="checkbox" id="gdpr-anonymize-export" checked>
+                <strong>🔒 PII anonymisieren</strong> (DSGVO-konform)
+            </label>
+            <p style="font-size: 12px; color: #666; margin-left: 25px;">
+                Personenbezogene Daten werden pseudonymisiert.<br>
+                Dictionary wird separat exportiert.
+            </p>
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <label style="display: block; margin-bottom: 10px;">
+                <input type="checkbox" id="gdpr-encrypt-export" checked>
+                <strong>🔐 Verschlüsseln</strong> (AES-256-GCM)
+            </label>
+            <p style="font-size: 12px; color: #666; margin-left: 25px;">
+                Daten werden mit Master-Password verschlüsselt.
+            </p>
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button onclick="closeGDPRExportDialog(); exportJsonFileWithAnonymization(
+                document.getElementById('gdpr-encrypt-export').checked,
+                document.getElementById('gdpr-anonymize-export').checked
+            );" style="flex: 1; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                💾 JSON
+            </button>
+            <button onclick="closeGDPRExportDialog(); sendEmailWithAnonymization(
+                document.getElementById('gdpr-anonymize-export').checked
+            );" style="flex: 1; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                📧 Email
+            </button>
+            <button onclick="closeGDPRExportDialog(); exportNFCWithAnonymization(
+                document.getElementById('gdpr-anonymize-export').checked
+            );" style="flex: 1; padding: 10px; background: #FF9800; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                📱 NFC
+            </button>
+        </div>
+        
+        <button onclick="closeGDPRExportDialog()" style="width: 100%; margin-top: 10px; padding: 10px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            ❌ Abbrechen
+        </button>
+        
+        <div style="margin-top: 20px; padding: 15px; background: #E3F2FD; border-radius: 5px;">
+            <strong>ℹ️ DSGVO-Hinweis:</strong>
+            <ul style="font-size: 12px; margin: 10px 0 0 0; padding-left: 20px;">
+                <li>Anonymisierung nach Art. 6, 9, 32 DSGVO</li>
+                <li>Dictionary ermöglicht Rückverfolgung</li>
+                <li>Alle Daten bleiben lokal auf Ihrem Gerät</li>
+            </ul>
+        </div>
+    `;
+    
+    document.body.appendChild(dialog);
+    window._gdprExportDialog = dialog;
+}
+
+function closeGDPRExportDialog() {
+    if (window._gdprExportDialog) {
+        document.body.removeChild(window._gdprExportDialog);
+        window._gdprExportDialog = null;
+    }
+}
+
 /**
  * Löscht alle hochgeladenen Dokumente
  */
@@ -3345,6 +3728,90 @@ function clearUploadedDocuments() {
         DOCUMENT_STORAGE.documents = [];
         alert('All documents have been deleted.');
     }
+}
+
+// ============================================================================
+// ✨ NEU: GDPR-STATISTIK-UPDATE-FUNKTIONEN
+// ============================================================================
+
+/**
+ * Aktualisiert die GDPR-Statistik-Anzeige
+ */
+function updateGDPRStats() {
+    const statusPanel = document.getElementById('gdpr-anonymization-status');
+    
+    if (!statusPanel) return;
+    
+    // Check if GDPR_ANONYMIZER is available
+    if (typeof GDPR_ANONYMIZER === 'undefined') {
+        statusPanel.style.display = 'none';
+        return;
+    }
+    
+    try {
+        // Get stats from GDPR_ANONYMIZER
+        const stats = GDPR_ANONYMIZER._internal?.dictionary?.stats || {
+            totalAnonymized: 0,
+            totalMappings: 0
+        };
+        
+        // Count anonymized documents
+        const anonymizedDocs = DOCUMENT_STORAGE?.documents?.filter(doc => doc.anonymized) || [];
+        
+        // Update UI
+        const piiStat = document.getElementById('gdpr-stat-pii');
+        const docsStat = document.getElementById('gdpr-stat-docs');
+        const dictStat = document.getElementById('gdpr-stat-dict');
+        
+        if (piiStat) piiStat.textContent = stats.totalAnonymized || 0;
+        if (docsStat) docsStat.textContent = anonymizedDocs.length;
+        if (dictStat) dictStat.textContent = stats.totalMappings || 0;
+        
+        // Show/hide panel based on activity
+        if (stats.totalAnonymized > 0 || anonymizedDocs.length > 0) {
+            statusPanel.style.display = 'block';
+        } else {
+            statusPanel.style.display = 'none';
+        }
+    } catch (error) {
+        console.error('[GDPR-Stats] Error updating stats:', error);
+        statusPanel.style.display = 'none';
+    }
+}
+
+/**
+ * Initialisiert GDPR-Features beim Laden der Seite
+ */
+function initGDPRFeatures() {
+    console.log('[GDPR-Init] Initializing GDPR features...');
+    
+    // Check if GDPR_ANONYMIZER is loaded
+    if (typeof GDPR_ANONYMIZER !== 'undefined') {
+        console.log('[GDPR-Init] ✅ GDPR_ANONYMIZER loaded');
+        updateGDPRStats();
+        
+        // Update stats every 5 seconds
+        setInterval(updateGDPRStats, 5000);
+    } else {
+        console.warn('[GDPR-Init] ⚠️ GDPR_ANONYMIZER not loaded');
+    }
+    
+    // Add keyboard shortcut for GDPR export: Ctrl+Shift+G
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key === 'G') {
+            e.preventDefault();
+            showGDPRExportDialog();
+        }
+    });
+    
+    console.log('[GDPR-Init] ✅ GDPR features initialized');
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGDPRFeatures);
+} else {
+    initGDPRFeatures();
 }
 
 
@@ -4040,6 +4507,217 @@ function clearUploadedDocuments() {
             transform: none;
             box-shadow: 0 2px 4px var(--shadow);
         }
+
+        /* ===================================================================
+           GDPR ANONYMIZATION STATUS PANEL - ENHANCED UI/UX
+           =================================================================== */
+        
+        /* Main panel container */
+        .gdpr-status-panel {
+            margin-top: 1rem;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+            border-radius: 12px;
+            border-left: 4px solid #2196F3;
+            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.15);
+            transition: all 0.3s ease;
+            animation: slideInDown 0.5s ease;
+        }
+
+        .gdpr-status-panel:hover {
+            box-shadow: 0 4px 16px rgba(33, 150, 243, 0.25);
+            transform: translateY(-2px);
+        }
+
+        /* Dark mode adjustments */
+        .dark .gdpr-status-panel {
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+            border-left-color: #64B5F6;
+        }
+
+        /* Title styling */
+        .gdpr-status-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1976D2;
+            margin: 0 0 15px 0;
+        }
+
+        .dark .gdpr-status-title {
+            color: #90CAF9;
+        }
+
+        /* Stats grid layout */
+        .gdpr-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        /* Individual stat card */
+        .gdpr-stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gdpr-stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #2196F3, #64B5F6);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .gdpr-stat-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .gdpr-stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .gdpr-stat-card:focus {
+            outline: 2px solid #2196F3;
+            outline-offset: 2px;
+        }
+
+        .dark .gdpr-stat-card {
+            background: #263238;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Stat value */
+        .gdpr-stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #2196F3, #64B5F6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Stat label */
+        .gdpr-stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .dark .gdpr-stat-label {
+            color: #B0BEC5;
+        }
+
+        /* Actions container */
+        .gdpr-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .gdpr-actions .btn {
+            flex: 1;
+            min-width: 140px;
+            font-size: 0.85rem;
+            padding: 10px 16px;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .gdpr-stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 8px;
+            }
+
+            .gdpr-stat-card {
+                padding: 12px;
+            }
+
+            .gdpr-stat-value {
+                font-size: 24px;
+            }
+
+            .gdpr-stat-label {
+                font-size: 0.7rem;
+            }
+
+            .gdpr-actions .btn {
+                min-width: 100%;
+            }
+        }
+
+        /* Animation keyframes */
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .gdpr-status-panel {
+                border-width: 2px;
+                border-style: solid;
+            }
+
+            .gdpr-stat-card {
+                border: 2px solid currentColor;
+            }
+        }
+
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            .gdpr-status-panel,
+            .gdpr-stat-card,
+            .gdpr-stat-card::before {
+                animation: none;
+                transition: none;
+            }
+
+            .gdpr-stat-card:hover {
+                transform: none;
+            }
+        }
+
+        /* Focus visible for keyboard navigation */
+        .gdpr-stat-card:focus-visible {
+            outline: 3px solid #2196F3;
+            outline-offset: 4px;
+        }
+
+        /* Loading state */
+        .gdpr-stat-card.loading .gdpr-stat-value {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -4163,6 +4841,11 @@ function clearUploadedDocuments() {
             </div>
             
             <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <!-- ✨ NEU: GDPR-Export Button -->
+                <button class="btn btn-success" onclick="showGDPRExportDialog()" style="font-weight: bold; box-shadow: 0 2px 8px rgba(76,175,80,0.3);">
+                    🔒 <span data-translate="export_gdpr_anonymized">Export (DSGVO-Anonymisiert)</span>
+                </button>
+                
                 <button class="btn btn-primary" onclick="App.exportWithDocumentPrompt(true)">
                     💾 <span data-translate="export_encrypted_docs">Export (Encrypted + Documents)</span>
                 </button>
@@ -4201,6 +4884,44 @@ function clearUploadedDocuments() {
                     </button>
                     <button class="btn btn-outline-secondary" onclick="window.ComprehensiveEnhancements?.UIEnhancements.showShortcutsHelp()" style="font-size: 0.9rem;" title="Tastenkombinationen anzeigen">
                         ⌨️ <span>Shortcuts</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- ✨ NEU: GDPR-Anonymisierungs-Status (ENHANCED UI) -->
+            <div id="gdpr-anonymization-status" class="gdpr-status-panel" role="region" aria-label="DSGVO Anonymization Status" style="display: none;">
+                <h4 class="gdpr-status-title" style="margin: 0 0 10px 0; font-size: 1rem; color: #1976D2;">
+                    🔒 <span data-translate="gdpr_anonymization_title">DSGVO-Anonymisierung</span>
+                </h4>
+                <div class="gdpr-stats-grid" role="group" aria-label="Anonymization statistics">
+                    <div class="gdpr-stat-card" tabindex="0">
+                        <div class="gdpr-stat-value" id="gdpr-stat-pii" style="font-size: 24px; font-weight: bold; color: #2196F3;">0</div>
+                        <div class="gdpr-stat-label" style="font-size: 11px; color: #666;">
+                            <span data-translate="gdpr_stat_pii_label">PII Anonymisiert</span>
+                        </div>
+                    </div>
+                    <div class="gdpr-stat-card" tabindex="0">
+                        <div class="gdpr-stat-value" id="gdpr-stat-docs" style="font-size: 24px; font-weight: bold; color: #4CAF50;">0</div>
+                        <div class="gdpr-stat-label" style="font-size: 11px; color: #666;">
+                            <span data-translate="gdpr_stat_docs_label">Dokumente</span>
+                        </div>
+                    </div>
+                    <div class="gdpr-stat-card" tabindex="0">
+                        <div class="gdpr-stat-value" id="gdpr-stat-dict" style="font-size: 24px; font-weight: bold; color: #FF9800;">0</div>
+                        <div class="gdpr-stat-label" style="font-size: 11px; color: #666;">
+                            <span data-translate="gdpr_stat_dict_label">Dictionary-Einträge</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="gdpr-actions" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button class="btn btn-sm btn-primary" onclick="GDPR_ANONYMIZER?.exportDictionaryToFile()" style="font-size: 0.8rem;" aria-label="Export anonymization dictionary">
+                        🔑 <span data-translate="gdpr_export_dict">Dictionary exportieren</span>
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="GDPR_ANONYMIZER?.exportAuditReport()" style="font-size: 0.8rem;">
+                        📊 Audit-Report
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="if(confirm('Dictionary löschen? (Art. 17 DSGVO)')) GDPR_ANONYMIZER?.clearDictionary(); updateGDPRStats();" style="font-size: 0.8rem;">
+                        🗑️ Dictionary löschen
                     </button>
                 </div>
             </div>

@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFC Export Tests - Anamnese-A</title>
+    
+    <!-- DSGVO-SAFE: Lokale CryptoJS Kopie (keine CDN-Abhängigkeit) -->
+    <script src="lib/crypto-js.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+
+        h1 {
+            color: #f5576c;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .test-section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+
+        .test-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .progress-container {
+            margin-bottom: 25px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .console {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .console-line {
+            padding: 5px 0;
+            border-bottom: 1px solid #2d2d2d;
+        }
+
+        .console-line:last-child {
+            border-bottom: none;
+        }
+
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-error { color: #e57373; }
+        .log-warn { color: #ffb74d; }
+
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 5px solid;
+        }
+
+        .test-passed {
+            background: #e8f5e9;
+            border-color: #4caf50;
+            color: #2e7d32;
+        }
+
+        .test-failed {
+            background: #ffebee;
+            border-color: #f44336;
+            color: #c62828;
+        }
+
+        .nfc-simulator {
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .nfc-icon {
+            font-size: 4em;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .nfc-animation {
+            animation: nfc-pulse 2s infinite;
+        }
+
+        @keyframes nfc-pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 5px;
+        }
+
+        .badge-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .badge-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .badge-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        .badge-info {
+            background: #2196f3;
+            color: white;
+        }
+
+        .data-preview {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 150px;
+            overflow-y: auto;
+            word-wrap: break-word;
+        }
+
+        /* HISTORY-AWARE: NFC Export basierend auf index_v8_complete.html */
+        /* DSGVO-SAFE: Verschlüsselung vor NFC-Übertragung */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📱 NFC Export Tests</h1>
+            <p class="subtitle">Web NFC API Testing - NDEF Message Writing</p>
+            <div style="margin-top: 15px;">
+                <span class="badge badge-warning" id="nfc-status">❓ NFC Status wird geprüft...</span>
+                <span class="badge badge-info">🔒 AES-256 Encrypted</span>
+                <span class="badge badge-success">📲 Android Chrome</span>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-total">0</div>
+                <div class="stat-label">Total Tests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-passed" style="color: #4caf50;">0</div>
+                <div class="stat-label">Passed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-failed" style="color: #f44336;">0</div>
+                <div class="stat-label">Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-duration">0ms</div>
+                <div class="stat-label">Duration</div>
+            </div>
+        </div>
+
+        <!-- Test Controls -->
+        <div class="test-section">
+            <h2 style="margin-bottom: 20px;">🧪 Test Suite</h2>
+            <div class="test-controls">
+                <button class="btn-primary" onclick="runAllTests()">▶️ Alle Tests ausführen</button>
+                <button class="btn-success" onclick="runTest1()">Test 1: NDEFReader Support</button>
+                <button class="btn-success" onclick="runTest2()">Test 2: Encryption Before NFC</button>
+                <button class="btn-success" onclick="runTest3()">Test 3: NDEF Message Format</button>
+                <button class="btn-info" onclick="runTest4()">Test 4: Data Size Validation</button>
+                <button class="btn-info" onclick="runTest5()">Test 5: Write Simulation</button>
+                <button class="btn-secondary" onclick="clearConsole()">🗑️ Console leeren</button>
+                <button class="btn-danger" onclick="exportResults()">💾 Ergebnisse exportieren</button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%;">
+                        <span id="progress-text">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NFC Simulator -->
+            <div class="nfc-simulator">
+                <div class="nfc-icon" id="nfc-icon">
+                    📱
+                </div>
+                <div id="nfc-data-preview" class="data-preview" style="display: none;">
+                    <!-- NFC data will be shown here -->
+                </div>
+            </div>
+
+            <!-- Test Results -->
+            <div id="test-results"></div>
+
+            <!-- Console Log -->
+            <div class="console" id="console-log">
+                <div class="console-line log-info">🚀 NFC Export Test Suite initialisiert</div>
+                <div class="console-line log-info">📱 Browser: <span id="browser-info"></span></div>
+                <div class="console-line log-success">✅ Test-Framework bereit</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        // TEST FRAMEWORK
+        // ========================================================================
+        const testResults = {
+            total: 0,
+            passed: 0,
+            failed: 0,
+            tests: [],
+            startTime: null,
+            endTime: null
+        };
+
+        function log(message, type = 'info') {
+            const console = document.getElementById('console-log');
+            const line = document.createElement('div');
+            line.className = `console-line log-${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString('de-DE');
+            const icon = {
+                info: 'ℹ️',
+                success: '✅',
+                error: '❌',
+                warn: '⚠️'
+            }[type];
+            
+            line.textContent = `[${timestamp}] ${icon} ${message}`;
+            console.appendChild(line);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('stat-total').textContent = testResults.total;
+            document.getElementById('stat-passed').textContent = testResults.passed;
+            document.getElementById('stat-failed').textContent = testResults.failed;
+            
+            if (testResults.endTime) {
+                const duration = testResults.endTime - testResults.startTime;
+                document.getElementById('stat-duration').textContent = `${duration}ms`;
+            }
+        }
+
+        function updateProgress() {
+            const progress = testResults.total > 0 
+                ? ((testResults.passed + testResults.failed) / testResults.total) * 100 
+                : 0;
+            
+            document.getElementById('progress-fill').style.width = `${progress}%`;
+            document.getElementById('progress-text').textContent = `${Math.round(progress)}%`;
+        }
+
+        function addTestResult(testName, passed, message, details = {}) {
+            testResults.tests.push({
+                name: testName,
+                passed,
+                message,
+                details,
+                timestamp: new Date().toISOString()
+            });
+
+            if (passed) {
+                testResults.passed++;
+            } else {
+                testResults.failed++;
+            }
+
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'test-passed' : 'test-failed'}`;
+            resultDiv.innerHTML = `
+                <strong>${passed ? '✅' : '❌'} ${testName}</strong><br>
+                ${message}
+                ${details.error ? `<br><small style="opacity: 0.7;">Error: ${details.error}</small>` : ''}
+            `;
+            resultsDiv.appendChild(resultDiv);
+
+            updateStats();
+            updateProgress();
+        }
+
+        function clearConsole() {
+            document.getElementById('console-log').innerHTML = '';
+            document.getElementById('test-results').innerHTML = '';
+            testResults.total = 0;
+            testResults.passed = 0;
+            testResults.failed = 0;
+            testResults.tests = [];
+            updateStats();
+            updateProgress();
+            log('Console geleert', 'info');
+        }
+
+        // ========================================================================
+        // NFC HELPER FUNCTIONS
+        // ========================================================================
+
+        /* HISTORY-AWARE: Basierend auf NFC-Export in index_v8_complete.html
+         * Original: NDEFReader API mit encryption fallback
+         * DSGVO-SAFE: Daten werden VOR NFC-Übertragung verschlüsselt
+         */
+
+        function checkNFCSupport() {
+            const hasNDEFReader = 'NDEFReader' in window;
+            const isSecureContext = window.isSecureContext;
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const isChrome = /Chrome/i.test(navigator.userAgent);
+
+            return {
+                hasNDEFReader,
+                isSecureContext,
+                isAndroid,
+                isChrome,
+                isSupported: hasNDEFReader && isSecureContext
+            };
+        }
+
+        async function encryptDataForNFC(data, password = 'default-test-password') {
+            try {
+                const jsonString = JSON.stringify(data);
+                const encrypted = CryptoJS.AES.encrypt(jsonString, password).toString();
+                return { encrypted, error: null };
+            } catch (error) {
+                return { encrypted: null, error: error.message };
+            }
+        }
+
+        function createNDEFMessage(encryptedData) {
+            /* DSGVO-SAFE: NDEF Message mit verschlüsselten Daten
+             * Struktur: Text Record mit AES-256 encrypted Payload
+             */
+            return {
+                records: [{
+                    recordType: "text",
+                    data: encryptedData,
+                    encoding: "utf-8",
+                    lang: "de"
+                }]
+            };
+        }
+
+        function validateNDEFMessage(message) {
+            if (!message || !message.records) {
+                return { valid: false, error: 'Invalid message structure' };
+            }
+
+            if (!Array.isArray(message.records) || message.records.length === 0) {
+                return { valid: false, error: 'No records in message' };
+            }
+
+            const record = message.records[0];
+            if (!record.recordType || !record.data) {
+                return { valid: false, error: 'Invalid record structure' };
+            }
+
+            return { valid: true, error: null };
+        }
+
+        function calculateDataSize(data) {
+            const jsonString = JSON.stringify(data);
+            const sizeInBytes = new Blob([jsonString]).size;
+            return {
+                bytes: sizeInBytes,
+                kb: (sizeInBytes / 1024).toFixed(2),
+                withinNFCLimit: sizeInBytes < 32768 // Typical NFC limit ~32KB
+            };
+        }
+
+        async function simulateNFCWrite(ndefMessage) {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    const validation = validateNDEFMessage(ndefMessage);
+                    if (validation.valid) {
+                        resolve({
+                            success: true,
+                            message: 'NFC Write simulated successfully',
+                            bytesWritten: new Blob([ndefMessage.records[0].data]).size
+                        });
+                    } else {
+                        reject(new Error(validation.error));
+                    }
+                }, 1000);
+            });
+        }
+
+        // ========================================================================
+        // TEST CASES
+        // ========================================================================
+
+        async function runTest1() {
+            log('Test 1: NDEFReader Support wird geprüft...', 'info');
+            testResults.total++;
+            updateStats();
+
+            try {
+                const support = checkNFCSupport();
+                
+                if (support.isSupported) {
+                    addTestResult(
+                        'Test 1: NDEFReader Support',
+                        true,
+                        'NDEFReader API verfügbar und Secure Context gegeben'
+                    );
+                    log('✅ NDEFReader API verfügbar', 'success');
+                } else {
+                    const reason = !support.hasNDEFReader ? 'NDEFReader nicht verfügbar' :
+                                   !support.isSecureContext ? 'Kein Secure Context (HTTPS required)' :
+                                   'Unbekannter Grund';
+                    
+                    addTestResult(
+                        'Test 1: NDEFReader Support',
+                        false,
+                        `NDEFReader nicht verfügbar: ${reason}`,
+                        {
+                            hasNDEFReader: support.hasNDEFReader,
+                            isSecureContext: support.isSecureContext,
+                            isAndroid: support.isAndroid,
+                            isChrome: support.isChrome
+                        }
+                    );
+                    log(`⚠️ NDEFReader nicht verfügbar: ${reason}`, 'warn');
+                    log('ℹ️ NFC funktioniert nur auf Android Chrome mit HTTPS', 'info');
+                }
+            } catch (error) {
+                addTestResult(
+                    'Test 1: NDEFReader Support',
+                    false,
+                    'Fehler beim Prüfen der NFC-Unterstützung',
+                    { error: error.message }
+                );
+                log(`❌ Test fehlgeschlagen: ${error.message}`, 'error');
+            }
+        }
+
+        async function runTest2() {
+            log('Test 2: Encryption Before NFC wird geprüft...', 'info');
+            testResults.total++;
+            updateStats();
+
+            try {
+                const testData = {
+                    version: '8.0',
+                    timestamp: new Date().toISOString(),
+                    answers: {
+                        firstName: 'Max',
+                        lastName: 'Mustermann',
+                        birthDate: '1980-01-01'
+                    }
+                };
+
+                const result = await encryptDataForNFC(testData);
+                
+                if (result.encrypted && result.encrypted.length > 0) {
+                    // Show encrypted data preview
+                    const previewDiv = document.getElementById('nfc-data-preview');
+                    previewDiv.style.display = 'block';
+                    previewDiv.textContent = result.encrypted.substring(0, 150) + '...';
+
+                    addTestResult(
+                        'Test 2: Encryption Before NFC',
+                        true,
+                        `Daten erfolgreich verschlüsselt (${result.encrypted.length} Zeichen)`,
+                        { encryptedLength: result.encrypted.length }
+                    );
+                    log(`✅ Daten verschlüsselt: ${result.encrypted.length} Zeichen`, 'success');
+                } else {
+                    addTestResult(
+                        'Test 2: Encryption Before NFC',
+                        false,
+                        'Verschlüsselung fehlgeschlagen',
+                        { error: result.error }
+                    );
+                    log(`❌ Verschlüsselung fehlgeschlagen: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                addTestResult(
+                    'Test 2: Encryption Before NFC',
+                    false,
+                    'Fehler während der Verschlüsselung',
+                    { error: error.message }
+                );
+                log(`❌ Test fehlgeschlagen: ${error.message}`, 'error');
+            }
+        }
+
+        async function runTest3() {
+            log('Test 3: NDEF Message Format wird validiert...', 'info');
+            testResults.total++;
+            updateStats();
+
+            try {
+                const testData = { test: 'data' };
+                const encrypted = (await encryptDataForNFC(testData)).encrypted;
+                const ndefMessage = createNDEFMessage(encrypted);
+                const validation = validateNDEFMessage(ndefMessage);
+                
+                if (validation.valid) {
+                    addTestResult(
+                        'Test 3: NDEF Message Format',
+                        true,
+                        'NDEF Message korrekt formatiert mit Text Record',
+                        ndefMessage
+                    );
+                    log('✅ NDEF Message Format korrekt', 'success');
+                } else {
+                    addTestResult(
+                        'Test 3: NDEF Message Format',
+                        false,
+                        'NDEF Message Format ungültig',
+                        { error: validation.error }
+                    );
+                    log(`❌ NDEF Format ungültig: ${validation.error}`, 'error');
+                }
+            } catch (error) {
+                addTestResult(
+                    'Test 3: NDEF Message Format',
+                    false,
+                    'Fehler bei NDEF Message Erstellung',
+                    { error: error.message }
+                );
+                log(`❌ Test fehlgeschlagen: ${error.message}`, 'error');
+            }
+        }
+
+        async function runTest4() {
+            log('Test 4: Data Size Validation...', 'info');
+            testResults.total++;
+            updateStats();
+
+            try {
+                const testData = {
+                    version: '8.0',
+                    timestamp: new Date().toISOString(),
+                    answers: {
+                        firstName: 'Max',
+                        lastName: 'Mustermann',
+                        // Simulate larger dataset
+                        medicalHistory: Array(50).fill('Test medical entry')
+                    }
+                };
+
+                const sizeInfo = calculateDataSize(testData);
+                const passed = sizeInfo.withinNFCLimit;
+                
+                addTestResult(
+                    'Test 4: Data Size Validation',
+                    passed,
+                    passed 
+                        ? `Daten innerhalb NFC-Limit: ${sizeInfo.kb} KB (< 32 KB)`
+                        : `Daten zu groß für NFC: ${sizeInfo.kb} KB (> 32 KB)`,
+                    sizeInfo
+                );
+
+                if (passed) {
+                    log(`✅ Datengröße OK: ${sizeInfo.kb} KB`, 'success');
+                } else {
+                    log(`⚠️ Datengröße zu groß: ${sizeInfo.kb} KB`, 'warn');
+                }
+            } catch (error) {
+                addTestResult(
+                    'Test 4: Data Size Validation',
+                    false,
+                    'Fehler bei Größenberechnung',
+                    { error: error.message }
+                );
+                log(`❌ Test fehlgeschlagen: ${error.message}`, 'error');
+            }
+        }
+
+        async function runTest5() {
+            log('Test 5: NFC Write Simulation...', 'info');
+            testResults.total++;
+            updateStats();
+
+            // Animate NFC icon
+            const nfcIcon = document.getElementById('nfc-icon');
+            nfcIcon.classList.add('nfc-animation');
+            nfcIcon.textContent = '📡';
+
+            try {
+                const testData = { test: 'simulation' };
+                const encrypted = (await encryptDataForNFC(testData)).encrypted;
+                const ndefMessage = createNDEFMessage(encrypted);
+                
+                const result = await simulateNFCWrite(ndefMessage);
+                
+                nfcIcon.classList.remove('nfc-animation');
+                nfcIcon.textContent = '✅';
+
+                addTestResult(
+                    'Test 5: Write Simulation',
+                    result.success,
+                    `${result.message} (${result.bytesWritten} Bytes geschrieben)`,
+                    result
+                );
+                log(`✅ NFC Write simuliert: ${result.bytesWritten} Bytes`, 'success');
+
+                setTimeout(() => {
+                    nfcIcon.textContent = '📱';
+                }, 2000);
+            } catch (error) {
+                nfcIcon.classList.remove('nfc-animation');
+                nfcIcon.textContent = '❌';
+                
+                addTestResult(
+                    'Test 5: Write Simulation',
+                    false,
+                    'NFC Write Simulation fehlgeschlagen',
+                    { error: error.message }
+                );
+                log(`❌ Test fehlgeschlagen: ${error.message}`, 'error');
+
+                setTimeout(() => {
+                    nfcIcon.textContent = '📱';
+                }, 2000);
+            }
+        }
+
+        // ========================================================================
+        // RUN ALL TESTS
+        // ========================================================================
+
+        async function runAllTests() {
+            clearConsole();
+            log('🚀 Starte vollständige NFC Test-Suite...', 'info');
+            
+            testResults.startTime = Date.now();
+
+            await runTest1();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await runTest2();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await runTest3();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await runTest4();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            await runTest5();
+            
+            testResults.endTime = Date.now();
+            updateStats();
+
+            const duration = testResults.endTime - testResults.startTime;
+            const passRate = ((testResults.passed / testResults.total) * 100).toFixed(1);
+            
+            log('', 'info');
+            log('========================================', 'info');
+            log(`✅ Test-Suite abgeschlossen in ${duration}ms`, 'success');
+            log(`📊 Ergebnis: ${testResults.passed}/${testResults.total} Tests bestanden (${passRate}%)`, 'info');
+            log('========================================', 'info');
+        }
+
+        // ========================================================================
+        // EXPORT RESULTS
+        // ========================================================================
+
+        function exportResults() {
+            const exportData = {
+                testSuite: 'NFC Export Tests',
+                exportDate: new Date().toISOString(),
+                system: 'Anamnese-A v8',
+                summary: {
+                    total: testResults.total,
+                    passed: testResults.passed,
+                    failed: testResults.failed,
+                    passRate: ((testResults.passed / testResults.total) * 100).toFixed(1) + '%',
+                    duration: testResults.endTime ? `${testResults.endTime - testResults.startTime}ms` : 'N/A'
+                },
+                tests: testResults.tests,
+                environment: {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    nfcSupport: checkNFCSupport()
+                }
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            });
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `NFC-Export-Test-Results-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            log('💾 Testergebnisse exportiert!', 'success');
+        }
+
+        // ========================================================================
+        // INITIALIZATION
+        // ========================================================================
+
+        window.addEventListener('DOMContentLoaded', () => {
+            // Display browser info
+            document.getElementById('browser-info').textContent = navigator.userAgent.split(' ').slice(-2).join(' ');
+
+            // Check NFC status immediately
+            const support = checkNFCSupport();
+            const statusBadge = document.getElementById('nfc-status');
+            
+            if (support.isSupported) {
+                statusBadge.className = 'badge badge-success';
+                statusBadge.textContent = '✅ NFC verfügbar';
+                log('✅ NDEFReader API verfügbar', 'success');
+            } else {
+                statusBadge.className = 'badge badge-danger';
+                statusBadge.textContent = '❌ NFC nicht verfügbar';
+                log('⚠️ NDEFReader API nicht verfügbar (nur Android Chrome + HTTPS)', 'warn');
+            }
+
+            log('📱 NFC Export Test-Framework geladen', 'info');
+            log('📍 DSGVO-konform: Verschlüsselung vor NFC-Übertragung', 'success');
+            log('⚡ Bereit für Tests', 'success');
+        });
+    </script>
+</body>
+</html>

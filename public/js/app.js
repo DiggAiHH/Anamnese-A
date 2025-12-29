@@ -15,6 +15,39 @@ let generatedCode = null;
 let generatedUrl = null;
 let bypassMode = false; // Will be set from server
 
+// =================================================================
+// BUG FIX #11: FETCH WITH TIMEOUT
+// =================================================================
+
+/**
+ * Fetch with timeout and abort controller
+ * @param {string} url 
+ * @param {object} options 
+ * @param {number} timeout - Timeout in ms (default 30s)
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options = {}, timeout = 30000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout after ' + (timeout / 1000) + 's');
+    }
+    throw error;
+  }
+}
+
 // Initialize Stripe
 // In production, this should be configured via a config endpoint or build-time injection
 // For now, replace 'YOUR_PUBLISHABLE_KEY' with your actual Stripe publishable key
@@ -24,7 +57,8 @@ let stripe = null; // Will be initialized conditionally
 // Check bypass mode status on load
 async function checkBypassMode() {
   try {
-    const response = await fetch('/api/bypass-status');
+    // BUG FIX #11: Use fetchWithTimeout
+    const response = await fetchWithTimeout('/api/bypass-status', {}, 10000);
     const data = await response.json();
     bypassMode = data.bypassEnabled;
     
@@ -241,7 +275,8 @@ async function validatePracticeId() {
     practiceIdInput.classList.remove('is-invalid');
     
     try {
-        const response = await fetch('/api/validate-practice', {
+        // BUG FIX #11: Use fetchWithTimeout
+        const response = await fetchWithTimeout('/api/validate-practice', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -392,13 +427,14 @@ async function initiatePayment() {
       requestBody.practiceId = practiceData.id;
     }
     
-    const response = await fetch('/api/create-checkout-session', {
+    // BUG FIX #11: Use fetchWithTimeout
+    const response = await fetchWithTimeout('/api/create-checkout-session', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
-    });
+    }, 30000);
     
     const data = await response.json();
     
@@ -434,7 +470,8 @@ async function initiatePayment() {
 // Display Code after successful payment
 async function displayCodeFromSession(sessionId) {
     try {
-        const response = await fetch(`/api/code/${sessionId}`);
+        // BUG FIX #11: Use fetchWithTimeout
+        const response = await fetchWithTimeout(`/api/code/${sessionId}`, {}, 15000);
         const data = await response.json();
         
         if (response.ok) {
