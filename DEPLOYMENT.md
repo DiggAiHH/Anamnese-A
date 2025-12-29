@@ -27,7 +27,114 @@
 - [ ] Document key storage location (secure, not in code repository)
 - [ ] Establish key rotation policy if required by regulations
 
-### 2. Vosk Speech Recognition Setup
+### 2. Pre-Deployment Testing 🧪 NEW
+
+Before deploying to production, run the comprehensive test suite to validate all critical features.
+
+#### Test Suite Execution
+- [ ] **Navigate to test directory**: `http://localhost:8080/tests/`
+- [ ] **Run all 5 test suites** (32 tests total):
+  
+  | Test Suite | Expected Result | Priority |
+  |------------|-----------------|----------|
+  | `test-vosk-speech.html` | 4/5 tests pass | HIGH |
+  | `test-nfc-export.html` | 3/5 tests pass* | MEDIUM |
+  | `test-ocr-integration.html` | 8/8 tests pass | CRITICAL |
+  | `test-encryption.html` | 8/8 tests pass | CRITICAL |
+  | `test-gdpr-anonymizer.html` | 6/6 tests pass | CRITICAL |
+  
+  *NFC tests may fail on desktop (Android Chrome required)
+
+#### Minimum Pass Criteria
+- [ ] **Overall Pass Rate**: ≥28/32 tests (87%)
+- [ ] **CRITICAL Suites**: 100% pass rate required
+  - Encryption Tests: 8/8 ✅
+  - GDPR Anonymizer: 6/6 ✅
+  - OCR Integration: 8/8 ✅
+- [ ] **No Regression**: Compare with previous test results
+- [ ] **Known Issues Documented**: See [TEST_COVERAGE.md](TEST_COVERAGE.md)
+
+#### Export & Archive Test Results
+```bash
+# 1. In each test suite, click "💾 Ergebnisse exportieren"
+# 2. Create results directory
+mkdir -p tests/results/$(date +%Y-%m-%d)
+
+# 3. Save all JSON exports with timestamp
+# Example: Vosk-Speech-Test-Results-2025-12-29.json
+#          NFC-Export-Test-Results-2025-12-29.json
+#          OCR-GDPR-Integration-Test-Results-2025-12-29.json
+#          Encryption-Test-Results-2025-12-29.json
+#          GDPR-Anonymizer-Test-Results-2025-12-29.json
+
+# 4. Review any failures in detail
+```
+
+#### Known Test Failures (Expected)
+- **Vosk Model Loading**: May fail if model not in `/models/` directory (⚠️ Warning only)
+- **Microphone Permission**: May fail in Codespaces/headless environments (⚠️ Skip if unavailable)
+- **NFC Support**: Will fail on desktop browsers (❌ Expected on non-Android)
+- **NDEFReader**: Not supported outside Android Chrome 89+ (❌ Expected)
+
+#### Troubleshooting Failed Tests
+
+**If Encryption Tests Fail (❌ CRITICAL):**
+```bash
+# Check CryptoJS availability
+# Open browser console (F12) and run:
+typeof CryptoJS !== 'undefined'  # Should return: true
+
+# Verify Web Crypto API
+window.crypto && window.crypto.subtle  # Should return: object
+
+# Test AES encryption manually
+CryptoJS.AES.encrypt("test", "password").toString()  # Should return encrypted string
+```
+
+**If GDPR Anonymizer Tests Fail (❌ CRITICAL):**
+```bash
+# Verify anonymization module loaded
+# In browser console:
+typeof GDPR_ANONYMIZER_MOCK !== 'undefined'  # Should return: true
+
+# Test PII detection
+GDPR_ANONYMIZER_MOCK.anonymizeText("Max Mustermann, max@example.com")
+# Should return: { anonymizedText, detectedPII: [...], dictionary: {...} }
+```
+
+**If OCR Integration Tests Fail (❌ CRITICAL):**
+```bash
+# Check if OCR module loaded
+typeof simulateOCR === 'function'  # Should return: true
+
+# Verify encryption integration
+const ocrResult = simulateOCR('medical');
+const encrypted = await encryptData(ocrResult.text);
+console.log(encrypted.encrypted.length > 100);  # Should return: true
+```
+
+#### Test Coverage Validation
+- [ ] Review [TEST_COVERAGE.md](TEST_COVERAGE.md) for detailed test documentation
+- [ ] Verify all GDPR compliance tests pass (Art. 5, 25, 30, 32, 35)
+- [ ] Check performance benchmarks:
+  - Encryption (1KB): <50ms
+  - PII Detection: <100ms per document
+  - Test Suite Execution: <10s per suite
+
+#### Automated Testing (Optional)
+For CI/CD pipelines:
+```bash
+# Install Playwright
+npm install --save-dev @playwright/test
+
+# Run automated tests
+npx playwright test tests/playwright-*.spec.js
+
+# Generate HTML report
+npx playwright show-report
+```
+
+### 3. Vosk Speech Recognition Setup
 
 #### Option A: Local Model (Recommended for Offline)
 - [ ] Download Vosk German model:

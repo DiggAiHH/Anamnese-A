@@ -14,13 +14,31 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Dev bypass configuration - ONLY for testing, never in production
-const DEV_BYPASS_PAYMENT = process.env.DEV_BYPASS_PAYMENT === 'true' && process.env.NODE_ENV !== 'production';
-if (DEV_BYPASS_PAYMENT) {
-  logger.warn('⚠️  DEV_BYPASS_PAYMENT is ACTIVE - Payment bypass enabled for testing');
-}
+// =============================================================================
+// CRITICAL FIX: Joi Validation Schemas
+// =============================================================================
+const practiceValidationSchema = Joi.object({
+  practiceId: Joi.string()
+    .uuid()
+    .required()
+    .messages({
+      'string.guid': 'Invalid practice ID format',
+      'any.required': 'Practice ID is required'
+    })
+});
 
-// Logger configuration
+const paymentSessionSchema = Joi.object({
+  practiceId: Joi.string().uuid().required(),
+  mode: Joi.string().valid('standard', 'premium', 'enterprise').required(),
+  language: Joi.string().valid('de', 'en', 'fr', 'es', 'it', 'tr', 'pl', 'ru', 'ar', 'zh').default('de'),
+  patientData: Joi.object().optional()
+});
+
+const codeQuerySchema = Joi.object({
+  sessionId: Joi.string().required()
+});
+
+// Logger configuration (HISTORY-AWARE: Move before DEV_BYPASS to fix init error)
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -36,20 +54,31 @@ const logger = winston.createLogger({
   ]
 });
 
-// Database connection pool
-const pool = new Pool({
+// Dev bypass configuration - ONLY for testing, never in production
+// HISTORY-AWARE: Moved after logger initialization to fix ReferenceError
+const DEV_BYPASS_PAYMENT = process.env.DEV_BYPASS_PAYMENT === 'true' && process.env.NODE_ENV !== 'production';
+if (DEV_BYPASS_PAYMENT) {
+  logger.warn('⚠️  DEV_BYPASS_PAYMENT is ACTIVE - Payment bypass enabled for testing');
+}
+
+// Database connection pool (DSGVO-SAFE: Skip in dev-bypass mode)
+const pool = DEV_BYPASS_PAYMENT ? null : new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Test database connection
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    logger.error('Database connection failed:', err);
-  } else {
-    logger.info('Database connected successfully');
-  }
-});
+// Test database connection (DSGVO-SAFE: Skip in dev-bypass mode)
+if (pool) {
+  pool.query('SELECT NOW()', (err, res) => {
+    if (err) {
+      logger.error('Database connection failed:', err);
+    } else {
+      logger.info('Database connected successfully');
+    }
+  });
+} else {
+  logger.info('Database connection SKIPPED (DEV_BYPASS_PAYMENT mode)');
+}
 
 // Rate limiting
 const limiter = rateLimit({
@@ -63,11 +92,12 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ['\'self\''],
-      styleSrc: ['\'self\'', '\'unsafe-inline\'', 'https://cdn.jsdelivr.net'],
-      scriptSrc: ['\'self\'', 'https://js.stripe.com', 'https://cdn.jsdelivr.net'],
+      styleSrc: ['\'self\'', '\'unsafe-inline\''],  // HISTORY-AWARE: Removed CDN, Bootstrap now local
+      scriptSrc: ['\'self\'', 'https://js.stripe.com'],  // HISTORY-AWARE: Removed CDN, qrcode.js still external (TODO)
       imgSrc: ['\'self\'', 'data:', 'https:'],
       connectSrc: ['\'self\'', 'https://api.stripe.com'],
-      frameSrc: ['https://js.stripe.com', 'https://hooks.stripe.com']
+      frameSrc: ['https://js.stripe.com', 'https://hooks.stripe.com'],
+      fontSrc: ['\'self\'', 'data:']  // HISTORY-AWARE: Added for Bootstrap Icons fonts
     }
   }
 }));
@@ -411,6 +441,16 @@ app.post('/webhook', async (req, res) => {
 app.get('/api/code/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
+    
+    // Validation: sessionId muss alphanumerisch + underscore sein (dev_bypass_ oder Stripe-Format)
+    const schema = Joi.object({
+      sessionId: Joi.string().pattern(/^[a-zA-Z0-9_]+$/).max(200).required()
+    });
+    
+    const { error } = schema.validate({ sessionId });
+    if (error) {
+      return res.status(400).json({ error: 'Invalid sessionId format' });
+    }
     
     const result = await pool.query(
       'SELECT code, language, mode, practice_id FROM codes WHERE stripe_session_id = $1',

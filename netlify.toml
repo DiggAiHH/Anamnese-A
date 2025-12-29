@@ -1,0 +1,49 @@
+# Netlify Configuration
+# HISTORY-AWARE: Static hosting with proper security headers
+# DSGVO-SAFE: No server-side processing, all data stays in browser
+
+[build]
+  publish = "."
+  command = "echo 'No build required - static site'"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Security Headers (DSGVO compliance)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # DSGVO: Block all external resources
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self' blob:; frame-ancestors 'self';"
+    
+    # Security
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(self), camera=()"
+    
+    # DSGVO: No tracking
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+# Redirects
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# SPA routing
+[[redirects]]
+  from = "/app-v8-complete/*"
+  to = "/app-v8-complete/index.html"
+  status = 200
+
+# Custom 404
+[[redirects]]
+  from = "/404"
+  to = "/index.html"
+  status = 404
+
+# Plugin: Security headers
+[[plugins]]
+  package = "@netlify/plugin-sitemap"

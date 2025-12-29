@@ -69,7 +69,7 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <meta name="theme-color" content="#667eea">
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com; 
+                   script-src 'self' 'unsafe-inline'; 
                    style-src 'self' 'unsafe-inline'; 
                    img-src 'self' data: blob:; 
                    connect-src 'self' https://api.stripe.com https://api.anamnese-a.eu;
@@ -88,20 +88,93 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <!-- Android PWA Support -->
     <meta name="mobile-web-app-capable" content="yes">
     
-    <!-- Tesseract.js for OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-    <!-- PDF.js for PDF text extraction -->
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <!-- LAZY LOADING: Tesseract.js, PDF.js werden dynamisch geladen -->
+    <!-- Tesseract.js for OCR - LAZY LOADED -->
+    <!-- <script src="public/lib/tesseract.min.js"></script> -->
+    <!-- PDF.js for PDF text extraction - LAZY LOADED -->
+    <!-- <script src="public/lib/pdf.min.js"></script> -->
     <!-- CryptoJS for encryption -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
             integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNs8n9SBe7yLFSw7VHT6+rRMASB5QFcM/N7Yj4fBcN4A6L6JSNO+JKgFXkYRD+Faq==" 
             crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Stripe.js for payment processing -->
     <script src="https://js.stripe.com/v3/"></script>
+    
+    <!-- ====================================================================
+         LAZY LOADING MODULE - UI zuerst, dann Background-Downloads
+         ================================================================== -->
     <script>
-        // Configure PDF.js worker
+        // ====================================================================
+        // LAZY LOADING: UI zuerst laden, dann Tesseract, PDF.js, Vosk
+        // ====================================================================
+        window.LAZY_LOADING_STATUS = {
+            tesseract: false,
+            pdfjs: false,
+            vosk: false,
+            errors: []
+        };
+
+        // Funktion: Script dynamisch laden
+        function loadScript(src, name) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.onload = () => {
+                    window.LAZY_LOADING_STATUS[name] = true;
+                    resolve();
+                };
+                script.onerror = (e) => {
+                    window.LAZY_LOADING_STATUS.errors.push({ name, error: e });
+                    console.error(`[Lazy Loading] Failed to load ${name}:`, e);
+                    reject(e);
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // Funktion: Lazy Loading nach Page Load
+        window.addEventListener('load', () => {
+            // PHASE 1: UI ist jetzt vollständig geladen
+            // PHASE 2: Background Downloads (nicht blockierend)
+            
+            setTimeout(() => {
+                // Tesseract.js (OCR) - ca. 5-10 MB
+                loadScript('public/lib/tesseract.min.js', 'tesseract')
+                    .then(() => {
+                        // PDF.js worker konfigurieren
+                        if (typeof pdfjsLib !== 'undefined') {
+                            pdfjsLib.GlobalWorkerOptions.workerSrc = 'public/lib/pdf.worker.min.js';
+                        }
+                    })
+                    .catch(() => {
+                        // Fallback: OCR deaktiviert
+                        console.warn('[Lazy Loading] OCR nicht verfügbar (Tesseract.js failed)');
+                    });
+
+                // PDF.js - ca. 2-5 MB
+                loadScript('public/lib/pdf.min.js', 'pdfjs')
+                    .catch(() => {
+                        console.warn('[Lazy Loading] PDF-Extraktion nicht verfügbar');
+                    });
+
+                // Vosk Models (optional) - 136 MB
+                // Wird nur geladen, wenn User Speech Recognition aktiviert
+                // Siehe Speech Recognition Section für on-demand loading
+                
+            }, 500); // 500ms Delay, damit UI butterweich bleibt
+        });
+        
+        // Helper: Prüfe ob Feature verfügbar ist
+        window.isFeatureReady = function(featureName) {
+            return window.LAZY_LOADING_STATUS[featureName] === true;
+        };
+    </script>
+    
+    <script>
+        // Configure PDF.js worker (nach Lazy Loading)
         if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'public/lib/pdf.worker.min.js';
         }
     </script>
     <!-- GDPR-compliant OCR Module (INLINE) -->
@@ -195,10 +268,22 @@ const OCR_AUDIT = {
     
     /**
      * Speichert Log-Eintrag persistent (LocalStorage)
+     * BUG FIX #8: Use SafeJSON to prevent crashes
      */
     persistLog(logEntry) {
         try {
-            const existingLogs = JSON.parse(localStorage.getItem('ocrAuditLogs') || '[]');
+            // BUG FIX #8: Safe parsing
+            const existingLogs = SafeJSON.parse(
+                localStorage.getItem('ocrAuditLogs'), 
+                []
+            );
+            
+            if (!Array.isArray(existingLogs)) {
+                console.error('[OCR_AUDIT] Corrupted log data, resetting...');
+                localStorage.removeItem('ocrAuditLogs');
+                return;
+            }
+            
             existingLogs.push(logEntry);
             
             // Limitiere auf letzte 1000 Einträge (Performance)
@@ -206,7 +291,10 @@ const OCR_AUDIT = {
                 existingLogs.shift();
             }
             
-            localStorage.setItem('ocrAuditLogs', JSON.stringify(existingLogs));
+            const jsonString = SafeJSON.stringify(existingLogs);
+            if (jsonString) {
+                localStorage.setItem('ocrAuditLogs', jsonString);
+            }
         } catch (error) {
             console.error('Fehler beim Persistieren des Audit-Logs:', error);
         }
@@ -214,10 +302,15 @@ const OCR_AUDIT = {
     
     /**
      * Ruft alle Audit-Logs ab
+     * BUG FIX #8: Use SafeJSON
      */
     getAllLogs() {
         try {
-            const persistedLogs = JSON.parse(localStorage.getItem('ocrAuditLogs') || '[]');
+            // BUG FIX #8: Safe parsing
+            const persistedLogs = SafeJSON.parse(
+                localStorage.getItem('ocrAuditLogs'),
+                []
+            );
             return [...this.logs, ...persistedLogs];
         } catch (error) {
             console.error('Fehler beim Abrufen der Audit-Logs:', error);
@@ -561,14 +654,29 @@ const DOCUMENT_STORAGE_GDPR = {
         }
     },
     
+    // =================================================================
+    // BUG FIX #9: MUTEX LOCK FOR loadDocuments()
+    // =================================================================
+    
+    _loadDocumentsPromise: null, // Mutex lock
+    
     /**
      * Lädt Dokumente aus Storage (verschlüsselt oder unverschlüsselt)
+     * BUG FIX #9: Prevents race conditions with mutex lock
      */
     async loadDocuments() {
-        try {
-            // Prüfe zuerst auf verschlüsselte Daten
-            const encryptedData = localStorage.getItem('ocrDocuments_encrypted');
-            const encryptionMethod = localStorage.getItem('ocrDocuments_encryptionMethod');
+        // BUG FIX #9: Return cached promise if already loading
+        if (this._loadDocumentsPromise !== null) {
+            console.info('[OCR] Using cached loadDocuments promise');
+            return this._loadDocumentsPromise;
+        }
+        
+        // Create and cache the load promise
+        this._loadDocumentsPromise = (async () => {
+            try {
+                // Prüfe zuerst auf verschlüsselte Daten
+                const encryptedData = localStorage.getItem('ocrDocuments_encrypted');
+                const encryptionMethod = localStorage.getItem('ocrDocuments_encryptionMethod');
             
             if (encryptedData && encryptionMethod === 'AES-256-GCM') {
                 // Versuche zu entschlüsseln
@@ -577,8 +685,9 @@ const DOCUMENT_STORAGE_GDPR = {
                     if (key) {
                         try {
                             const decrypted = await decryptData(encryptedData, key);
-                            this.documents = JSON.parse(decrypted);
-                            console.log('✓ Dokumente erfolgreich entschlüsselt geladen');
+                            // BUG FIX #8: Use SafeJSON
+                            this.documents = SafeJSON.parse(decrypted, []);
+                            // ✓ Dokumente erfolgreich entschlüsselt geladen (console.log removed)
                             return;
                         } catch (decryptError) {
                             console.error('Entschlüsselung fehlgeschlagen:', decryptError);
@@ -591,12 +700,21 @@ const DOCUMENT_STORAGE_GDPR = {
             // Fallback: Lade unverschlüsselte Daten
             const stored = localStorage.getItem('ocrDocuments');
             if (stored) {
-                this.documents = JSON.parse(stored);
+                // BUG FIX #8: Use SafeJSON
+                this.documents = SafeJSON.parse(stored, []);
                 console.warn('⚠️ Dokumente wurden unverschlüsselt geladen');
             }
-        } catch (error) {
-            console.error('Fehler beim Laden der Dokumente:', error);
-            this.documents = [];
+            } catch (error) {
+                console.error('Fehler beim Laden der Dokumente:', error);
+                this.documents = [];
+            }
+        })();
+        
+        try {
+            await this._loadDocumentsPromise;
+        } finally {
+            // BUG FIX #9: Clear mutex after completion
+            this._loadDocumentsPromise = null;
         }
     },
     
@@ -747,9 +865,17 @@ const DOCUMENT_STORAGE_GDPR = {
  */
 async function extractTextFromPDF(file) {
     try {
-        // Prüfe ob PDF.js geladen ist
+        // LAZY LOADING CHECK: Warte auf PDF.js
         if (typeof pdfjsLib === 'undefined') {
-            throw new Error('PDF.js Bibliothek nicht geladen');
+            // Wenn nicht geladen, zeige Hinweis und warte max 5 Sekunden
+            let attempts = 0;
+            while (typeof pdfjsLib === 'undefined' && attempts < 10) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
+            if (typeof pdfjsLib === 'undefined') {
+                throw new Error('PDF.js Bibliothek konnte nicht geladen werden (Lazy Loading timeout)');
+            }
         }
         
         const arrayBuffer = await file.arrayBuffer();
@@ -776,6 +902,18 @@ async function extractTextFromPDF(file) {
  * @returns {Promise<string>} - Der erkannte Text
  */
 async function performOCRWithAudit(file) {
+    // LAZY LOADING CHECK: Warte auf Tesseract.js
+    if (typeof Tesseract === 'undefined') {
+        let attempts = 0;
+        while (typeof Tesseract === 'undefined' && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+        }
+        if (typeof Tesseract === 'undefined') {
+            throw new Error('Tesseract.js Bibliothek konnte nicht geladen werden (Lazy Loading timeout). Bitte Seite neu laden.');
+        }
+    }
+    
     // Audit-Log: OCR gestartet
     OCR_AUDIT.log('ocr_started', file.name, {
         fileSize: file.size,
@@ -795,7 +933,7 @@ async function performOCRWithAudit(file) {
             {
                 logger: m => {
                     if (m.status === 'recognizing text') {
-                        console.log('OCR Fortschritt:', Math.round(m.progress * 100) + '%');
+                        // OCR Fortschritt: Math.round(m.progress * 100) + '%' (console.log removed per ESLint)
                     }
                 }
             }
@@ -1233,7 +1371,7 @@ function showAuditReportGDPR() {
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
         DOCUMENT_STORAGE_GDPR.loadDocuments();
-        console.log('[OCR-GDPR] Module initialized (inline) - DSGVO-konform');
+        // [OCR-GDPR] Module initialized (inline) - DSGVO-konform (console.log removed)
     });
 }
 
@@ -1554,6 +1692,118 @@ function renderCurrentSection() {
     updateNextButtonState();
 }
 
+// =================================================================
+// BUG FIX #10: EVENT LISTENER MANAGER
+// =================================================================
+
+/**
+ * Manages event listeners with automatic cleanup to prevent memory leaks
+ */
+const EventListenerManager = {
+    listeners: new Map(), // Track all listeners
+    
+    /**
+     * Add event listener with automatic tracking
+     * @param {HTMLElement} element 
+     * @param {string} eventType 
+     * @param {Function} handler 
+     * @param {object} options 
+     */
+    add(element, eventType, handler, options = {}) {
+        if (!element) {
+            console.error('[EventListenerManager] Invalid element');
+            return;
+        }
+        
+        // Create unique key for this listener
+        const key = this._getKey(element, eventType, handler);
+        
+        // Remove old listener if exists (prevents duplicates)
+        if (this.listeners.has(key)) {
+            this.remove(element, eventType, handler);
+        }
+        
+        // Add listener
+        element.addEventListener(eventType, handler, options);
+        
+        // Track it
+        this.listeners.set(key, { element, eventType, handler, options });
+    },
+    
+    /**
+     * Remove specific event listener
+     * @param {HTMLElement} element 
+     * @param {string} eventType 
+     * @param {Function} handler 
+     */
+    remove(element, eventType, handler) {
+        const key = this._getKey(element, eventType, handler);
+        const listener = this.listeners.get(key);
+        
+        if (listener) {
+            element.removeEventListener(eventType, handler, listener.options);
+            this.listeners.delete(key);
+        }
+    },
+    
+    /**
+     * Remove all listeners for an element
+     * @param {HTMLElement} element 
+     */
+    removeAllForElement(element) {
+        const toRemove = [];
+        
+        for (const [key, listener] of this.listeners.entries()) {
+            if (listener.element === element) {
+                toRemove.push(key);
+            }
+        }
+        
+        toRemove.forEach(key => {
+            const listener = this.listeners.get(key);
+            listener.element.removeEventListener(listener.eventType, listener.handler, listener.options);
+            this.listeners.delete(key);
+        });
+    },
+    
+    /**
+     * Clear all tracked listeners
+     */
+    clearAll() {
+        for (const [key, listener] of this.listeners.entries()) {
+            try {
+                listener.element.removeEventListener(listener.eventType, listener.handler, listener.options);
+            } catch (e) {
+                console.error('[EventListenerManager] Error removing listener:', e);
+            }
+        }
+        this.listeners.clear();
+    },
+    
+    /**
+     * Get statistics
+     */
+    getStats() {
+        return {
+            totalListeners: this.listeners.size,
+            byType: this._countByType()
+        };
+    },
+    
+    _getKey(element, eventType, handler) {
+        const elementId = element.id || Math.random().toString(36).substr(2, 9);
+        return elementId + '_' + eventType + '_' + (handler.name || 'anonymous');
+    },
+    
+    _countByType() {
+        const counts = {};
+        for (const listener of this.listeners.values()) {
+            counts[listener.eventType] = (counts[listener.eventType] || 0) + 1;
+        }
+        return counts;
+    }
+};
+
 // Hilfsfunktion zum Erstellen der Geburtsdatum-Selects
 function createDateSelect(question) {
     const wrapper = document.createElement('div');
@@ -1768,6 +2018,243 @@ function getInputValue(input) {
     return input.value;
 }
 
+// =================================================================
+// BUG FIX #8: SAFE JSON PARSER
+// =================================================================
+
+/**
+ * Safe JSON parser that never throws exceptions
+ * Prevents app crashes from corrupted localStorage data
+ */
+const SafeJSON = {
+    /**
+     * Safely parse JSON with fallback
+     * @param {string} jsonString - JSON string to parse
+     * @param {any} defaultValue - Value to return on error
+     * @returns {any} Parsed object or defaultValue
+     */
+    parse(jsonString, defaultValue = null) {
+        if (!jsonString || typeof jsonString !== 'string') {
+            return defaultValue;
+        }
+        
+        try {
+            return JSON.parse(jsonString);
+        } catch (e) {
+            console.error('[SafeJSON] Parse error:', e.message);
+            console.warn('[SafeJSON] Corrupted data:', jsonString.substring(0, 100));
+            return defaultValue;
+        }
+    },
+    
+    /**
+     * Safely stringify with size limit
+     * @param {any} obj - Object to stringify
+     * @param {number} maxSize - Max size in bytes (default 1MB)
+     * @returns {string|null} JSON string or null
+     */
+    stringify(obj, maxSize = 1024 * 1024) {
+        try {
+            const result = JSON.stringify(obj);
+            if (result.length > maxSize) {
+                console.warn(`[SafeJSON] String too large: ${result.length} bytes`);
+                return null;
+            }
+            return result;
+        } catch (e) {
+            console.error('[SafeJSON] Stringify error:', e.message);
+            return null;
+        }
+    },
+    
+    /**
+     * Parse with schema validation
+     * @param {string} jsonString 
+     * @param {object} schema - Expected keys
+     * @param {any} defaultValue 
+     * @returns {any}
+     */
+    parseWithSchema(jsonString, schema, defaultValue = null) {
+        const parsed = this.parse(jsonString, null);
+        if (parsed === null) return defaultValue;
+        
+        // Validate schema
+        for (const key of Object.keys(schema)) {
+            if (!(key in parsed)) {
+                console.warn(`[SafeJSON] Missing required key: ${key}`);
+                return defaultValue;
+            }
+        }
+        
+        return parsed;
+    }
+};
+
+// =================================================================
+// BUG FIX #2: SECURE STORAGE WRAPPER
+// =================================================================
+
+/**
+ * Secure localStorage wrapper with quota management and error handling
+ * Prevents QuotaExceededError crashes and provides graceful fallbacks
+ */
+const SecureStorage = {
+    MAX_STORAGE_SIZE: 4 * 1024 * 1024, // 4MB recommended limit
+    
+    /**
+     * Safely set item in localStorage with quota handling
+     * @param {string} key 
+     * @param {any} value 
+     * @returns {boolean} Success status
+     */
+    setItem(key, value) {
+        try {
+            const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+            localStorage.setItem(key, stringValue);
+            return true;
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                console.warn('[SecureStorage] Quota exceeded, attempting cleanup...');
+                this.cleanupOldData();
+                
+                // Retry once after cleanup
+                try {
+                    localStorage.setItem(key, stringValue);
+                    return true;
+                } catch (retryError) {
+                    console.error('[SecureStorage] Failed even after cleanup:', retryError);
+                    this.showStorageFullWarning();
+                    return false;
+                }
+            }
+            console.error('[SecureStorage] setItem error:', e);
+            return false;
+        }
+    },
+    
+    /**
+     * Safely get item from localStorage
+     * @param {string} key 
+     * @param {any} defaultValue 
+     * @returns {any}
+     */
+    getItem(key, defaultValue = null) {
+        try {
+            const value = localStorage.getItem(key);
+            if (value === null) return defaultValue;
+            
+            try {
+                return JSON.parse(value);
+            } catch {
+                return value;
+            }
+        } catch (e) {
+            console.error('[SecureStorage] getItem error:', e);
+            return defaultValue;
+        }
+    },
+    
+    /**
+     * Remove item from localStorage
+     * @param {string} key 
+     * @returns {boolean}
+     */
+    removeItem(key) {
+        try {
+            localStorage.removeItem(key);
+            return true;
+        } catch (e) {
+            console.error('[SecureStorage] removeItem error:', e);
+            return false;
+        }
+    },
+    
+    /**
+     * Clean up old data to free space
+     */
+    cleanupOldData() {
+        try {
+            // Remove old autosaves (older than 24h)
+            const autosave = this.getItem('anamnese_autosave');
+            if (autosave && autosave.timestamp) {
+                const age = Date.now() - new Date(autosave.timestamp).getTime();
+                if (age > 24 * 60 * 60 * 1000) {
+                    localStorage.removeItem('anamnese_autosave');
+                    console.info('[SecureStorage] Removed old autosave');
+                }
+            }
+            
+            // Remove draft data
+            localStorage.removeItem('anamneseDraft');
+            console.info('[SecureStorage] Cleanup completed');
+        } catch (e) {
+            console.error('[SecureStorage] Cleanup failed:', e);
+        }
+    },
+    
+    /**
+     * Show user-friendly warning
+     */
+    showStorageFullWarning() {
+        const message = 
+            '⚠️ Speicherplatz voll!\n\n' +
+            'Ihr Browser-Speicher ist voll. Bitte:\n' +
+            '1. Exportieren Sie Ihre Daten jetzt\n' +
+            '2. Löschen Sie alte Browser-Daten\n' +
+            '3. Verwenden Sie den Inkognito-Modus\n\n' +
+            'Ihre aktuellen Eingaben sind NICHT gespeichert!';
+        alert(message);
+    },
+    
+    /**
+     * Check storage usage
+     * @returns {object} {used, remaining, percentage}
+     */
+    checkStorageSize() {
+        try {
+            let totalSize = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    totalSize += localStorage[key].length + key.length;
+                }
+            }
+            
+            return {
+                used: totalSize,
+                remaining: this.MAX_STORAGE_SIZE - totalSize,
+                percentage: (totalSize / this.MAX_STORAGE_SIZE) * 100
+            };
+        } catch (e) {
+            return { used: 0, remaining: 0, percentage: 100 };
+        }
+    }
+};
+
+// =================================================================
+// BUG FIX #3: SAFE STATE INITIALIZATION
+// =================================================================
+
+/**
+ * Ensure APP_STATE is properly initialized
+ * Prevents "Cannot read property of undefined" errors
+ * @returns {object} - Initialized APP_STATE
+ */
+function ensureStateInitialized() {
+    if (!window.APP_STATE) {
+        window.APP_STATE = {
+            answers: {},
+            currentSectionIndex: 0,
+            currentLanguage: 'de'
+        };
+    }
+    
+    if (!APP_STATE.answers || typeof APP_STATE.answers !== 'object') {
+        APP_STATE.answers = {};
+    }
+    
+    return APP_STATE;
+}
+
 /**
  * Sanitize user input to prevent XSS attacks
  * @param {string|any} input - The input to sanitize
@@ -1786,18 +2273,95 @@ function sanitizeInput(input) {
     return input;
 }
 
-// Hilfsfunktion zum Speichern der Antwort
+// =================================================================
+// BUG FIX #5: INPUT VALIDATOR
+// =================================================================
+
+/**
+ * Input validation utilities
+ */
+const InputValidator = {
+    MAX_TEXT_LENGTH: 10000, // 10KB
+    MAX_ARRAY_SIZE: 50,
+    
+    validateValue(id, value, questionType) {
+        const errors = [];
+        
+        // Null/undefined check
+        if (value === null || value === undefined) {
+            return { valid: true, errors: [] }; // Allow empty for optional fields
+        }
+        
+        // Length validation
+        if (typeof value === 'string') {
+            if (value.length > this.MAX_TEXT_LENGTH) {
+                errors.push(`Text zu lang (max ${this.MAX_TEXT_LENGTH} Zeichen)`);
+            }
+        }
+        
+        // Array validation
+        if (Array.isArray(value)) {
+            if (value.length > this.MAX_ARRAY_SIZE) {
+                errors.push(`Zu viele Auswahlen (max ${this.MAX_ARRAY_SIZE})`);
+            }
+        }
+        
+        // Type-specific validation
+        if (questionType === 'email' && typeof value === 'string' && value.length > 0) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) {
+                errors.push('Ungültiges E-Mail-Format');
+            }
+        }
+        
+        if (questionType === 'phone' && typeof value === 'string' && value.length > 0) {
+            const phoneRegex = /^[\d\s\+\-\(\)]+$/;
+            if (!phoneRegex.test(value)) {
+                errors.push('Ungültiges Telefon-Format');
+            }
+        }
+        
+        return {
+            valid: errors.length === 0,
+            errors: errors
+        };
+    }
+};
+
+// Hilfsfunktion zum Speichern der Antwort (BUG FIX #3 & #5 applied)
 function handleAnswerChange(id, value) {
+    // Ensure state is initialized (FIX #3)
+    const state = ensureStateInitialized();
+    
+    // Validate input (FIX #5)
+    const validation = InputValidator.validateValue(id, value, 'text');
+    if (!validation.valid) {
+        console.warn(`[Validation] Invalid input for ${id}:`, validation.errors);
+        alert('❌ Ungültige Eingabe:\n' + validation.errors.join('\n'));
+        return; // Don't save invalid data
+    }
+    
+    // Check storage size (FIX #5)
+    const storageInfo = SecureStorage.checkStorageSize();
+    if (storageInfo.percentage > 90) {
+        console.warn('[Storage] Running out of space:', storageInfo);
+        alert(
+            '⚠️ Speicher fast voll!\n\n' +
+            `Belegt: ${Math.round(storageInfo.percentage)}%\n` +
+            'Bitte exportieren Sie Ihre Daten bald!'
+        );
+    }
+    
     // Sanitize input to prevent XSS
     const sanitizedValue = Array.isArray(value) 
         ? value.map(sanitizeInput)
         : sanitizeInput(value);
     
-    // Entferne die Antwort, wenn sie leer ist
+    // Safe assignment (FIX #3)
     if (sanitizedValue === '' || (Array.isArray(sanitizedValue) && sanitizedValue.length === 0)) {
-        delete APP_STATE.answers[id];
+        delete state.answers[id];
     } else {
-        APP_STATE.answers[id] = sanitizedValue;
+        state.answers[id] = sanitizedValue;
     }
     
     // Aggregate DOB fields into ISO format
@@ -1813,9 +2377,12 @@ function handleAnswerChange(id, value) {
     
     // Schedule auto-save after changes
     scheduleAutoSave();
-    // Aktualisiere die JSON-Box
+    
+    // BUG FIX #4: Add await for async updateJsonBox
     if (typeof updateJsonBox === 'function') {
-        updateJsonBox();
+        updateJsonBox().catch(err => {
+            console.error('[handleAnswerChange] updateJsonBox failed:', err);
+        });
     }
 }
 
@@ -1853,75 +2420,123 @@ function handleAnswerChange(id, value) {
 // SECURE ENCRYPTION KEY MANAGEMENT
 // =================================================================
 
+// =================================================================
+// BUG FIX #1: RACE CONDITION PREVENTION IN setupEncryptionKey
+// =================================================================
+
+// Global state for encryption key setup
+let encryptionKeySetupPromise = null;
+let encryptionKeyReady = false;
+
 /**
  * Setup encryption key - prompts user for master password on first use
- * Stores hash of password, never the password itself
+ * RACE CONDITION FIX: Uses promise caching to prevent parallel calls
  * @param {number} retryCount - Internal retry counter to prevent infinite recursion
  * @returns {Promise<boolean>} - True if key is set up successfully
  */
 async function setupEncryptionKey(retryCount = 0) {
-    const MAX_RETRIES = 3;
-    
-    if (retryCount >= MAX_RETRIES) {
-        alert('Maximale Anzahl an Versuchen überschritten. Bitte laden Sie die Seite neu.');
-        throw new Error('Max password attempts exceeded');
+    // RACE CONDITION FIX: Return cached promise if already running
+    if (encryptionKeySetupPromise !== null) {
+        console.info('[Encryption] Using cached setup promise');
+        return encryptionKeySetupPromise;
     }
     
-    let storedKeyHash = localStorage.getItem('encryption_key_hash');
+    // If already ready, return immediately
+    if (encryptionKeyReady && sessionStorage.getItem('derived_key')) {
+        return true;
+    }
     
-    if (!storedKeyHash) {
-        // Erste Installation: Admin-Passwort-Setup
-        const adminKey = prompt(
-            'WICHTIG: Erstmalige Einrichtung\n\n' +
-            'Bitte geben Sie ein sicheres Master-Passwort ein (min. 16 Zeichen).\n' +
-            'ACHTUNG: Wenn Sie dieses Passwort vergessen, sind alle Daten unwiederbringlich verloren!'
-        );
+    // Create and cache the setup promise
+    encryptionKeySetupPromise = (async () => {
+        const MAX_RETRIES = 3;
         
-        if (!adminKey || adminKey.length < 16) {
-            alert('Passwort muss mindestens 16 Zeichen lang sein!');
-            return setupEncryptionKey(retryCount + 1);
+        if (retryCount >= MAX_RETRIES) {
+            alert('Maximale Anzahl an Versuchen überschritten. Bitte laden Sie die Seite neu.');
+            throw new Error('Max password attempts exceeded');
         }
         
-        // Hash für Verifikation speichern (NICHT das Passwort!)
-        const keyHash = await crypto.subtle.digest(
-            'SHA-256',
-            new TextEncoder().encode(adminKey)
-        );
-        const keyHashHex = Array.from(new Uint8Array(keyHash))
-            .map(b => b.toString(16).padStart(2, '0'))
-            .join('');
+        let storedKeyHash = localStorage.getItem('encryption_key_hash');
         
-        localStorage.setItem('encryption_key_hash', keyHashHex);
-        sessionStorage.setItem('derived_key', adminKey);
-        
-        alert('✅ Master-Passwort erfolgreich gesetzt!');
-        return true;
-    } else {
-        // Key existiert: Bei Start erneut abfragen
-        if (!sessionStorage.getItem('derived_key')) {
-            const enteredKey = prompt('Bitte geben Sie Ihr Master-Passwort ein:');
+        if (!storedKeyHash) {
+            // Erste Installation: Admin-Passwort-Setup
+            const adminKey = prompt(
+                'WICHTIG: Erstmalige Einrichtung\n\n' +
+                'Bitte geben Sie ein sicheres Master-Passwort ein (min. 16 Zeichen).\n' +
+                'ACHTUNG: Wenn Sie dieses Passwort vergessen, sind alle Daten unwiederbringlich verloren!'
+            );
             
-            if (!enteredKey) {
-                alert('❌ Passwort erforderlich!');
+            if (!adminKey) {
+                encryptionKeySetupPromise = null;
+                throw new Error('Password required');
+            }
+            
+            // OWASP 2023 compliance: Use validatePasswordStrength if available
+            if (typeof validatePasswordStrength === 'function') {
+                const validation = validatePasswordStrength(adminKey);
+                if (!validation.isValid) {
+                    alert('❌ Unsicheres Passwort!\n\n' + validation.errors.join('\n'));
+                    encryptionKeySetupPromise = null;
+                    return setupEncryptionKey(retryCount + 1);
+                }
+            } else if (adminKey.length < 16) {
+                alert('Passwort muss mindestens 16 Zeichen lang sein!');
+                encryptionKeySetupPromise = null;
                 return setupEncryptionKey(retryCount + 1);
             }
             
-            const enteredHash = await crypto.subtle.digest(
+            // Hash für Verifikation speichern (NICHT das Passwort!)
+            const keyHash = await crypto.subtle.digest(
                 'SHA-256',
-                new TextEncoder().encode(enteredKey)
+                new TextEncoder().encode(adminKey)
             );
-            const enteredHashHex = Array.from(new Uint8Array(enteredHash))
+            const keyHashHex = Array.from(new Uint8Array(keyHash))
                 .map(b => b.toString(16).padStart(2, '0'))
                 .join('');
             
-            if (enteredHashHex !== storedKeyHash) {
-                alert('❌ Falsches Passwort!');
-                return setupEncryptionKey(retryCount + 1);
-            }
+            localStorage.setItem('encryption_key_hash', keyHashHex);
+            sessionStorage.setItem('derived_key', adminKey);
             
-            sessionStorage.setItem('derived_key', enteredKey);
+            encryptionKeyReady = true;
+            alert('✅ Master-Passwort erfolgreich gesetzt!');
+            return true;
+        } else {
+            // Key existiert: Bei Start erneut abfragen
+            if (!sessionStorage.getItem('derived_key')) {
+                const enteredKey = prompt('Bitte geben Sie Ihr Master-Passwort ein:');
+                
+                if (!enteredKey) {
+                    alert('❌ Passwort erforderlich!');
+                    encryptionKeySetupPromise = null;
+                    return setupEncryptionKey(retryCount + 1);
+                }
+                
+                const enteredHash = await crypto.subtle.digest(
+                    'SHA-256',
+                    new TextEncoder().encode(enteredKey)
+                );
+                const enteredHashHex = Array.from(new Uint8Array(enteredHash))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+                
+                if (enteredHashHex !== storedKeyHash) {
+                    alert('❌ Falsches Passwort!');
+                    encryptionKeySetupPromise = null;
+                    return setupEncryptionKey(retryCount + 1);
+                }
+                
+                sessionStorage.setItem('derived_key', enteredKey);
+            }
+            encryptionKeyReady = true;
+            return true;
         }
-        return true;
+    })();
+    
+    try {
+        const result = await encryptionKeySetupPromise;
+        return result;
+    } finally {
+        // Clear the cached promise after completion
+        encryptionKeySetupPromise = null;
     }
 }
 
@@ -2235,26 +2850,64 @@ function showSaveIndicator(status) {
     }
 }
 
+// =================================================================
+// BUG FIX #12: SAFE RESTORE WITH VALIDATION
+// =================================================================
+
 /**
- * Restore auto-saved data on page load
+ * Restore auto-saved data on page load with safe destructuring
  */
 function restoreAutoSave() {
     try {
         const savedData = localStorage.getItem('anamnese_autosave');
-        if (savedData) {
-            const { answers, currentSection, timestamp } = JSON.parse(savedData);
-            const savedDate = new Date(timestamp);
-            const hoursSinceSave = (new Date() - savedDate) / 1000 / 3600;
+        if (!savedData) return;
+        
+        // BUG FIX #8: Use SafeJSON.parse with schema validation
+        const schema = { answers: {}, currentSection: 0, timestamp: '' };
+        const parsed = SafeJSON.parseWithSchema(savedData, schema, null);
+        
+        if (!parsed) {
+            console.warn('[Restore] Invalid autosave data, skipping...');
+            localStorage.removeItem('anamnese_autosave'); // Clean up corrupted data
+            return;
+        }
+        
+        // BUG FIX #12: Safe destructuring with validation
+        const { answers, currentSection, timestamp } = parsed;
+        
+        // Validate types
+        if (typeof answers !== 'object' || answers === null) {
+            console.error('[Restore] Invalid answers type:', typeof answers);
+            return;
+        }
+        
+        if (typeof currentSection !== 'number' || isNaN(currentSection)) {
+            console.error('[Restore] Invalid currentSection:', currentSection);
+            return;
+        }
+        
+        if (!timestamp) {
+            console.error('[Restore] Missing timestamp');
+            return;
+        }
+        
+        const savedDate = new Date(timestamp);
+        if (isNaN(savedDate.getTime())) {
+            console.error('[Restore] Invalid timestamp:', timestamp);
+            return;
+        }
+        
+        const hoursSinceSave = (new Date() - savedDate) / 1000 / 3600;
+        
+        if (hoursSinceSave < 24) {
+            const restore = confirm(
+                `Es wurde eine unvollständige Anamnese gefunden vom ${savedDate.toLocaleString('de-DE')}.\n\n` +
+                'Möchten Sie diese fortsetzen?'
+            );
             
-            if (hoursSinceSave < 24) {
-                const restore = confirm(
-                    `Es wurde eine unvollständige Anamnese gefunden vom ${savedDate.toLocaleString('de-DE')}.\n\n` +
-                    'Möchten Sie diese fortsetzen?'
-                );
-                
-                if (restore) {
-                    if (typeof APP_STATE !== 'undefined') {
-                        APP_STATE.answers = answers;
+            if (restore) {
+                if (typeof APP_STATE !== 'undefined') {
+                    APP_STATE.answers = answers;
                         APP_STATE.currentSectionIndex = currentSection;
                     }
                     if (typeof AppState !== 'undefined') {
@@ -2527,13 +3180,25 @@ async function extractTextFromPDF(file) {
  */
 async function performOCR(file) {
     try {
+        // LAZY LOADING CHECK: Warte auf Tesseract.js
+        if (typeof Tesseract === 'undefined') {
+            let attempts = 0;
+            while (typeof Tesseract === 'undefined' && attempts < 10) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
+            if (typeof Tesseract === 'undefined') {
+                throw new Error('Tesseract.js nicht geladen (Lazy Loading timeout). Bitte Seite neu laden.');
+            }
+        }
+        
         const result = await Tesseract.recognize(
             file,
             'deu', // Deutsch als Hauptsprache, kann auf 'eng' oder 'deu+eng' geändert werden
             {
                 logger: m => {
                     if (m.status === 'recognizing text') {
-                        console.log('OCR Fortschritt:', Math.round(m.progress * 100) + '%');
+                        // OCR Fortschritt: Math.round(m.progress * 100) + '%' (console.log removed per ESLint)
                     }
                 }
             }
@@ -2648,14 +3313,14 @@ function getAnswerJsonWithDocuments() {
         const documents = DOCUMENT_STORAGE_GDPR.getAllDocuments();
         if (documents.length > 0) {
             baseJson.attachedDocuments = documents;
-            console.log(`✓ ${documents.length} Dokument(e) aus GDPR-Storage hinzugefügt`);
+            // ✓ ${documents.length} Dokument(e) aus GDPR-Storage hinzugefügt (console.log removed)
         }
     } else {
         // Fallback auf altes System (falls GDPR-Modul nicht geladen)
         console.warn('⚠️ GDPR-Modul nicht geladen - verwende Legacy-Storage');
         if (typeof DOCUMENT_STORAGE !== 'undefined' && DOCUMENT_STORAGE.documents.length > 0) {
             baseJson.attachedDocuments = DOCUMENT_STORAGE.documents;
-            console.log(`✓ ${DOCUMENT_STORAGE.documents.length} Dokument(e) aus Legacy-Storage hinzugefügt`);
+            // ✓ ${DOCUMENT_STORAGE.documents.length} Dokument(e) aus Legacy-Storage hinzugefügt (console.log removed)
         }
     }
     
@@ -2753,22 +3418,210 @@ async function sendEmailWithDocuments() {
 /**
  * Zeigt die hochgeladenen Dokumente an
  */
+
 function showUploadedDocuments() {
     if (DOCUMENT_STORAGE.documents.length === 0) {
-        alert('No documents uploaded.');
+        alert('Keine Dokumente hochgeladen.');
         return;
     }
     
-    let message = `Uploaded documents (${DOCUMENT_STORAGE.documents.length}):\n\n`;
-    DOCUMENT_STORAGE.documents.forEach((doc, index) => {
-        message += `${index + 1}. ${doc.filename}\n`;
-        message += `   Typ: ${doc.type}\n`;
-        message += `   Text-Länge: ${doc.text.length} Zeichen\n`;
-        message += `   Zeitstempel: ${doc.timestamp}\n\n`;
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'document-viewer-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 10000;
+        overflow-y: auto;
+        padding: 20px;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        max-width: 900px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    `;
+    
+    let html = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0;">📄 Hochgeladene Dokumente (${DOCUMENT_STORAGE.documents.length})</h2>
+            <button onclick="document.getElementById('document-viewer-modal').remove()" 
+                    style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                ✖ Schließen
+            </button>
+        </div>
+        <p style="color: #666; margin-bottom: 20px;">
+            Wählen Sie für jeden Text-Block, wie er behandelt werden soll:
+        </p>
+    `;
+    
+    DOCUMENT_STORAGE.documents.forEach((doc, docIndex) => {
+        html += `
+            <div style="border: 2px solid #667eea; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-top: 0; color: #667eea;">
+                    ${docIndex + 1}. ${doc.filename}
+                    <span style="font-size: 14px; color: #666; font-weight: normal;">
+                        (${doc.type}, ${doc.text.length} Zeichen)
+                    </span>
+                </h3>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 15px; max-height: 300px; overflow-y: auto;">
+                    <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0; font-family: monospace; font-size: 13px;">${escapeHtml(doc.text)}</pre>
+                </div>
+                
+                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+                    <h4 style="margin-top: 0; color: #856404;">🛡️ Anonymisierungs-Optionen</h4>
+                    <p style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                        <strong>Hinweis:</strong> Personenbezogene Daten wie Namen, Adressen, Geburtsdaten sollten anonymisiert oder gelöscht werden.
+                    </p>
+                    
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 10px; background: #e7f3ff; border-radius: 6px; flex: 1; min-width: 200px;">
+                            <input type="radio" name="doc_action_${docIndex}" value="keep" 
+                                   onchange="updateDocumentAction(${docIndex}, 'keep')"
+                                   style="margin-right: 8px; width: 18px; height: 18px;">
+                            <span>
+                                <strong>✓ Behalten</strong><br>
+                                <small style="color: #666;">Alle Daten unverändert exportieren</small>
+                            </span>
+                        </label>
+                        
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 10px; background: #fff3cd; border-radius: 6px; flex: 1; min-width: 200px;">
+                            <input type="radio" name="doc_action_${docIndex}" value="anonymize" 
+                                   onchange="updateDocumentAction(${docIndex}, 'anonymize')"
+                                   checked
+                                   style="margin-right: 8px; width: 18px; height: 18px;">
+                            <span>
+                                <strong>🔒 Anonymisieren</strong><br>
+                                <small style="color: #666;">Namen/Daten mit [REDACTED] ersetzen</small>
+                            </span>
+                        </label>
+                        
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 10px; background: #f8d7da; border-radius: 6px; flex: 1; min-width: 200px;">
+                            <input type="radio" name="doc_action_${docIndex}" value="delete" 
+                                   onchange="updateDocumentAction(${docIndex}, 'delete')"
+                                   style="margin-right: 8px; width: 18px; height: 18px;">
+                            <span>
+                                <strong>🗑️ Löschen</strong><br>
+                                <small style="color: #666;">Dokument komplett entfernen</small>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="anonymize_preview_${docIndex}" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 6px; border-left: 4px solid #0056b3;">
+                    <h5 style="margin-top: 0;">📝 Vorschau (Anonymisiert)</h5>
+                    <pre id="anonymized_text_${docIndex}" style="white-space: pre-wrap; word-wrap: break-word; margin: 0; font-family: monospace; font-size: 13px; max-height: 200px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+        `;
     });
     
-    alert(message);
+    html += `
+        <div style="display: flex; gap: 10px; justify-content: space-between; margin-top: 20px;">
+            <button onclick="applyDocumentActions()" 
+                    style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">
+                ✓ Änderungen anwenden
+            </button>
+            <button onclick="document.getElementById('document-viewer-modal').remove()" 
+                    style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                Abbrechen
+            </button>
+        </div>
+    `;
+    
+    modalContent.innerHTML = html;
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Initialize default action (anonymize)
+    DOCUMENT_STORAGE.documents.forEach((doc, idx) => {
+        updateDocumentAction(idx, 'anonymize');
+    });
 }
+
+function updateDocumentAction(docIndex, action) {
+    const previewDiv = document.getElementById(`anonymize_preview_${docIndex}`);
+    const previewText = document.getElementById(`anonymized_text_${docIndex}`);
+    
+    if (action === 'anonymize') {
+        previewDiv.style.display = 'block';
+        const doc = DOCUMENT_STORAGE.documents[docIndex];
+        const anonymized = anonymizeText(doc.text);
+        previewText.textContent = anonymized;
+    } else {
+        previewDiv.style.display = 'none';
+    }
+}
+
+function anonymizeText(text) {
+    // HISTORY-AWARE: Basic anonymization - replace common PII patterns
+    let result = text;
+    
+    // Names (capitalized words 2+ letters)
+    result = result.replace(/\b[A-ZÄÖÜ][a-zäöüß]{1,}\s+[A-ZÄÖÜ][a-zäöüß]{1,}\b/g, '[NAME REDACTED]');
+    
+    // Dates (DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD)
+    result = result.replace(/\b\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}\b/g, '[DATE REDACTED]');
+    result = result.replace(/\b\d{4}-\d{2}-\d{2}\b/g, '[DATE REDACTED]');
+    
+    // Email addresses
+    result = result.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL REDACTED]');
+    
+    // Phone numbers (German format)
+    result = result.replace(/\b(?:\+49|0)[1-9]\d{1,4}[\s\/-]?\d{1,8}\b/g, '[PHONE REDACTED]');
+    
+    // Addresses (Street + Number)
+    result = result.replace(/\b[A-ZÄÖÜ][a-zäöüß]+(?:straße|str\.|weg|platz|allee)\s+\d{1,4}[a-z]?\b/gi, '[ADDRESS REDACTED]');
+    
+    // German ZIP codes
+    result = result.replace(/\b\d{5}\b/g, '[ZIP REDACTED]');
+    
+    return result;
+}
+
+function applyDocumentActions() {
+    const actions = [];
+    DOCUMENT_STORAGE.documents.forEach((doc, idx) => {
+        const selected = document.querySelector(`input[name="doc_action_${idx}"]:checked`);
+        actions.push(selected ? selected.value : 'keep');
+    });
+    
+    // Apply actions
+    const updatedDocs = [];
+    DOCUMENT_STORAGE.documents.forEach((doc, idx) => {
+        if (actions[idx] === 'delete') {
+            // Dokument ${idx} gelöscht: ${doc.filename} (console.log removed)
+        } else if (actions[idx] === 'anonymize') {
+            updatedDocs.push({
+                ...doc,
+                text: anonymizeText(doc.text),
+                anonymized: true
+            });
+        } else {
+            updatedDocs.push(doc);
+        }
+    });
+    
+    DOCUMENT_STORAGE.documents = updatedDocs;
+    document.getElementById('document-viewer-modal').remove();
+    alert(`✓ Änderungen angewendet!\n\n${updatedDocs.length} Dokument(e) behalten`);
+}
+
+// Helper function for HTML escaping (if not already defined)
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 
 /**
  * Löscht alle hochgeladenen Dokumente
@@ -3496,7 +4349,7 @@ function clearUploadedDocuments() {
                 No data is transmitted to external servers (except for one-time loading of language models, if online). 
                 By clicking 'Accept & Start' you agree to local processing.
             </p>
-            <button class="btn btn-primary" onclick="App.acceptPrivacy()">
+            <button id="privacy-accept-btn" class="btn btn-primary" data-action="acceptPrivacy">
                 ✓ <span data-translate="accept_start">Accept & Start</span>
             </button>
         </div>
@@ -3513,7 +4366,7 @@ function clearUploadedDocuments() {
             const isTestMode = urlParams.get('test') === 'true';
             
             if (isTestMode) {
-                console.log('🧪 TEST MODE AKTIV - Privacy-Dialog wird sofort versteckt');
+                // TEST MODE AKTIV - Privacy-Dialog wird sofort versteckt (keine console.log per ESLint)
                 // Privacy-Modal sofort verstecken
                 const privacyModal = document.getElementById('privacy-modal');
                 const appContainer = document.getElementById('app-container');
@@ -15319,9 +16172,7 @@ function clearUploadedDocuments() {
         const urlParams = new URLSearchParams(window.location.search);
         const isTestMode = urlParams.get('test') === 'true';
         
-        if (isTestMode) {
-            console.log('🧪 TEST MODE AKTIV - Privacy-Dialog wird übersprungen');
-        }
+        // TEST MODE AKTIV - Privacy-Dialog wird übersprungen (console.log removed per ESLint)
         
         // =================================================================
         // APP STATE
@@ -15329,7 +16180,7 @@ function clearUploadedDocuments() {
         const AppState = {
             currentStep: 0,
             answers: {},
-            language: 'en',  // Changed to English as default
+            language: 'de',  // HISTORY-AWARE: User bug report - default should be German
             isDarkMode: false,
             privacyAccepted: isTestMode ? true : false  // Im Test-Modus automatisch akzeptiert
         };
@@ -15555,18 +16406,84 @@ function clearUploadedDocuments() {
          * @param {object} field - The field definition from APP_DATA
          * @returns {boolean} - True if valid, false otherwise
          */
+- Replace lines 16118-16173 in index_v8_complete.html
+
+        /**
+         * Validate a field based on its definition
+         * @param {string} fieldId - The field ID (e.g., '0001')
+         * @param {object} field - The field definition from APP_DATA
+         * @returns {boolean} - True if valid, false otherwise
+         */
         function validateField(fieldId, field) {
             const value = AppState.answers[fieldId];
             const feedbackElement = document.getElementById(`feedback_${fieldId}`);
+            const inputElement = document.querySelector(`[data-field-id="${fieldId}"]`);
             
             if (!feedbackElement) return true;
+            
+            // HISTORY-AWARE: User requested validation improvements
             
             // Check required fields
             if (field.required) {
                 if (!value || value === '' || (Array.isArray(value) && value.length === 0)) {
                     feedbackElement.innerHTML = '⚠️ Dieses Feld ist erforderlich';
                     feedbackElement.className = 'validation-feedback error';
+                    if (inputElement) inputElement.classList.add('invalid');
                     return false;
+                }
+            }
+            
+            // Name validation: Min 3 characters, no digits
+            if ((fieldId === '0001' || fieldId === '0002' || field.id === 'firstName' || field.id === 'lastName') && value) {
+                if (value.length < 3) {
+                    feedbackElement.innerHTML = '⚠️ Mindestens 3 Zeichen erforderlich';
+                    feedbackElement.className = 'validation-feedback error';
+                    if (inputElement) inputElement.classList.add('invalid');
+                    return false;
+                }
+                if (/\d/.test(value)) {
+                    feedbackElement.innerHTML = '⚠️ Namen dürfen keine Zahlen enthalten';
+                    feedbackElement.className = 'validation-feedback error';
+                    if (inputElement) inputElement.classList.add('invalid');
+                    return false;
+                }
+            }
+            
+            // Email validation
+            if ((field.type === 'email' || fieldId.includes('email')) && value) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(value)) {
+                    feedbackElement.innerHTML = '⚠️ Ungültige E-Mail-Adresse';
+                    feedbackElement.className = 'validation-feedback error';
+                    if (inputElement) inputElement.classList.add('invalid');
+                    return false;
+                }
+            }
+            
+            // Date of Birth validation: 1 day - 120 years
+            if ((fieldId === '0003_tag' || fieldId === '0003_monat' || fieldId === '0003_jahr') && value) {
+                const dayValue = AppState.answers['0003_tag'];
+                const monthValue = AppState.answers['0003_monat'];
+                const yearValue = AppState.answers['0003_jahr'];
+                
+                if (dayValue && monthValue && yearValue) {
+                    const birthDate = new Date(yearValue, monthValue - 1, dayValue);
+                    const today = new Date();
+                    const ageInYears = (today - birthDate) / (1000 * 60 * 60 * 24 * 365.25);
+                    const ageInDays = (today - birthDate) / (1000 * 60 * 60 * 24);
+                    
+                    if (ageInDays < 1) {
+                        feedbackElement.innerHTML = '⚠️ Patient muss mindestens 1 Tag alt sein';
+                        feedbackElement.className = 'validation-feedback error';
+                        if (inputElement) inputElement.classList.add('invalid');
+                        return false;
+                    }
+                    if (ageInYears > 120) {
+                        feedbackElement.innerHTML = '⚠️ Patient kann nicht älter als 120 Jahre sein';
+                        feedbackElement.className = 'validation-feedback error';
+                        if (inputElement) inputElement.classList.add('invalid');
+                        return false;
+                    }
                 }
             }
             
@@ -15576,22 +16493,26 @@ function clearUploadedDocuments() {
                 if (field.min !== undefined && num < field.min) {
                     feedbackElement.innerHTML = `⚠️ Wert muss mindestens ${field.min} sein`;
                     feedbackElement.className = 'validation-feedback error';
+                    if (inputElement) inputElement.classList.add('invalid');
                     return false;
                 }
                 if (field.max !== undefined && num > field.max) {
                     feedbackElement.innerHTML = `⚠️ Wert darf maximal ${field.max} sein`;
                     feedbackElement.className = 'validation-feedback error';
+                    if (inputElement) inputElement.classList.add('invalid');
                     return false;
                 }
             }
             
-            // All validations passed
+            // All validations passed - CLEAR red border
             if (value) {
                 feedbackElement.innerHTML = '✓ Gültig';
                 feedbackElement.className = 'validation-feedback success';
+                if (inputElement) inputElement.classList.remove('invalid');
             } else {
                 feedbackElement.innerHTML = '';
                 feedbackElement.className = 'validation-feedback';
+                if (inputElement) inputElement.classList.remove('invalid');
             }
             return true;
         }
@@ -15602,18 +16523,23 @@ function clearUploadedDocuments() {
          */
         function clearValidationFeedback(fieldId) {
             const feedbackElement = document.getElementById(`feedback_${fieldId}`);
+            const inputElement = document.querySelector(`[data-field-id="${fieldId}"]`);
+            
+            // HISTORY-AWARE: User reported red borders are too aggressive/annoying
+            // Clear both feedback text AND red border immediately on input
             if (feedbackElement && feedbackElement.classList.contains('error')) {
                 feedbackElement.innerHTML = '';
                 feedbackElement.className = 'validation-feedback';
             }
+            if (inputElement) {
+                inputElement.classList.remove('invalid');
+            }
         }
-
-        // =================================================================
         // APP OBJEKT
         // =================================================================
         const App = {
             async init() {
-                console.log('🏥 Anamnese App v2.0 initialisiert');
+                // 🏥 Anamnese App v2.0 initialisiert (console.log removed per ESLint)
                 
                 if (!window.APP_DATA?.sections) {
                     document.getElementById('question-area').innerHTML = 
@@ -15681,6 +16607,15 @@ function clearUploadedDocuments() {
                     if (code === AppState.language) opt.selected = true;
                     select.appendChild(opt);
                 }
+                
+                // HISTORY-AWARE: User bug report - dropdown was not clickable
+                // Remove inline onchange handler, add proper event listener
+                select.removeEventListener('change', this.handleLanguageChange);
+                select.addEventListener('change', this.handleLanguageChange.bind(this));
+            },
+
+            handleLanguageChange(e) {
+                this.changeLanguage(e.target.value);
             },
 
             changeLanguage(lang) {
@@ -16552,6 +17487,16 @@ function clearUploadedDocuments() {
                 }
             }
             
+            // BUGFIX: Privacy Accept Button Event Listener (statt onclick)
+            const privacyAcceptBtn = document.getElementById('privacy-accept-btn');
+            if (privacyAcceptBtn) {
+                privacyAcceptBtn.addEventListener('click', () => {
+                    if (typeof App !== 'undefined' && typeof App.acceptPrivacy === 'function') {
+                        App.acceptPrivacy();
+                    }
+                });
+            }
+            
             App.init();
         });
 
@@ -16563,21 +17508,22 @@ function clearUploadedDocuments() {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
                     .then(registration => {
-                        console.log('[PWA] Service Worker registered:', registration.scope);
+                        // [PWA] Service Worker registered: registration.scope (console.log removed)
                         
                         // Check for updates
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    console.log('[PWA] New version available! Reload to update.');
+                                    // [PWA] New version available! Reload to update. (console.log removed)
                                     // Could show a notification to user here
                                 }
                             });
                         });
                     })
                     .catch(error => {
-                        console.log('[PWA] Service Worker registration failed:', error);
+                        // [PWA] Service Worker registration failed (console.log removed, use console.error)
+                        console.error('[PWA] Service Worker registration failed:', error);
                     });
             });
         }
@@ -16722,13 +17668,13 @@ function clearUploadedDocuments() {
         // ONLINE/OFFLINE STATUS
         // ====================================================================
         window.addEventListener('online', () => {
-            console.log('[Network] Online');
+            // [Network] Online (console.log removed)
             window.liveRegionAnnouncer?.announce('Verbindung wiederhergestellt', 'polite');
             document.body.classList.remove('offline');
         });
 
         window.addEventListener('offline', () => {
-            console.log('[Network] Offline');
+            // [Network] Offline (console.log removed)
             window.liveRegionAnnouncer?.announce('Keine Internetverbindung', 'assertive');
             document.body.classList.add('offline');
         });
@@ -16760,7 +17706,7 @@ function clearUploadedDocuments() {
             });
         }
 
-        console.log('[App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization');
+        // [App] Enhanced features loaded: PWA, Accessibility, Mobile Optimization (console.log removed)
 
         // ====================================================================
         // TRANSLATIONS MODULE (INLINE)
@@ -17709,7 +18655,7 @@ const LicenseManager = {
      */
     async activateLicense(token) {
         if (!LicensingConfig.enabled) {
-            console.log('Licensing not enabled, skipping activation');
+            // Licensing not enabled, skipping activation (console.log removed)
             return { success: true, mode: 'demo' };
         }
         
@@ -17948,7 +18894,7 @@ const UsageMetering = {
      */
     recordEvent(eventType, metadata = {}) {
         if (!LicensingConfig.enabled) {
-            console.log('Usage metering not enabled, skipping event:', eventType);
+            // Usage metering not enabled, skipping event: eventType (console.log removed)
             return;
         }
         
@@ -17970,7 +18916,7 @@ const UsageMetering = {
         // Save to localStorage
         this.saveReceipts();
         
-        console.log('Billable event recorded:', eventType);
+        // Billable event recorded: eventType (console.log removed)
     },
     
     /**
@@ -18089,7 +19035,7 @@ const UsageMetering = {
             });
             
             this.saveReceipts();
-            console.log('Usage receipts synced successfully');
+            // Usage receipts synced successfully (console.log removed)
         } catch (error) {
             console.error('Failed to sync usage receipts:', error);
         }
@@ -21531,7 +22477,7 @@ let voskWorker = null;
 async function initVoskRecognizer() {
     try {
         // Check if VOSK model is available
-        const modelPath = 'model/vosk-model-small-de-0.15';
+        const modelPath = 'models/vosk-model-small-de-0.15';  // HISTORY-AWARE: Fixed path (was 'model/')
         
         // Create Web Worker for VOSK processing
         if (!voskWorker) {

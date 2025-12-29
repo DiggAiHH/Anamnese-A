@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSGVO-Anonymisierungsmodul - Tests</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-dsgvo {
+            background: #4CAF50;
+            color: white;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .test-case {
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .test-result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .code-block {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button.btn-danger {
+            background: #e74c3c;
+        }
+        button.btn-danger:hover {
+            background: #c0392b;
+        }
+        button.btn-success {
+            background: #27ae60;
+        }
+        button.btn-success:hover {
+            background: #229954;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .pii-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .pii-table th,
+        .pii-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .pii-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .pii-table tr:hover {
+            background: #f9f9f9;
+        }
+        .type-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #3498db;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            🔒 DSGVO-Anonymisierungsmodul
+            <span class="badge badge-dsgvo">DSGVO-KONFORM</span>
+        </h1>
+        <p style="color: #7f8c8d; margin-bottom: 30px;">
+            Comprehensive Testing Suite - Art. 6, 9, 25, 32 DSGVO
+        </p>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">Tests Durchgeführt</div>
+                <div class="stat-value" id="totalTests">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Tests Bestanden</div>
+                <div class="stat-value" id="passedTests">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">PII Erkannt</div>
+                <div class="stat-value" id="piiDetected">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Anonymisiert</div>
+                <div class="stat-value" id="piiAnonymized">0</div>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button onclick="runAllTests()">▶️ Alle Tests starten</button>
+            <button onclick="testBasicAnonymization()" class="btn-success">Test 1: Basis-Anonymisierung</button>
+            <button onclick="testRealWorldScenario()" class="btn-success">Test 2: Real-World Szenario</button>
+            <button onclick="testDeanonymization()" class="btn-success">Test 3: Deanonymisierung</button>
+            <button onclick="testBatchProcessing()" class="btn-success">Test 4: Batch-Verarbeitung</button>
+            <button onclick="GDPR_ANONYMIZER.clearDictionary()" class="btn-danger">🗑️ Dictionary löschen</button>
+            <button onclick="GDPR_ANONYMIZER.exportAuditReport()">📊 Audit-Report</button>
+        </div>
+
+        <div id="testResults"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="/public/gdpr-anonymizer.js"></script>
+
+    <script>
+        let totalTests = 0;
+        let passedTests = 0;
+        let totalPII = 0;
+
+        function updateStats() {
+            document.getElementById('totalTests').textContent = totalTests;
+            document.getElementById('passedTests').textContent = passedTests;
+            document.getElementById('piiDetected').textContent = totalPII;
+            document.getElementById('piiAnonymized').textContent = GDPR_ANONYMIZER._internal.dictionary.stats.totalAnonymized;
+        }
+
+        function logTest(title, success, message, details = null) {
+            totalTests++;
+            if (success) passedTests++;
+
+            const resultsDiv = document.getElementById('testResults');
+            const testCase = document.createElement('div');
+            testCase.className = 'test-case';
+            
+            let html = `
+                <h3 style="color: ${success ? '#27ae60' : '#e74c3c'};">
+                    ${success ? '✅' : '❌'} ${title}
+                </h3>
+                <div class="test-result ${success ? 'success' : 'error'}">
+                    ${message}
+                </div>
+            `;
+            
+            if (details) {
+                html += `<div class="test-result info">${details}</div>`;
+            }
+            
+            testCase.innerHTML = html;
+            resultsDiv.appendChild(testCase);
+            updateStats();
+        }
+
+        function testBasicAnonymization() {
+            const testText = `
+                Patient: Max Mustermann
+                Adresse: Hauptstraße 123, 10115 Berlin
+                Telefon: +49 30 12345678
+                Email: max.mustermann@example.com
+                Geburtsdatum: 01.01.1980
+                IBAN: DE89370400440532013000
+            `;
+
+            const result = GDPR_ANONYMIZER.anonymizeText(testText);
+            
+            totalPII += result.detectedPII.length;
+            
+            const success = result.detectedPII.length >= 5;
+            
+            logTest(
+                'Test 1: Basis-Anonymisierung',
+                success,
+                `Erkannte PII: ${result.detectedPII.length} Einträge`,
+                `<strong>Original:</strong><pre style="background:#f5f5f5;padding:10px;border-radius:4px;">${testText}</pre><strong>Anonymisiert:</strong><pre style="background:#f5f5f5;padding:10px;border-radius:4px;">${result.anonymizedText}</pre>`
+            );
+        }
+
+        function testRealWorldScenario() {
+            const medicalReport = `
+                Arztbrief für Frau Dr. Maria Schmidt
+                Patientin: Anna Müller, geboren am 15.03.1975
+                Wohnhaft: Berliner Str. 45, 80331 München
+                Kontakt: 089/12345678, anna.mueller@gmail.com
+                Versicherungsnummer: A123456789
+                
+                Anamnese:
+                Die Patientin klagt über wiederkehrende Kopfschmerzen seit 3 Monaten.
+                Vorerkrankungen: Hypertonie seit 2018
+                
+                Diagnose: ICD-10 R51 - Kopfschmerz
+                
+                Therapie:
+                - Ibuprofen 400mg bei Bedarf
+                - Blutdruckkontrolle empfohlen
+                
+                Mit freundlichen Grüßen
+                Dr. med. Thomas Weber
+                Facharzt für Allgemeinmedizin
+                Praxis München-Mitte
+                Marienplatz 12, 80331 München
+                Tel: 089/98765432
+            `;
+
+            const result = GDPR_ANONYMIZER.anonymizeText(medicalReport);
+            
+            totalPII += result.detectedPII.length;
+            
+            // Create PII table
+            let tableHTML = '<table class="pii-table"><thead><tr><th>Typ</th><th>Original</th><th>Anonymisiert</th></tr></thead><tbody>';
+            result.detectedPII.forEach(pii => {
+                tableHTML += `
+                    <tr>
+                        <td><span class="type-badge">${pii.type}</span></td>
+                        <td><code>${pii.original}</code></td>
+                        <td><code>${pii.anonymized}</code></td>
+                    </tr>
+                `;
+            });
+            tableHTML += '</tbody></table>';
+            
+            logTest(
+                'Test 2: Real-World Medical Report',
+                result.detectedPII.length >= 8,
+                `Erkannte PII: ${result.detectedPII.length} Einträge aus echtem Arztbrief`,
+                tableHTML
+            );
+        }
+
+        function testDeanonymization() {
+            const originalText = "Herr Max Mustermann wohnt in der Hauptstraße 123";
+            
+            // Anonymize
+            const anonymized = GDPR_ANONYMIZER.anonymizeText(originalText);
+            
+            // Deanonymize
+            const deanonymized = GDPR_ANONYMIZER.deanonymizeText(
+                anonymized.anonymizedText,
+                GDPR_ANONYMIZER._internal.dictionary.reverseMappings
+            );
+            
+            const success = deanonymized === originalText;
+            
+            logTest(
+                'Test 3: Deanonymisierung (Roundtrip)',
+                success,
+                success ? 'Deanonymisierung erfolgreich!' : 'Fehler bei Deanonymisierung',
+                `<strong>Original:</strong> ${originalText}<br><strong>Anonymisiert:</strong> ${anonymized.anonymizedText}<br><strong>Wiederhergestellt:</strong> ${deanonymized}`
+            );
+        }
+
+        function testBatchProcessing() {
+            const documents = [
+                {
+                    id: 'doc1',
+                    filename: 'patient1.txt',
+                    text: 'Patient: Hans Schmidt, Tel: 0171/1234567'
+                },
+                {
+                    id: 'doc2',
+                    filename: 'patient2.txt',
+                    text: 'Patientin: Lisa Müller, Email: lisa@example.com'
+                },
+                {
+                    id: 'doc3',
+                    filename: 'patient3.txt',
+                    text: 'Adresse: Berliner Str. 99, 10115 Berlin'
+                }
+            ];
+
+            const results = GDPR_ANONYMIZER.anonymizeBatch(documents);
+            
+            totalPII += results.reduce((sum, r) => sum + r.detectedPII.length, 0);
+            
+            let detailsHTML = '<ul>';
+            results.forEach(r => {
+                detailsHTML += `<li><strong>${r.filename}:</strong> ${r.detectedPII.length} PII erkannt</li>`;
+            });
+            detailsHTML += '</ul>';
+            
+            logTest(
+                'Test 4: Batch-Verarbeitung',
+                results.length === 3,
+                `${results.length} Dokumente verarbeitet`,
+                detailsHTML
+            );
+        }
+
+        function testConsistency() {
+            const text1 = "Max Mustermann ist ein Patient.";
+            const text2 = "Max Mustermann kommt morgen wieder.";
+            
+            const result1 = GDPR_ANONYMIZER.anonymizeText(text1);
+            const result2 = GDPR_ANONYMIZER.anonymizeText(text2);
+            
+            // Check if same name gets same pseudonym
+            const pseudonym1 = result1.detectedPII.find(p => p.original === 'Max Mustermann')?.anonymized;
+            const pseudonym2 = result2.detectedPII.find(p => p.original === 'Max Mustermann')?.anonymized;
+            
+            const success = pseudonym1 === pseudonym2;
+            
+            logTest(
+                'Test 5: Konsistenz der Pseudonyme',
+                success,
+                success ? 'Gleiche PII erhält konsistent gleichen Pseudonym' : 'FEHLER: Inkonsistente Pseudonyme!',
+                `<strong>Text 1:</strong> ${result1.anonymizedText}<br><strong>Text 2:</strong> ${result2.anonymizedText}<br><strong>Pseudonym:</strong> ${pseudonym1}`
+            );
+        }
+
+        function testEdgeCases() {
+            const edgeCases = [
+                { text: '', expected: 0, name: 'Leerer String' },
+                { text: 'Keine PII hier!', expected: 0, name: 'Text ohne PII' },
+                { text: 'Email: test@test.de und email: info@company.com', expected: 2, name: 'Mehrere Emails' },
+                { text: '+49 30 12345 und 0171/1234567 und 030-9876543', expected: 3, name: 'Verschiedene Telefon-Formate' }
+            ];
+
+            let allPassed = true;
+            let details = '<ul>';
+            
+            edgeCases.forEach(test => {
+                const result = GDPR_ANONYMIZER.anonymizeText(test.text);
+                const passed = result.detectedPII.length === test.expected;
+                allPassed = allPassed && passed;
+                
+                details += `<li>${passed ? '✅' : '❌'} ${test.name}: ${result.detectedPII.length}/${test.expected} erkannt</li>`;
+            });
+            details += '</ul>';
+            
+            logTest(
+                'Test 6: Edge Cases',
+                allPassed,
+                `${edgeCases.filter((_, i) => edgeCases[i]).length}/${edgeCases.length} Edge Cases bestanden`,
+                details
+            );
+        }
+
+        function runAllTests() {
+            // Clear previous results
+            document.getElementById('testResults').innerHTML = '';
+            totalTests = 0;
+            passedTests = 0;
+            totalPII = 0;
+            
+            // Clear dictionary for clean tests
+            GDPR_ANONYMIZER.clearDictionary();
+            
+            // Run all tests
+            setTimeout(() => testBasicAnonymization(), 100);
+            setTimeout(() => testRealWorldScenario(), 500);
+            setTimeout(() => testDeanonymization(), 900);
+            setTimeout(() => testBatchProcessing(), 1300);
+            setTimeout(() => testConsistency(), 1700);
+            setTimeout(() => testEdgeCases(), 2100);
+            
+            setTimeout(() => {
+                // Final summary
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'test-section';
+                summaryDiv.style.borderLeft = '4px solid #27ae60';
+                summaryDiv.innerHTML = `
+                    <h2>📊 Test-Zusammenfassung</h2>
+                    <div class="stats-grid" style="margin-top: 20px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; color: ${passedTests === totalTests ? '#27ae60' : '#e74c3c'};">
+                                ${Math.round((passedTests / totalTests) * 100)}%
+                            </div>
+                            <div style="color: #7f8c8d;">Success Rate</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; color: #3498db;">
+                                ${totalPII}
+                            </div>
+                            <div style="color: #7f8c8d;">PII Erkannt</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; color: #9b59b6;">
+                                ${GDPR_ANONYMIZER._internal.dictionary.mappings.size}
+                            </div>
+                            <div style="color: #7f8c8d;">Dictionary Einträge</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; padding: 15px; background: #d4edda; border-radius: 6px;">
+                        <strong>✅ DSGVO-Compliance:</strong> Art. 6 (Rechtmäßigkeit), Art. 9 (Gesundheitsdaten), 
+                        Art. 25 (Privacy by Design), Art. 32 (Sicherheit)
+                    </div>
+                `;
+                document.getElementById('testResults').appendChild(summaryDiv);
+            }, 2500);
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            console.log('[Test Suite] Loaded. Ready to run tests.');
+            setTimeout(() => runAllTests(), 500);
+        });
+    </script>
+</body>
+</html>

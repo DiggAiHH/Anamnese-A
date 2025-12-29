@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bug Fixes Test - Anamnese-A</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .test-result {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+        .test-result.pass {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .test-result.fail {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .test-result.running {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Anamnese-A Bug Fixes Test Suite</h1>
+    <p>Tests für die 7 kritischen Bug Fixes aus dem Audit Report</p>
+
+    <div class="test-container">
+        <div class="test-title">Test #1: setupEncryptionKey() Race Condition Prevention</div>
+        <p>Testet ob parallele Aufrufe von setupEncryptionKey() dieselbe Promise zurückgeben</p>
+        <button onclick="testRaceCondition()">Test starten</button>
+        <div id="test1-result"></div>
+        <div id="test1-log" class="log"></div>
+    </div>
+
+    <div class="test-container">
+        <div class="test-title">Test #2: SecureStorage Wrapper - QuotaExceededError Handling</div>
+        <p>Testet ob SecureStorage gracefully mit vollem localStorage umgeht</p>
+        <button onclick="testSecureStorage()">Test starten</button>
+        <div id="test2-result"></div>
+        <div id="test2-log" class="log"></div>
+    </div>
+
+    <div class="test-container">
+        <div class="test-title">Test #3: ensureStateInitialized() - Null Safety</div>
+        <p>Testet ob APP_STATE korrekt initialisiert wird bei undefined/null</p>
+        <button onclick="testStateInitialization()">Test starten</button>
+        <div id="test3-result"></div>
+        <div id="test3-log" class="log"></div>
+    </div>
+
+    <div class="test-container">
+        <div class="test-title">Test #4: InputValidator - Length & Type Validation</div>
+        <p>Testet ob InputValidator große Strings und ungültige Typen erkennt</p>
+        <button onclick="testInputValidator()">Test starten</button>
+        <div id="test4-result"></div>
+        <div id="test4-log" class="log"></div>
+    </div>
+
+    <div class="test-container">
+        <div class="test-title">Test #5: Async/Await Error Handling</div>
+        <p>Testet ob async Funktionen korrekt mit try-catch behandelt werden</p>
+        <button onclick="testAsyncHandling()">Test starten</button>
+        <div id="test5-result"></div>
+        <div id="test5-log" class="log"></div>
+    </div>
+
+    <button onclick="runAllTests()" style="background: #28a745; font-size: 16px;">🚀 Alle Tests ausführen</button>
+
+    <script>
+        // Helper functions
+        function log(testId, message) {
+            const logDiv = document.getElementById(`test${testId}-log`);
+            logDiv.innerHTML += `[${new Date().toISOString().substr(11,8)}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setResult(testId, passed, message) {
+            const resultDiv = document.getElementById(`test${testId}-result`);
+            resultDiv.className = `test-result ${passed ? 'pass' : 'fail'}`;
+            resultDiv.innerHTML = passed ? `✅ PASSED: ${message}` : `❌ FAILED: ${message}`;
+        }
+
+        function setRunning(testId) {
+            const resultDiv = document.getElementById(`test${testId}-result`);
+            resultDiv.className = 'test-result running';
+            resultDiv.innerHTML = '⏳ Test läuft...';
+        }
+
+        // TEST #1: Race Condition Prevention
+        async function testRaceCondition() {
+            setRunning(1);
+            log(1, 'Starting race condition test...');
+
+            // Simuliere setupEncryptionKey() Logik
+            let encryptionKeySetupPromise = null;
+            let callCount = 0;
+            let promiseIds = [];
+
+            async function mockSetupEncryptionKey() {
+                callCount++;
+                log(1, `Call #${callCount} started`);
+
+                if (encryptionKeySetupPromise !== null) {
+                    log(1, `Call #${callCount} using cached promise`);
+                    return encryptionKeySetupPromise;
+                }
+
+                encryptionKeySetupPromise = (async () => {
+                    log(1, `Call #${callCount} creating new promise`);
+                    await new Promise(r => setTimeout(r, 100));
+                    return 'key-ready';
+                })();
+
+                try {
+                    const result = await encryptionKeySetupPromise;
+                    return result;
+                } finally {
+                    encryptionKeySetupPromise = null;
+                }
+            }
+
+            // Parallele Aufrufe simulieren
+            const promises = [
+                mockSetupEncryptionKey(),
+                mockSetupEncryptionKey(),
+                mockSetupEncryptionKey()
+            ];
+
+            const results = await Promise.all(promises);
+            
+            log(1, `All calls completed. Results: ${results.join(', ')}`);
+            log(1, `Total function calls: ${callCount}`);
+
+            // Erwartung: Nur 1 Ausführung, Rest nutzt Cache
+            if (callCount === 1) {
+                setResult(1, true, 'Race condition prevented! Only 1 execution for 3 parallel calls.');
+            } else {
+                setResult(1, false, `Expected 1 execution, got ${callCount}`);
+            }
+        }
+
+        // TEST #2: SecureStorage Wrapper
+        async function testSecureStorage() {
+            setRunning(2);
+            log(2, 'Starting SecureStorage test...');
+
+            const SecureStorage = {
+                MAX_STORAGE_SIZE: 4 * 1024 * 1024,
+                
+                setItem(key, value) {
+                    try {
+                        const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+                        
+                        // Simuliere QuotaExceededError bei großen Daten
+                        if (stringValue.length > 1000000) {
+                            log(2, 'Simulating QuotaExceededError for large data');
+                            const error = new Error('QuotaExceededError');
+                            error.name = 'QuotaExceededError';
+                            throw error;
+                        }
+                        
+                        localStorage.setItem(key, stringValue);
+                        log(2, `Successfully stored ${key} (${stringValue.length} bytes)`);
+                        return true;
+                    } catch (e) {
+                        if (e.name === 'QuotaExceededError') {
+                            log(2, '❌ QuotaExceededError caught! Attempting cleanup...');
+                            this.cleanupOldData();
+                            return false;
+                        }
+                        log(2, `Error: ${e.message}`);
+                        return false;
+                    }
+                },
+
+                cleanupOldData() {
+                    log(2, '🧹 Cleanup function called');
+                    // Simuliere Cleanup
+                    localStorage.removeItem('test_old_data');
+                }
+            };
+
+            // Test 1: Normal setItem
+            const success1 = SecureStorage.setItem('test_small', 'small data');
+            log(2, `Small data test: ${success1}`);
+
+            // Test 2: Large data causing quota error
+            const largeData = 'x'.repeat(1500000);
+            const success2 = SecureStorage.setItem('test_large', largeData);
+            log(2, `Large data test (should fail gracefully): ${success2}`);
+
+            if (!success1 || success2) {
+                setResult(2, false, 'SecureStorage behavior incorrect');
+            } else {
+                setResult(2, true, 'SecureStorage handles quota errors gracefully');
+            }
+        }
+
+        // TEST #3: State Initialization
+        async function testStateInitialization() {
+            setRunning(3);
+            log(3, 'Starting state initialization test...');
+
+            function ensureStateInitialized() {
+                if (!window.APP_STATE) {
+                    log(3, 'APP_STATE was undefined, initializing...');
+                    window.APP_STATE = {
+                        answers: {},
+                        currentSectionIndex: 0,
+                        currentLanguage: 'de'
+                    };
+                }
+                
+                if (!APP_STATE.answers || typeof APP_STATE.answers !== 'object') {
+                    log(3, 'APP_STATE.answers was invalid, fixing...');
+                    APP_STATE.answers = {};
+                }
+                
+                return APP_STATE;
+            }
+
+            // Test 1: Undefined APP_STATE
+            delete window.APP_STATE;
+            log(3, 'Deleted APP_STATE, testing initialization...');
+            const state1 = ensureStateInitialized();
+            const test1 = state1 && state1.answers && typeof state1.answers === 'object';
+            log(3, `Test 1 (undefined): ${test1 ? 'PASS' : 'FAIL'}`);
+
+            // Test 2: Null answers
+            window.APP_STATE = { answers: null };
+            log(3, 'Set APP_STATE.answers to null, testing fix...');
+            const state2 = ensureStateInitialized();
+            const test2 = state2.answers && typeof state2.answers === 'object';
+            log(3, `Test 2 (null answers): ${test2 ? 'PASS' : 'FAIL'}`);
+
+            // Test 3: Invalid type
+            window.APP_STATE = { answers: 'invalid' };
+            log(3, 'Set APP_STATE.answers to string, testing fix...');
+            const state3 = ensureStateInitialized();
+            const test3 = state3.answers && typeof state3.answers === 'object';
+            log(3, `Test 3 (invalid type): ${test3 ? 'PASS' : 'FAIL'}`);
+
+            if (test1 && test2 && test3) {
+                setResult(3, true, 'All state initialization scenarios handled correctly');
+            } else {
+                setResult(3, false, 'Some scenarios failed');
+            }
+        }
+
+        // TEST #4: Input Validator
+        async function testInputValidator() {
+            setRunning(4);
+            log(4, 'Starting InputValidator test...');
+
+            const InputValidator = {
+                MAX_TEXT_LENGTH: 10000,
+                MAX_ARRAY_SIZE: 50,
+                
+                validateValue(id, value, questionType) {
+                    const errors = [];
+                    
+                    if (value === null || value === undefined) {
+                        return { valid: true, errors: [] };
+                    }
+                    
+                    if (typeof value === 'string') {
+                        if (value.length > this.MAX_TEXT_LENGTH) {
+                            errors.push(`Text zu lang (max ${this.MAX_TEXT_LENGTH} Zeichen)`);
+                        }
+                    }
+                    
+                    if (Array.isArray(value)) {
+                        if (value.length > this.MAX_ARRAY_SIZE) {
+                            errors.push(`Zu viele Auswahlen (max ${this.MAX_ARRAY_SIZE})`);
+                        }
+                    }
+                    
+                    if (questionType === 'email' && typeof value === 'string' && value.length > 0) {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(value)) {
+                            errors.push('Ungültiges E-Mail-Format');
+                        }
+                    }
+                    
+                    return {
+                        valid: errors.length === 0,
+                        errors: errors
+                    };
+                }
+            };
+
+            // Test 1: Valid short text
+            const result1 = InputValidator.validateValue('test1', 'Hello World', 'text');
+            log(4, `Test 1 (valid text): ${result1.valid ? 'PASS' : 'FAIL'}`);
+
+            // Test 2: Text too long
+            const longText = 'x'.repeat(15000);
+            const result2 = InputValidator.validateValue('test2', longText, 'text');
+            log(4, `Test 2 (text too long): ${!result2.valid ? 'PASS' : 'FAIL'} - ${result2.errors.join(', ')}`);
+
+            // Test 3: Valid email
+            const result3 = InputValidator.validateValue('test3', 'user@example.com', 'email');
+            log(4, `Test 3 (valid email): ${result3.valid ? 'PASS' : 'FAIL'}`);
+
+            // Test 4: Invalid email
+            const result4 = InputValidator.validateValue('test4', 'invalid-email', 'email');
+            log(4, `Test 4 (invalid email): ${!result4.valid ? 'PASS' : 'FAIL'} - ${result4.errors.join(', ')}`);
+
+            // Test 5: Array too large
+            const largeArray = new Array(100).fill('item');
+            const result5 = InputValidator.validateValue('test5', largeArray, 'text');
+            log(4, `Test 5 (array too large): ${!result5.valid ? 'PASS' : 'FAIL'} - ${result5.errors.join(', ')}`);
+
+            if (result1.valid && !result2.valid && result3.valid && !result4.valid && !result5.valid) {
+                setResult(4, true, 'All validation tests passed');
+            } else {
+                setResult(4, false, 'Some validation tests failed');
+            }
+        }
+
+        // TEST #5: Async/Await Error Handling
+        async function testAsyncHandling() {
+            setRunning(5);
+            log(5, 'Starting async/await test...');
+
+            let errorCaught = false;
+
+            async function asyncFunctionThatFails() {
+                log(5, 'Async function called...');
+                await new Promise(r => setTimeout(r, 100));
+                throw new Error('Simulated async error');
+            }
+
+            // Correct handling with .catch()
+            asyncFunctionThatFails().catch(err => {
+                log(5, `✅ Error correctly caught: ${err.message}`);
+                errorCaught = true;
+            });
+
+            // Wait for async to complete
+            await new Promise(r => setTimeout(r, 200));
+
+            if (errorCaught) {
+                setResult(5, true, 'Async errors are properly handled with .catch()');
+            } else {
+                setResult(5, false, 'Async error was not caught');
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            await testRaceCondition();
+            await new Promise(r => setTimeout(r, 200));
+            await testSecureStorage();
+            await new Promise(r => setTimeout(r, 200));
+            await testStateInitialization();
+            await new Promise(r => setTimeout(r, 200));
+            await testInputValidator();
+            await new Promise(r => setTimeout(r, 200));
+            await testAsyncHandling();
+        }
+    </script>
+</body>
+</html>

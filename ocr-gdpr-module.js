@@ -390,7 +390,7 @@ const DOCUMENT_STORAGE_GDPR = {
     /**
      * Fügt ein Dokument hinzu
      */
-    addDocument(docData) {
+    async addDocument(docData) {
         const doc = {
             id: this.generateDocId(),
             ...docData,
@@ -398,7 +398,14 @@ const DOCUMENT_STORAGE_GDPR = {
         };
         
         this.documents.push(doc);
-        this.persistDocuments();
+        
+        try {
+            await this.persistDocuments();
+        } catch (persistError) {
+            // Rollback on persist failure
+            this.documents.pop();
+            throw persistError;
+        }
         
         OCR_AUDIT.log('document_uploaded', docData.filename, {
             fileSize: docData.originalSize,
@@ -417,39 +424,80 @@ const DOCUMENT_STORAGE_GDPR = {
         return `DOC-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     },
     
+    // =================================================================
+    // BUG FIX #7: SECURE persistDocuments() - NO UNENCRYPTED FALLBACK
+    // =================================================================
+    
     /**
      * Persistiert Dokumente (verschlüsselt mit AES-256-GCM)
      * WICHTIG: Verwendet die Verschlüsselungsfunktion aus encryption.js wenn verfügbar
+     * BUG FIX: Removed unencrypted fallback for security compliance
      */
-    persistDocuments() {
+    async persistDocuments() {
         try {
             const dataToStore = JSON.stringify(this.documents);
             
-            // Versuche, mit encryption.js zu verschlüsseln (wenn geladen)
+            // Size check: Warn if approaching storage limits (4MB recommended max)
+            if (dataToStore.length > 3 * 1024 * 1024) { // 3MB warning threshold
+                console.warn(
+                    '⚠️ WARNING: OCR documents approaching storage limit (' +
+                    Math.round(dataToStore.length / 1024 / 1024) + 'MB). ' +
+                    'Consider exporting and removing old documents.'
+                );
+            }
+            
+            // Attempt encryption with encryption.js
             if (typeof encryptData === 'function' && typeof getEncryptionKey === 'function') {
-                // Verwende bestehenden Encryption-Key
                 const key = getEncryptionKey();
-                if (key) {
-                    // Asynchrone Verschlüsselung - speichere mit Prefix für später
-                    encryptData(dataToStore, key).then(encrypted => {
+                if (!key) {
+                    throw new Error('Encryption key not available. Please set up master password.');
+                }
+                
+                // Encrypt data
+                const encrypted = await encryptData(dataToStore, key);
+                
+                // Use SecureStorage if available
+                if (typeof SecureStorage !== 'undefined' && SecureStorage.setItem) {
+                    const success = SecureStorage.setItem('ocrDocuments_encrypted', encrypted);
+                    if (!success) {
+                        throw new Error('Storage quota exceeded. Please export and delete old documents.');
+                    }
+                    SecureStorage.setItem('ocrDocuments_encryptionMethod', 'AES-256-GCM');
+                } else {
+                    // Fallback with try-catch
+                    try {
                         localStorage.setItem('ocrDocuments_encrypted', encrypted);
                         localStorage.setItem('ocrDocuments_encryptionMethod', 'AES-256-GCM');
-                    }).catch(err => {
-                        console.error('Verschlüsselung fehlgeschlagen, speichere unverschlüsselt:', err);
-                        localStorage.setItem('ocrDocuments', dataToStore);
-                    });
-                } else {
-                    // Kein Key verfügbar, speichere unverschlüsselt (mit Warnung)
-                    console.warn('⚠️ WARNUNG: Dokumente werden unverschlüsselt gespeichert (kein Encryption-Key)');
-                    localStorage.setItem('ocrDocuments', dataToStore);
+                    } catch (storageError) {
+                        if (storageError.name === 'QuotaExceededError') {
+                            throw new Error('Storage full! Export documents and clear old data.');
+                        }
+                        throw storageError;
+                    }
                 }
+                
+                console.info('✓ OCR documents encrypted and persisted successfully');
             } else {
-                // encryption.js nicht geladen - speichere unverschlüsselt mit Warnung
-                console.warn('⚠️ WARNUNG: Dokumente werden unverschlüsselt gespeichert (encryption.js nicht geladen)');
-                localStorage.setItem('ocrDocuments', dataToStore);
+                // SECURITY FIX: Do NOT store unencrypted sensitive medical documents
+                throw new Error(
+                    'encryption.js not loaded. Cannot store documents without encryption. ' +
+                    'This is a security requirement for GDPR compliance.'
+                );
             }
         } catch (error) {
-            console.error('Fehler beim Persistieren der Dokumente:', error);
+            console.error('❌ Failed to persist documents:', error);
+            // Show user-friendly error
+            if (typeof alert !== 'undefined') {
+                alert(
+                    '❌ Dokumente konnten nicht gespeichert werden!\n\n' +
+                    'Grund: ' + error.message + '\n\n' +
+                    'Bitte:\n' +
+                    '1. Exportieren Sie Ihre Dokumente\n' +
+                    '2. Löschen Sie alte Einträge\n' +
+                    '3. Versuchen Sie es erneut'
+                );
+            }
+            throw error; // Re-throw for caller to handle
         }
     },
     
@@ -495,7 +543,7 @@ const DOCUMENT_STORAGE_GDPR = {
     /**
      * Löscht einzelnes Dokument (Art. 17 DSGVO)
      */
-    deleteDocument(documentId) {
+    async deleteDocument(documentId) {
         const docIndex = this.documents.findIndex(doc => doc.id === documentId);
         
         if (docIndex === -1) {
@@ -503,8 +551,15 @@ const DOCUMENT_STORAGE_GDPR = {
         }
         
         const doc = this.documents[docIndex];
-        this.documents.splice(docIndex, 1);
-        this.persistDocuments();
+        const removedDoc = this.documents.splice(docIndex, 1)[0];
+        
+        try {
+            await this.persistDocuments();
+        } catch (persistError) {
+            // Rollback on persist failure
+            this.documents.splice(docIndex, 0, removedDoc);
+            throw persistError;
+        }
         
         // Audit-Log
         OCR_AUDIT.log('document_deleted', doc.filename, {
