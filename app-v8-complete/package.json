@@ -1,0 +1,26 @@
+{
+  "name": "anamnese-a-v8-complete",
+  "version": "8.2.0",
+  "description": "Medical Questionnaire Application - V8 Complete Isolated",
+  "main": "index.html",
+  "scripts": {
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "frontend": "python3 -m http.server 8080",
+    "backend": "cd backend && npm start",
+    "build": "./scripts/build.sh",
+    "test": "./scripts/test-all.sh",
+    "test:e2e": "cd tests && npx playwright test",
+    "install:all": "npm install && cd backend && npm install && cd tests && npm install",
+    "start": "npm run dev"
+  },
+  "keywords": ["medical", "gdpr", "pwa", "offline"],
+  "author": "Anamnese-A Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "concurrently": "^8.2.0"
+  }
+}
