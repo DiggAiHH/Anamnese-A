@@ -1,10 +1,16 @@
-const CACHE_VERSION = 'v8-complete-2025-12-29-001';
+const CACHE_VERSION = 'v8-complete-2025-12-29-002';
 const CACHE_NAME = `anamnese-${CACHE_VERSION}`;
 
 const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
-  '/sw.js'
+  '/sw.js',
+  '/public/lib/tesseract.min.js',
+  '/public/lib/pdf.min.js',
+  '/public/lib/pdf.worker.min.js',
+  '/public/lib/crypto-js.min.js',
+  '/public/login-ui.css',
+  '/public/login-ui.js'
 ];
 
 self.addEventListener('install', (event) => {

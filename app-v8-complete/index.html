@@ -69,12 +69,13 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <meta name="theme-color" content="#667eea">
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://js.stripe.com; 
+                   script-src 'self' 'unsafe-inline'; 
                    style-src 'self' 'unsafe-inline'; 
                    img-src 'self' data: blob:; 
-                   connect-src 'self' https://api.stripe.com https://api.anamnese-a.eu;
-                   frame-src https://js.stripe.com https://hooks.stripe.com;
-                   frame-ancestors 'none';">
+                   connect-src 'self' http://localhost:3000 https://api.anamnese-a.eu;
+                   frame-ancestors 'none';
+                   base-uri 'self';
+                   form-action 'self';">
     <title>Medizinischer Anamnesebogen v8</title>
     
     <!-- PWA Manifest -->
@@ -88,20 +89,21 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <!-- Android PWA Support -->
     <meta name="mobile-web-app-capable" content="yes">
     
+    <!-- DSGVO-KONFORM: Lokale Libraries (keine IP-Übertragung an US-Server) -->
     <!-- Tesseract.js for OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="/public/lib/tesseract.min.js"></script>
     <!-- PDF.js for PDF text extraction -->
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script src="/public/lib/pdf.min.js"></script>
     <!-- CryptoJS for encryption -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" 
-            integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNs8n9SBe7yLFSw7VHT6+rRMASB5QFcM/N7Yj4fBcN4A6L6JSNO+JKgFXkYRD+Faq==" 
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <!-- Stripe.js for payment processing -->
-    <script src="https://js.stripe.com/v3/"></script>
+    <script src="/public/lib/crypto-js.min.js"></script>
+    <!-- Login UI Styles (WCAG 2.1 AA konform) -->
+    <link rel="stylesheet" href="/public/login-ui.css">
+    <!-- Login UI Script (sessionStorage, JWT, XSS-Schutz) -->
+    <script src="/public/login-ui.js" defer></script>
     <script>
-        // Configure PDF.js worker
+        // Configure PDF.js worker (DSGVO-konform: lokal)
         if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/public/lib/pdf.worker.min.js';
         }
     </script>
     <!-- GDPR-compliant OCR Module (INLINE) -->
