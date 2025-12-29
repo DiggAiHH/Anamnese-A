@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Anamnese-A Master TODO Liste</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .header .meta {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card .number {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .stat-card.completed .number { color: #28a745; }
+        .stat-card.pending .number { color: #ffc107; }
+        .stat-card.blocked .number { color: #dc3545; }
+        .stat-card.priority .number { color: #007bff; }
+        .sections {
+            padding: 40px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .section-title {
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .todo-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+        .todo-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        .todo-item.completed {
+            background: #d4edda;
+            border-color: #28a745;
+            opacity: 0.8;
+        }
+        .todo-item.priority-high {
+            border-left: 5px solid #dc3545;
+        }
+        .todo-item.priority-medium {
+            border-left: 5px solid #ffc107;
+        }
+        .todo-item.priority-low {
+            border-left: 5px solid #17a2b8;
+        }
+        .todo-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .todo-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .todo-badges {
+            display: flex;
+            gap: 10px;
+        }
+        .badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .badge.status-completed { background: #28a745; color: white; }
+        .badge.status-pending { background: #ffc107; color: #000; }
+        .badge.status-blocked { background: #dc3545; color: white; }
+        .badge.priority-P0 { background: #dc3545; color: white; }
+        .badge.priority-P1 { background: #ffc107; color: #000; }
+        .badge.priority-P2 { background: #17a2b8; color: white; }
+        .todo-description {
+            color: #6c757d;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        .todo-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 40px;
+            background: #e9ecef;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 30px 0;
+            position: relative;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .filter-btn:hover, .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        @media print {
+            body { background: white; }
+            .container { box-shadow: none; }
+            .filter-buttons { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎯 Anamnese-A Master TODO Liste</h1>
+            <div class="meta">
+                <strong>Branch:</strong> app/v8-complete-isolated | 
+                <strong>Datum:</strong> 29. Dezember 2025 | 
+                <strong>Session:</strong> Post-Session 3
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="stats">
+            <div class="stat-card completed">
+                <div class="number">4</div>
+                <div>✅ Abgeschlossen</div>
+            </div>
+            <div class="stat-card pending">
+                <div class="number">18</div>
+                <div>⏳ Ausstehend</div>
+            </div>
+            <div class="stat-card priority">
+                <div class="number">5</div>
+                <div>🔥 High Priority</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">25</div>
+                <div>📊 Gesamt</div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div style="padding: 0 40px;">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 16%;">16% Komplett</div>
+            </div>
+        </div>
+
+        <!-- Filter Buttons -->
+        <div style="padding: 0 40px;">
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterTodos('all')">Alle (25)</button>
+                <button class="filter-btn" onclick="filterTodos('completed')">✅ Abgeschlossen (4)</button>
+                <button class="filter-btn" onclick="filterTodos('pending')">⏳ Ausstehend (18)</button>
+                <button class="filter-btn" onclick="filterTodos('priority-high')">🔥 High Priority (5)</button>
+                <button class="filter-btn" onclick="filterTodos('testing')">🧪 Testing (10)</button>
+                <button class="filter-btn" onclick="filterTodos('deployment')">🚀 Deployment (3)</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="sections">
+            <!-- SECTION 1: COMPLETED -->
+            <div class="section">
+                <h2 class="section-title">✅ Abgeschlossen (Session 3)</h2>
+                
+                <div class="todo-item completed" data-category="completed">
+                    <div class="todo-header">
+                        <div class="todo-title">✅ Privacy Accept Button Fix</div>
+                        <div class="todo-badges">
+                            <span class="badge status-completed">✅ DONE</span>
+                            <span class="badge priority-P0">P0</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>Problem:</strong> onclick="App.acceptPrivacy()" funktionierte nicht → App komplett blockiert<br>
+                        <strong>Fix:</strong> Event Listener nach DOMContentLoaded hinzugefügt<br>
+                        <strong>Commit:</strong> 14f049e
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: index_v8_complete.html (Lines 4247, 17390-17396)</span>
+                        <span>🔥 CRITICAL</span>
+                    </div>
+                </div>
+
+                <div class="todo-item completed" data-category="completed">
+                    <div class="todo-header">
+                        <div class="todo-title">✅ ESLint console.log() Cleanup</div>
+                        <div class="todo-badges">
+                            <span class="badge status-completed">✅ DONE</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>Problem:</strong> 87 console.log() violations<br>
+                        <strong>Fix:</strong> 87 → 67 entfernt (nur optionale Module übrig)<br>
+                        <strong>Commit:</strong> 14f049e
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: index_v8_complete.html (20+ locations)</span>
+                        <span>🟨 MEDIUM</span>
+                    </div>
+                </div>
+
+                <div class="todo-item completed" data-category="completed">
+                    <div class="todo-header">
+                        <div class="todo-title">✅ Lazy Loading für Libraries</div>
+                        <div class="todo-badges">
+                            <span class="badge status-completed">✅ DONE</span>
+                            <span class="badge priority-P0">P0</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>Problem:</strong> UI blockiert 2+ Sekunden (Tesseract.js 5-10 MB, PDF.js 2-5 MB)<br>
+                        <strong>Fix:</strong> Dynamic script loading nach 500ms<br>
+                        <strong>Performance:</strong> TTI 2100ms → 200ms = <strong>10x schneller!</strong><br>
+                        <strong>Commit:</strong> d37cafb
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: index_v8_complete.html (Lines 92-165, 858-950)</span>
+                        <span>🟢 MAJOR WIN</span>
+                    </div>
+                </div>
+
+                <div class="todo-item completed" data-category="completed">
+                    <div class="todo-header">
+                        <div class="todo-title">✅ Playwright E2E Tests Fix</div>
+                        <div class="todo-badges">
+                            <span class="badge status-completed">✅ DONE</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>Problem:</strong> 26 ESLint/TypeScript Fehler in playwright-e2e.spec.js<br>
+                        <strong>Fix:</strong> Block-level eslint-disable für page.evaluate(), @ts-expect-error comments<br>
+                        <strong>Commit:</strong> 9d9b87f
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: tests/playwright-e2e.spec.js</span>
+                        <span>🟢 ALL ERRORS FIXED</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: HIGH PRIORITY -->
+            <div class="section">
+                <h2 class="section-title">🔥 High Priority (Sofort angehen)</h2>
+                
+                <div class="todo-item priority-high" data-category="priority-high pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🔍 Login-System analysieren (USER REQUEST)</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P0">P0</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>User-Request:</strong> "bei der login versuch" - unklar was gemeint ist<br>
+                        <strong>Möglichkeiten:</strong><br>
+                        1. <strong>Master Password System</strong> (index_v8_complete.html): setupEncryptionKey(), 16+ chars, PBKDF2<br>
+                        2. <strong>Practice UUID Login</strong> (server.js): POST /api/validate-practice<br>
+                        3. <strong>Mobile App Login</strong> (mobile-app/): React Native authentication<br>
+                        <br>
+                        <strong>Action:</strong> User fragen welches Login-System gemeint ist, dann spezifisches Problem lösen
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 Files: index_v8_complete.html (Line 2437), server.js, demo-standalone.html</span>
+                        <span>❓ UNKLAR - User-Input benötigt</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-high" data-category="priority-high testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🔐 Master Password System - Security Audit</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P0">P0</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>Was testen:</strong><br>
+                        • PBKDF2 Key Derivation (100k iterations, SHA-256)<br>
+                        • Password strength validation (min 16 chars, complexity)<br>
+                        • Session storage security (sessionStorage vs localStorage)<br>
+                        • XSS prevention (Input sanitization)<br>
+                        • Race condition prevention (encryptionKeySetupPromise)<br>
+                        <br>
+                        <strong>Tools:</strong> OWASP ZAP, Burp Suite, Manual Penetration Testing
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: index_v8_complete.html (Lines 2437-2524, 25454)</span>
+                        <span>🔐 SECURITY CRITICAL</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-high" data-category="priority-high deployment pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🐳 Docker Production Deployment</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P0">P0</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>Steps:</strong><br>
+                        1. docker-compose up -d<br>
+                        2. Teste PostgreSQL connection<br>
+                        3. Environment variables (.env MASTER_KEY, DATABASE_URL, STRIPE_SECRET_KEY)<br>
+                        4. Health checks (/health endpoint)<br>
+                        5. Teste API endpoints (validate-practice, checkout, webhook)<br>
+                        <br>
+                        <strong>Docs:</strong> DEPLOYMENT_GUIDE.md, docker-compose.yml
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 Files: Dockerfile, docker-compose.yml, server.js</span>
+                        <span>🚀 DEPLOYMENT READY</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-high" data-category="priority-high testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">📊 Performance Audit mit Lighthouse</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>Nach Lazy Loading:</strong> TTI 200ms (war 2100ms)<br>
+                        <strong>Ziel:</strong> Lighthouse Score >90 in allen Kategorien<br>
+                        <br>
+                        <strong>Test:</strong><br>
+                        • Performance Score (Target: >90)<br>
+                        • Accessibility Score (Target: 100 - WCAG 2.1 AA)<br>
+                        • Best Practices (Target: >95)<br>
+                        • SEO (Target: >90)<br>
+                        <br>
+                        <strong>Command:</strong> lighthouse http://localhost:8080/index_v8_complete.html --view
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: index_v8_complete.html</span>
+                        <span>🚀 POST-OPTIMIZATION VALIDATION</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-high" data-category="priority-high testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🎨 Error Reporting Tool bauen</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        <strong>User-Request aus Phase 3:</strong> "Client Error Reporting Tool"<br>
+                        <br>
+                        <strong>Features:</strong><br>
+                        • ErrorBoundary (try/catch + window.onerror)<br>
+                        • Modal mit Stack-Trace + User-Input-Feld<br>
+                        • "Copy Report" Button → JSON-Format<br>
+                        • Auto-close after 10 seconds<br>
+                        <br>
+                        <strong>File vorhanden:</strong> error-reporting.js (Status prüfen + integrieren)
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: error-reporting.js, index_v8_complete.html</span>
+                        <span>🎯 UX IMPROVEMENT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: TESTING -->
+            <div class="section">
+                <h2 class="section-title">🧪 Testing (10 Items)</h2>
+                
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">📱 PWA Installation Testing</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        PWA Features implementiert (v8.1.0) aber Tests fehlen<br>
+                        <strong>Test:</strong> Install-Banner, Offline Mode, Service Worker, Update Notification<br>
+                        <strong>Files:</strong> manifest.json, sw.js (prüfen ob vorhanden), index_v8_complete.html
+                    </div>
+                    <div class="todo-footer">
+                        <span>Plattformen: iOS, Android, Desktop</span>
+                        <span>🔵 FEATURE VALIDATION</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🌐 19-Sprachen RTL Layout testen</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        RTL-Support für Arabisch, Farsi, Urdu implementiert<br>
+                        <strong>Test:</strong> Layout, Text-Alignment, Navigation (Zurück/Weiter Buttons)<br>
+                        <strong>File:</strong> index_v8_complete.html (translations section)
+                    </div>
+                    <div class="todo-footer">
+                        <span>Sprachen: Arabic, Farsi, Urdu</span>
+                        <span>🌍 I18N CRITICAL</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">♿ Accessibility WCAG 2.1 AA Audit</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Features implementiert aber kein formales Audit<br>
+                        <strong>Test:</strong> playwright-accessibility.spec.js, axe-core, NVDA/JAWS Screen Reader<br>
+                        <strong>Prüfen:</strong> Skip links, ARIA labels, Keyboard navigation, Focus management
+                    </div>
+                    <div class="todo-footer">
+                        <span>Target: WCAG 2.1 AA Compliance</span>
+                        <span>♿ ACCESSIBILITY</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">📤 GDT Export Testing mit PVS</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        GDT Export implementiert, Test mit echtem Practice Management System nötig<br>
+                        <strong>Systeme:</strong> Medatixx, CGM, Quincy<br>
+                        <strong>Files:</strong> gdt-export.js, gdt-export-templates.js, GDT_EXPORT_README.md
+                    </div>
+                    <div class="todo-footer">
+                        <span>🏥 PRAXIS INTEGRATION</span>
+                        <span>🔵 EXTERNAL VALIDATION</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🎤 Vosk Speech Recognition Tests</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Vosk 50MB German model implementiert<br>
+                        <strong>Test:</strong> Model loading, Browser fallback, Accuracy, Offline mode<br>
+                        <strong>Prüfen:</strong> models/ Verzeichnis vollständig?
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: index_v8_complete.html (Vosk section)</span>
+                        <span>🎙️ OFFLINE AI</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">📷 OCR DSGVO-Compliance Testing</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Tesseract.js ohne externe APIs<br>
+                        <strong>Test:</strong> Privacy notice, Audit logging, Right to deletion, No cloud upload guarantee<br>
+                        <strong>Files:</strong> ocr-gdpr-module.js, DSGVO_OCR_COMPLIANCE.md
+                    </div>
+                    <div class="todo-footer">
+                        <span>🔐 PRIVACY CRITICAL</span>
+                        <span>🇪🇺 GDPR ART. 13, 17, 30</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🔑 Practice Code Generator Backend</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        server.js mit 5 API Endpoints, PostgreSQL<br>
+                        <strong>Test:</strong> validate-practice, checkout, webhook, code retrieval, health<br>
+                        <strong>Start:</strong> npm start (Port 3000)
+                    </div>
+                    <div class="todo-footer">
+                        <span>📄 File: server.js, database/schema.sql</span>
+                        <span>🔵 BACKEND CRITICAL</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🎯 Conditional Logic Testing</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Geschlechts-spezifische Fragen implementiert<br>
+                        <strong>Test:</strong> Male/Female/Diverse Flows, Required field logic, Skip patterns<br>
+                        <strong>Docs:</strong> FRAGEBOGEN_STRUKTUR_ANALYSE.md
+                    </div>
+                    <div class="todo-footer">
+                        <span>🧠 LOGIC VALIDATION</span>
+                        <span>🔵 USER EXPERIENCE</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">💾 LocalStorage Quota Handling</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        SecureStorage wrapper mit QuotaExceededError handling<br>
+                        <strong>Test:</strong> Fill storage, Auto-cleanup, Fallback behavior<br>
+                        <strong>File:</strong> index_v8_complete.html (SecureStorage class)
+                    </div>
+                    <div class="todo-footer">
+                        <span>🔧 EDGE CASE HANDLING</span>
+                        <span>🔵 ROBUSTNESS</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-medium" data-category="testing pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🔄 Auto-Save & Auto-Restore Testing</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Auto-save alle 2 Sekunden + Auto-restore innerhalb 24h<br>
+                        <strong>Test:</strong> Rate limiting (10 saves/min), Visual indicator, Restore prompt<br>
+                        <strong>File:</strong> index_v8_complete.html
+                    </div>
+                    <div class="todo-footer">
+                        <span>💾 DATA PERSISTENCE</span>
+                        <span>🔵 UX CRITICAL</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 4: DEPLOYMENT & INFRASTRUCTURE -->
+            <div class="section">
+                <h2 class="section-title">🚀 Deployment & Infrastructure</h2>
+                
+                <div class="todo-item priority-medium" data-category="deployment pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🌐 Netlify/Vercel Deployment</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P1">P1</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        netlify.toml + vercel.json vorhanden<br>
+                        <strong>Test:</strong> Static deployment, Environment variables, Redirects, SSL<br>
+                        <strong>Files:</strong> netlify.toml, DEPLOYMENT_FREE_HOSTING.md
+                    </div>
+                    <div class="todo-footer">
+                        <span>🌐 STATIC HOSTING</span>
+                        <span>💰 FREE TIER</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-low" data-category="deployment pending">
+                    <div class="todo-header">
+                        <div class="todo-title">📱 Mobile App Status prüfen</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        mobile-app/ Verzeichnis mit TypeScript + React Native<br>
+                        <strong>Prüfen:</strong> Build status, Tests, Native encryption<br>
+                        <strong>Docs:</strong> mobile-app/docs/03_ARCHITECTURE.md
+                    </div>
+                    <div class="todo-footer">
+                        <span>📱 SEPARATE CODEBASE</span>
+                        <span>🔵 OPTIONAL</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-low" data-category="deployment pending">
+                    <div class="todo-header">
+                        <div class="todo-title">💰 Licensing System aktivieren</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Usage-based Billing (€0.50/export) implementiert aber deaktiviert<br>
+                        <strong>Prüfen:</strong> Token activation, Usage metering, Stripe integration, EU-only backend<br>
+                        <strong>Docs:</strong> docs/LICENSING_AND_BILLING.md, docs/ROI.md
+                    </div>
+                    <div class="todo-footer">
+                        <span>💵 MONETIZATION</span>
+                        <span>🔵 BUSINESS MODEL</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 5: CODE QUALITY & DOCUMENTATION -->
+            <div class="section">
+                <h2 class="section-title">📚 Code Quality & Documentation</h2>
+                
+                <div class="todo-item priority-low" data-category="pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🧪 Test-Coverage erweitern</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Aktuelle Tests: test-basic.js, test-integration.js, playwright-e2e.spec.js<br>
+                        <strong>Fehlend:</strong> Unit tests für encryption.js, gdpr-compliance.js, AI plausibility check<br>
+                        <strong>Target:</strong> >80% code coverage
+                    </div>
+                    <div class="todo-footer">
+                        <span>🧪 QUALITY ASSURANCE</span>
+                        <span>🔵 LONG-TERM</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-low" data-category="pending">
+                    <div class="todo-header">
+                        <div class="todo-title">🔍 ESLint 67 verbleibende Warnings</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        67 console.log() in optionalen Modulen übrig (OCR, PWA, Network)<br>
+                        <strong>Entscheidung:</strong> Behalten (dev/debug) oder ersetzen durch logging system?<br>
+                        <strong>File:</strong> index_v8_complete.html
+                    </div>
+                    <div class="todo-footer">
+                        <span>📝 CODE QUALITY</span>
+                        <span>🟡 LOW PRIORITY</span>
+                    </div>
+                </div>
+
+                <div class="todo-item priority-low" data-category="pending">
+                    <div class="todo-header">
+                        <div class="todo-title">📝 Dokumentation vervollständigen</div>
+                        <div class="todo-badges">
+                            <span class="badge status-pending">⏳ TODO</span>
+                            <span class="badge priority-P2">P2</span>
+                        </div>
+                    </div>
+                    <div class="todo-description">
+                        Viele README Dateien vorhanden aber teils veraltet<br>
+                        <strong>Aktualisieren:</strong><br>
+                        • CHANGELOG.md (v8.2.1 Session 3 fixes)<br>
+                        • README.md (Session 3 erwähnen)<br>
+                        • TEST_DOCUMENTATION.md (Playwright tests)<br>
+                    </div>
+                    <div class="todo-footer">
+                        <span>📚 DOCUMENTATION</span>
+                        <span>🔵 MAINTENANCE</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div style="padding: 40px; background: #f8f9fa;">
+            <h3 style="text-align: center; margin-bottom: 20px;">📊 Legende</h3>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #dc3545;"></div>
+                    <span>P0 - Critical (SOFORT)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffc107;"></div>
+                    <span>P1 - High (Diese Woche)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #17a2b8;"></div>
+                    <span>P2 - Medium (Nächste Woche)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #28a745;"></div>
+                    <span>✅ Completed</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 20px; text-align: center; background: #2c3e50; color: white;">
+            <p><strong>📍 Repository:</strong> DiggAiHH/Anamnese-A</p>
+            <p><strong>🌿 Branch:</strong> app/v8-complete-isolated</p>
+            <p><strong>📅 Letzte Aktualisierung:</strong> 29. Dezember 2025 - Post-Session 3</p>
+            <p><strong>✨ Commits:</strong> 132f1aa, 14f049e, d37cafb, 9d9b87f</p>
+        </div>
+    </div>
+
+    <script>
+        // Filter functionality
+        function filterTodos(category) {
+            const allItems = document.querySelectorAll('.todo-item');
+            const buttons = document.querySelectorAll('.filter-btn');
+            
+            // Update button states
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Filter items
+            if (category === 'all') {
+                allItems.forEach(item => item.style.display = 'block');
+            } else {
+                allItems.forEach(item => {
+                    const categories = item.getAttribute('data-category') || '';
+                    if (categories.includes(category)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        // Print functionality
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+                e.preventDefault();
+                window.print();
+            }
+        });
+
+        // Smooth scroll for in-page links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -56,7 +56,7 @@ const PII_PATTERNS = {
     
     // Telefonnummern (deutsche Formate)
     phone: {
-        regex: /(?:\+49|0049|0)\s*(?:\(0\))?[\s.-]?\d{2,5}[\s.-]?\d{3,}[\s.-]?\d{3,}/g,
+        regex: /(?:\+49|0049|0)\s*(?:\(0\))?[\s.\/-]?\d{2,5}[\s.\/-]?\d{3,}[\s.\/-]?\d{3,}/g,
         type: 'PHONE',
         examples: ['+49 30 12345678', '0171 1234567', '030/12345678']
     },

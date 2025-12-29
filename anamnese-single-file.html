@@ -46,8 +46,8 @@ AUTHOR: DiggAi GmbH
     <meta name="author" content="DiggAi GmbH">
     <title>Medizinische Anamnese - Vollständige Einzeldatei-Anwendung</title>
     
-    <!-- Vosk Library Async Load -->
-    <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.9/dist/vosk.js"></script>
+        <!-- DSGVO-SAFE: Vosk-Browser muss lokal bereitgestellt werden -->
+    <script src="lib/vosk/vosk.js"></script>
     <script>
 // =================================================================
 // NEUE FUNKTIONEN FÜR LOGIK UND UI-VERBESSERUNGEN (MANUS)
@@ -11988,18 +11988,13 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                     statusEl.style.display = 'block';
                     
                     // Modell-Konfiguration / Model configuration
-                    const MODEL_CONFIG = {
-                        local: {
-                            url: "models/vosk-model-small-de-0.15.zip",
-                            size: "45MB",
-                            name: "German Small Model"
-                        },
-                        cdn: {
-                            url: "https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-de-0.15.tar.gz",
-                            size: "~50MB",
-                            name: "German Small Model (CDN)"
-                        }
-                    };
+                                        const MODEL_CONFIG = {
+                                                local: {
+                                                        url: "models/vosk-model-small-de-0.15.zip",
+                                                        size: "45MB",
+                                                        name: "German Small Model"
+                                                }
+                                        };
                     
                     statusEl.textContent = `⏳ Lade Vosk Sprachmodell (${MODEL_CONFIG.local.size})...`;
                     
@@ -12007,22 +12002,16 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
                     let modelUrl = MODEL_CONFIG.local.url;
                     let modelInfo = MODEL_CONFIG.local;
                     
-                    // Prüfe ob lokales Modell verfügbar ist
+                                        // Prüfe ob lokales Modell verfügbar ist (DSGVO: kein Remote-Fallback)
                     try {
                         const response = await fetch(MODEL_CONFIG.local.url, { method: 'HEAD' });
                         if (!response.ok) {
-                            console.warn('Lokales Vosk-Modell nicht gefunden, verwende CDN...');
-                            modelUrl = MODEL_CONFIG.cdn.url;
-                            modelInfo = MODEL_CONFIG.cdn;
-                            statusEl.textContent = `⏳ Lade ${modelInfo.name} (${modelInfo.size})...`;
+                                                        throw new Error('Lokales Vosk-Modell nicht gefunden');
                         } else {
-                            console.log(`Verwende ${modelInfo.name} (${modelInfo.size})`);
+                                                        console.warn(`Verwende ${modelInfo.name} (${modelInfo.size})`);
                         }
                     } catch (error) {
-                        console.warn('Fehler beim Prüfen des lokalen Modells, verwende CDN:', error);
-                        modelUrl = MODEL_CONFIG.cdn.url;
-                        modelInfo = MODEL_CONFIG.cdn;
-                        statusEl.textContent = `⏳ Lade ${modelInfo.name} (${modelInfo.size})...`;
+                                                throw new Error('Vosk-Modell lokal nicht verfügbar');
                     }
                     
                     if (typeof Vosk === 'undefined') {
@@ -12083,7 +12072,7 @@ App.updateJsonBox = updateJsonBox; // Für die Initialisierung
 
                     const source = AppState.audioContext.createMediaStreamSource(AppState.mediaStream);
                     
-                    // AudioWorklet für Vosk laden (muss vom CDN oder lokal geladen werden)
+                    // AudioWorklet für Vosk laden (muss lokal geladen werden)
                     // Vosk Browser bundled normalerweise einen Processor. 
                     // Wir nutzen hier eine einfachere Methode direkt über den Recognizer wenn möglich, 
                     // oder den Standard-Weg via Worklet.

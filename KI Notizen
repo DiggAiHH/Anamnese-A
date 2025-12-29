@@ -17,3 +17,121 @@
    - OCR-Funktionen warten automatisch auf Libraries (max 5 Sekunden)
 
 SIEHE: BUGFIX_SESSION_3_REPORT.md für Details!
+
+
+=================================================================
+LOGIN-FIX STATUS (29.12.2025) – "bei der login versuch"
+=================================================================
+
+HISTORY-AWARE: Es existieren mehrere Login-Implementierungen im Repo:
+- app-v8-complete/public/login-ui.js nutzt POST /api/auth/login
+- app-v8-complete/backend/server.js ist ein Mock-Login-Server
+- Root server.js ist das Stripe/Code-Generator Backend
+
+Aktueller Fix (Root Backend):
+- ✅ /api/auth/login + /api/auth/logout im Root server.js ergänzt (kompatibel zu login-ui.js)
+- ✅ DSGVO-SAFE: httpOnly Cookie gesetzt (anamnese_session) + Token optional im JSON Response
+- ✅ DB-Schema erweitert: users + sessions Tabellen in database/schema.sql
+- ✅ Test-User Seed erstellt: database/seeds_auth.sql (test@example.com / password123)
+
+WICHTIG (DevOps):
+- Der Postgres-Container ist in docker-compose.yml NICHT nach localhost:5432 gemappt.
+  Local node server.js kann daher nicht direkt auf localhost verbinden.
+  Login-Test erfolgt über docker-compose backend (verbindet via db:5432).
+
+NEU (29.12.2025) – End-to-End Fixes bestätigt:
+- ✅ Docker-Build repariert (Dockerfile: kein COPY von /app/models mehr)
+- ✅ DB SSL Auto-Detection: SSL ist jetzt opt-in (nicht mehr automatisch bei NODE_ENV=production)
+- ✅ COOKIE_SECURE konfigurierbar (docker-compose Default: false für HTTP localhost)
+- ✅ CORS für Cookies: credentials=true + Origin-Allowlist (Frontend 8080 → Backend 3000)
+- ✅ Smoke-Test OK: Preflight (OPTIONS) + Login (POST) setzen Cookie korrekt
+
+NEU (29.12.2025) – Frontend-Dev-Kompatibilität:
+- ✅ index_v8_complete.html: CSP angepasst (Stripe script-src erlaubt, connect-src erlaubt localhost:3000)
+- ✅ index_v8_complete.html: fonts.css eingebunden (lokale Fonts)
+
+
+=================================================================
+6-PHASEN AUFGABENPLAN (Efficiency & Deep Context Mode)
+=================================================================
+
+Phase 0 – Historische Tiefenanalyse
+[x] Git-Log Scan (letzte 30 Commits) – Branch app/v8-complete-isolated
+[x] Pattern Recognition: Login-Varianten identifiziert (Mock vs Root Backend)
+[x] Vermeidung: Kein neues Auth-System neben bestehendem – stattdessen Vereinheitlichung
+
+Phase 1 – Legal & Tech Audit (DSGVO Hardening)
+[x] @fontsource/roboto installiert + fonts.css erstellt (lokale Fonts)
+[x] CDN-Minimierung: CryptoJS lokal; Stripe.js bleibt Ausnahme (PCI-DSS)
+[ ] Asset Management Rest: Restliche externe Assets/URLs scannen + lokal bündeln
+
+Phase 2 – Deployment & Architecture Strategy
+[x] Dockerfile: 3-Stage Build optimiert
+[x] docker-compose.yml vorhanden (backend/frontend/db)
+[x] netlify.toml + vercel.json vorhanden
+[ ] One-Command Start Script: unify setup + db migrate + up (optional)
+
+Phase 3 – Tester-Feedback-System (Debug-Overlay)
+[x] middleware/error-handler.js erstellt (Backend + Frontend Overlay)
+[x] Root server.js: Global Error Handler integriert
+[ ] Debug-Overlay in index_v8_complete.html tatsächlich einbinden (falls noch nicht)
+
+Phase 4 – Atomic Testing & Matrix des Scheiterns
+[x] Playwright Tests angelegt (E2E + responsive + accessibility)
+[ ] Selektoren an DOM von index_v8_complete.html anpassen (0/35 passing)
+[ ] Matrix: UI-Elemente → Tests/Checks komplettieren (ARIA/Keyboard/Offline)
+
+Phase 5 – Execution (Codespace Optimized)
+[x] Fehlende Auth-Dependencies installiert (jsonwebtoken, cookie-parser, bcryptjs)
+[x] DB Schema + Seeds für Login ergänzt
+[x] Login-End-to-End via docker-compose backend validiert (inkl. CORS/Cookies)
+
+
+=================================================================
+OFFENE TO-DOS (VOLLSTÄNDIGE LISTE – WEB/MOBILE/CROSS-PLATFORM)
+=================================================================
+
+[ ] Unified Auth-Flow (Web + Mobile)
+   - Ziel: Eine Auth-API (/api/auth/*) + Shared Client Logic
+   - Web: httpOnly Cookie + optionaler Token-Response für Debug
+   - Mobile: Secure Storage (Keychain/Keystore) + Refresh-Strategy
+
+[ ] Cross-Platform Storage
+   - Web: IndexedDB (strukturierte Offline-Daten)
+   - Mobile: SQLite oder MMKV (je nach Stack)
+   - Shared: einheitliche Storage-API (Adapter Pattern)
+
+[ ] Monorepo Scaffolding
+   - Shared Core Package (shared/): validation, models, crypto wrappers, i18n
+   - Mobile App: RN/Expo – nur wenn wirklich benötigt
+
+[ ] API Gateway / lokale API Umgebung
+   - docker-compose: backend + db stabil, healthchecks, env-Validation
+   - Optional: reverse proxy (nur falls nötig)
+
+[ ] Asset Management (DSGVO)
+   - Vollscan nach externen URLs (CDN, Fonts, Analytics, Tracking)
+   - Lokal bündeln: pdf.js/tesseract.js bereits lazy lokal, QR-Code prüfen
+
+[ ] ARIA-Labels vervollständigen (index_v8_complete.html)
+   - Buttons/Inputs/Selects: aria-label / aria-describedby
+   - Fokus-Reihenfolge, Skip-Links, Live Regions
+
+[ ] Performance Audit
+   - Lighthouse Headless hängt → manuell im Browser oder alternative CI config
+
+[ ] Vosk Speech Model
+   - Download/Packaging-Strategie (optional, großes Asset)
+   - Fallback: Browser Speech API
+
+[ ] Multi-Dokument-Upload Testing
+   - Playwright: Multi-file Upload + OCR-Flows (PDF/Bilder)
+
+[ ] Screen Reader Testing
+   - NVDA/JAWS/VoiceOver – manual checklist + dokumentieren
+
+[ ] Playwright Accessibility-Test Fix
+   - Hänger/Selektoren – auf tatsächliche DOM-Struktur mappen
+
+
+

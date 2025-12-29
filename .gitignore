@@ -2,6 +2,11 @@
 model/vosk-model-*
 model/*.zip
 
+# VOSK Models (repo uses 'models/' as well)
+models/*.zip
+models/*.zip.*
+models/wget-log*
+
 # OS files
 .DS_Store
 Thumbs.db

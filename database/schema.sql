@@ -55,3 +55,36 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_practice_id ON audit_log(practice_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+
+-- =============================================================================
+-- AUTH TABLES (HISTORY-AWARE: align with middleware/auth.js expectations)
+-- =============================================================================
+
+-- Users (minimal: practice admins/operators)
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  practice_id UUID REFERENCES practices(id),
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'practice_admin',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_practice_id ON users(practice_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- Sessions (server-side, DSGVO-friendly)
+CREATE TABLE IF NOT EXISTS sessions (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  practice_id UUID REFERENCES practices(id) ON DELETE SET NULL,
+  metadata JSONB,
+  expires_at TIMESTAMP NOT NULL,
+  revoked BOOLEAN DEFAULT false,
+  revoked_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);

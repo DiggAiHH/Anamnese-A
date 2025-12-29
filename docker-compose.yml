@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Payment Generator Backend (Node.js)
   backend:
@@ -11,11 +9,13 @@ services:
       - NODE_ENV=production
       - DEV_BYPASS_PAYMENT=${DEV_BYPASS_PAYMENT:-false}  # HISTORY-AWARE: Dev bypass option
       - DATABASE_URL=postgresql://anamnese_user:anamnese_password@db:5432/anamnese
+      - JWT_SECRET=${JWT_SECRET:-dev-insecure-jwt-secret-change-in-production}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - MASTER_KEY=${MASTER_KEY}
       - SESSION_SECRET=${SESSION_SECRET}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8080}
       - ANAMNESE_BASE_URL=${ANAMNESE_BASE_URL:-http://localhost:8080}
     depends_on:
       db:

@@ -6,9 +6,9 @@
     <title>Test: DSGVO-konformes OCR-Modul</title>
     
     <!-- Tesseract.js for OCR -->
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="public/lib/tesseract.min.js"></script>
     <!-- PDF.js for PDF text extraction -->
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script src="public/lib/pdf.min.js"></script>
     <script>
         // Configure PDF.js worker
         if (typeof pdfjsLib !== 'undefined') {
@@ -326,20 +326,30 @@
             const originalXHR = window.XMLHttpRequest.prototype.open;
             const apiCalls = [];
             
-            // Monitor fetch
+            // Monitor fetch (flag external origins only)
             window.fetch = function(...args) {
-                const url = args[0];
-                if (!url.includes('cdn.jsdelivr.net') && !url.includes('localhost')) {
-                    apiCalls.push({ type: 'fetch', url: url });
+                const rawUrl = args[0];
+                try {
+                    const absolute = new URL(String(rawUrl), window.location.href);
+                    if (absolute.origin !== window.location.origin) {
+                        apiCalls.push({ type: 'fetch', url: absolute.href });
+                    }
+                } catch (e) {
+                    // Ignore URL parsing errors
                 }
                 return originalFetch.apply(this, args);
             };
             
-            // Monitor XHR
+            // Monitor XHR (flag external origins only)
             window.XMLHttpRequest.prototype.open = function(...args) {
-                const url = args[1];
-                if (url && !url.includes('cdn.jsdelivr.net') && !url.includes('localhost')) {
-                    apiCalls.push({ type: 'XHR', url: url });
+                const rawUrl = args[1];
+                try {
+                    const absolute = new URL(String(rawUrl), window.location.href);
+                    if (absolute.origin !== window.location.origin) {
+                        apiCalls.push({ type: 'XHR', url: absolute.href });
+                    }
+                } catch (e) {
+                    // Ignore URL parsing errors
                 }
                 return originalXHR.apply(this, args);
             };

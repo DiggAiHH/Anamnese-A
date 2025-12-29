@@ -740,9 +740,14 @@ async function performOCRWithAudit(file) {
             {
                 logger: m => {
                     if (m.status === 'recognizing text') {
-                        console.log('OCR Fortschritt:', Math.round(m.progress * 100) + '%');
+                        // OCR Fortschritt: Math.round(m.progress * 100) + '%' (console.log removed per ESLint)
                     }
-                }
+                },
+                // DSGVO: Erzwinge lokale Assets (kein Remote-Fallback über Default-URLs)
+                workerPath: 'public/lib/tesseract-worker.min.js',
+                corePath: 'public/lib/tesseract-core',
+                langPath: 'public/lib/tesseract-lang',
+                gzip: false
             }
         );
         

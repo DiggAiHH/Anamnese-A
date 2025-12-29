@@ -9,6 +9,9 @@ const { Pool } = require('pg');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const winston = require('winston');
 const path = require('path');
+const { AuthService } = require('./middleware/auth');  // HISTORY-AWARE: JWT/Session Auth
+const cookieParser = require('cookie-parser');
+const bcrypt = require('bcryptjs');
 
 // Initialize Express app
 const app = express();
@@ -61,11 +64,35 @@ if (DEV_BYPASS_PAYMENT) {
   logger.warn('⚠️  DEV_BYPASS_PAYMENT is ACTIVE - Payment bypass enabled for testing');
 }
 
-// Database connection pool (DSGVO-SAFE: Skip in dev-bypass mode)
-const pool = DEV_BYPASS_PAYMENT ? null : new Pool({
+// Database connection pool
+// HISTORY-AWARE: DEV_BYPASS still needs DB for code generation + auth
+// DSGVO-SAFE: allow running without DB only if DATABASE_URL is unset
+function shouldUseDatabaseSSL() {
+  const databaseSsl = (process.env.DATABASE_SSL || '').toLowerCase();
+  if (databaseSsl === 'true' || databaseSsl === '1' || databaseSsl === 'require') return true;
+
+  const pgsslmode = (process.env.PGSSLMODE || '').toLowerCase();
+  if (pgsslmode === 'require' || pgsslmode === 'verify-full' || pgsslmode === 'verify-ca') return true;
+
+  const databaseUrl = process.env.DATABASE_URL || '';
+  if (/sslmode=require/i.test(databaseUrl)) return true;
+  if (/[?&]ssl=true/i.test(databaseUrl)) return true;
+
+  return false;
+}
+
+function parseBooleanEnv(value, defaultValue) {
+  if (value === undefined) return defaultValue;
+  const normalized = String(value).toLowerCase().trim();
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
+  if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
+  return defaultValue;
+}
+
+const pool = process.env.DATABASE_URL ? new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+  ssl: shouldUseDatabaseSSL() ? { rejectUnauthorized: false } : false
+}) : null;
 
 // Test database connection (DSGVO-SAFE: Skip in dev-bypass mode)
 if (pool) {
@@ -77,7 +104,7 @@ if (pool) {
     }
   });
 } else {
-  logger.info('Database connection SKIPPED (DEV_BYPASS_PAYMENT mode)');
+  logger.warn('Database connection DISABLED (no DATABASE_URL set)');
 }
 
 // Rate limiting
@@ -101,8 +128,44 @@ app.use(helmet({
     }
   }
 }));
-app.use(cors());
+
+// CORS: allow browser to send/receive httpOnly cookies across ports (same-site)
+const allowedCorsOrigins = new Set();
+function addAllowedOrigin(raw) {
+  if (!raw) return;
+  try {
+    const origin = new URL(raw).origin;
+    allowedCorsOrigins.add(origin);
+  } catch (err) {
+    // ignore invalid URLs
+  }
+}
+
+addAllowedOrigin(process.env.ANAMNESE_BASE_URL);
+addAllowedOrigin(process.env.FRONTEND_URL);
+
+// Local dev defaults (docker-compose frontend)
+addAllowedOrigin('http://localhost:8080');
+addAllowedOrigin('http://127.0.0.1:8080');
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Non-browser clients (no Origin header) should pass
+    if (!origin) return callback(null, true);
+    if (allowedCorsOrigins.has(origin)) return callback(null, true);
+    return callback(new Error('CORS origin not allowed'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(limiter);
+
+// Cookies (required for httpOnly session cookie auth)
+app.use(cookieParser());
 
 // Body parser - raw for webhooks
 app.use('/webhook', express.raw({ type: 'application/json' }));
@@ -111,6 +174,22 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
+
+// =============================================================================
+// AUTH SERVICE (DSGVO-konform: httpOnly Cookie + server-side sessions)
+// =============================================================================
+const authService = pool ? new AuthService(pool) : null;
+
+function requireDatabase(req, res) {
+  if (!pool) {
+    res.status(503).json({
+      error: 'Service Unavailable',
+      message: 'Database not configured'
+    });
+    return false;
+  }
+  return true;
+}
 
 // Helper function for AES-256 encryption
 function encryptData(data) {
@@ -201,6 +280,119 @@ async function generateAccessCode(metadata, sessionId) {
 }
 
 // API Routes
+
+// =============================================================================
+// AUTH ROUTES (HISTORY-AWARE: fixes "bei der login versuch" for login-ui.js)
+// =============================================================================
+
+// POST /api/auth/login
+app.post('/api/auth/login', async (req, res) => {
+  if (!requireDatabase(req, res)) return;
+  if (!authService) {
+    return res.status(503).json({ error: 'Service Unavailable', message: 'Auth not configured' });
+  }
+
+  try {
+    const schema = Joi.object({
+      email: Joi.string().email().max(255).required(),
+      password: Joi.string().min(1).max(512).required()
+    });
+
+    const { error, value } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ error: 'Invalid input' });
+    }
+
+    const email = value.email.toLowerCase();
+    const password = value.password;
+
+    const userResult = await pool.query(
+      'SELECT id, email, password_hash, role, practice_id, is_active FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (userResult.rows.length === 0) {
+      await new Promise((r) => setTimeout(r, 400));
+      return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
+    }
+
+    const user = userResult.rows[0];
+    if (!user.is_active) {
+      return res.status(403).json({ error: 'Account deaktiviert' });
+    }
+
+    const passwordOk = bcrypt.compareSync(password, user.password_hash);
+    if (!passwordOk) {
+      await new Promise((r) => setTimeout(r, 400));
+      return res.status(401).json({ error: 'Ungültige Anmeldedaten' });
+    }
+
+    const session = await authService.createSession(user.id, user.practice_id, {
+      userAgent: req.get('user-agent') || null,
+      ip: req.ip || null
+    });
+
+    const token = authService.generateToken({
+      sessionId: session.id,
+      userId: user.id,
+      practiceId: user.practice_id
+    });
+
+    // DSGVO-SAFE: httpOnly Cookie; frontend braucht Token nicht im JS-Kontext
+    res.cookie('anamnese_session', token, {
+      httpOnly: true,
+      secure: parseBooleanEnv(process.env.COOKIE_SECURE, process.env.NODE_ENV === 'production'),
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    await logAudit(
+      user.practice_id,
+      'AUTH_LOGIN_SUCCESS',
+      { userId: user.id, role: user.role },
+      req
+    );
+
+    // HISTORY-AWARE: keep response compatible with existing login-ui.js
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        practiceId: user.practice_id
+      }
+    });
+  } catch (err) {
+    logger.error('Auth login error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/auth/logout
+app.post('/api/auth/logout', async (req, res) => {
+  if (!requireDatabase(req, res)) return;
+  if (!authService) {
+    return res.status(503).json({ error: 'Service Unavailable', message: 'Auth not configured' });
+  }
+
+  try {
+    const token = req.cookies?.anamnese_session;
+    if (token) {
+      const decoded = authService.verifyToken(token);
+      if (decoded?.sessionId) {
+        await authService.revokeSession(decoded.sessionId);
+      }
+    }
+
+    res.clearCookie('anamnese_session');
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Auth logout error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // POST /api/validate-practice
 app.post('/api/validate-practice', async (req, res) => {
@@ -489,11 +681,16 @@ app.get('/api/bypass-status', (req, res) => {
   res.json({ bypassEnabled: DEV_BYPASS_PAYMENT });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal server error' });
-});
+// =============================================================================
+// GLOBAL ERROR HANDLER (HISTORY-AWARE: Phase 3 - Error Handling)
+// =============================================================================
+const { ErrorHandler } = require('./middleware/error-handler');
+
+// Not Found Handler (must be before error handler)
+app.use(ErrorHandler.notFound);
+
+// Global Error Handler (must be last middleware)
+app.use(ErrorHandler.handle);
 
 // Start server
 app.listen(PORT, () => {
@@ -504,6 +701,9 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM signal received: closing HTTP server');
+  if (!pool) {
+    process.exit(0);
+  }
   pool.end(() => {
     logger.info('Database pool closed');
     process.exit(0);
