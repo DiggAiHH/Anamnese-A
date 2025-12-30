@@ -12,8 +12,8 @@ import { getLocales } from 'react-native-localize';
 import de from './locales/de.json';
 import en from './locales/en.json';
 
-// Get device language
-const deviceLanguage = getLocales()[0]?.languageCode ?? 'de';
+// Get device language (fallback to 'de')
+const deviceLanguage = getLocales()[0]?.languageTag?.split('-')[0] ?? 'de';
 
 i18n
   .use(initReactI18next)

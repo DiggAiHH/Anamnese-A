@@ -1,7 +1,6 @@
 import { DatabaseConnection } from './DatabaseConnection';
 import { IDocumentRepository } from '@domain/repositories/IDocumentRepository';
 import { DocumentEntity } from '@domain/entities/Document';
-import { EncryptedDataVO } from '@domain/value-objects/EncryptedData';
 
 /**
  * SQLite implementation of Document Repository
@@ -184,24 +183,62 @@ export class SQLiteDocumentRepository implements IDocumentRepository {
     return results.rows.item(0).count || 0;
   }
 
+  async getFilePath(id: string): Promise<string | null> {
+    const query = 'SELECT encrypted_file_path FROM documents WHERE id = ?';
+    const results = await this.db.executeSql(query, [id]);
+
+    if (results.rows.length === 0) {
+      return null;
+    }
+
+    return results.rows.item(0).encrypted_file_path;
+  }
+
+  async getStorageStats(patientId: string): Promise<{
+    totalFiles: number;
+    totalSize: number;
+    fileTypes: Record<string, number>;
+  }> {
+    const query = `
+      SELECT mime_type, COUNT(*) as count, SUM(file_size) as totalSize
+      FROM documents
+      WHERE patient_id = ?
+      GROUP BY mime_type
+    `;
+    const results = await this.db.executeSql(query, [patientId]);
+
+    let totalFiles = 0;
+    let totalSize = 0;
+    const fileTypes: Record<string, number> = {};
+
+    for (let i = 0; i < results.rows.length; i++) {
+      const row = results.rows.item(i);
+      totalFiles += row.count || 0;
+      totalSize += row.totalSize || 0;
+      fileTypes[row.mime_type] = row.count || 0;
+    }
+
+    return { totalFiles, totalSize, fileTypes };
+  }
+
   /**
    * Map database row to DocumentEntity
    */
   private mapRowToEntity(row: any): DocumentEntity {
-    return DocumentEntity.create({
+    return DocumentEntity.fromPersistence({
       id: row.id,
       patientId: row.patient_id,
-      questionnaireId: row.questionnaire_id || undefined,
+      questionnaireId: row.questionnaire_id,
       type: row.type,
       mimeType: row.mime_type,
       fileName: row.file_name,
       fileSize: row.file_size,
       encryptedFilePath: row.encrypted_file_path,
-      ocrData: row.ocr_data ? JSON.parse(row.ocr_data) : undefined,
+      ocrData: row.ocr_data,
       ocrConsentGranted: row.ocr_consent_granted === 1,
-      uploadedAt: new Date(row.uploaded_at),
-      updatedAt: new Date(row.updated_at),
-      auditLog: JSON.parse(row.audit_log),
+      uploadedAt: row.uploaded_at,
+      updatedAt: row.updated_at,
+      auditLog: row.audit_log,
     });
   }
 }

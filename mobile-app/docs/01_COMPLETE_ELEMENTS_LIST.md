@@ -355,14 +355,14 @@ const plausibilityRules = {
 interface EncryptionConfig {
   algorithm: 'AES-256-GCM';
   keyDerivation: 'PBKDF2';
-  iterations: 100000;
+  iterations: 600000;
   saltLength: 16; // bytes
   ivLength: 12; // bytes (GCM standard)
   tagLength: 16; // bytes
 }
 
 // Verwendung:
-// 1. Master-Passwort vom Benutzer → PBKDF2 → 256-bit Key
+// 1. Master-Passwort vom Benutzer → PBKDF2 (600k Iterationen) → 256-bit Key
 // 2. Jede Antwort separat verschlüsseln mit uniquem IV
 // 3. Export: {encrypted_data, iv, salt, tag}
 ```

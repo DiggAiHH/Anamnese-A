@@ -1,4 +1,8 @@
+const path = require('path');
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+
+const workspaceRoot = path.resolve(__dirname, '..');
+const sharedDir = path.resolve(workspaceRoot, 'shared');
 
 /**
  * Metro configuration
@@ -7,6 +11,13 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  * @type {import('metro-config').MetroConfig}
  */
 const config = {
+  projectRoot: __dirname,
+  watchFolders: [sharedDir],
+  resolver: {
+    extraNodeModules: {
+      shared: sharedDir,
+    },
+  },
   transformer: {
     getTransformOptions: async () => ({
       transform: {

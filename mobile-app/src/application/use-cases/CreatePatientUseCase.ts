@@ -13,7 +13,6 @@ import { PatientEntity, Patient } from '@domain/entities/Patient';
 import { GDPRConsentEntity } from '@domain/entities/GDPRConsent';
 import { IPatientRepository } from '@domain/repositories/IPatientRepository';
 import { IGDPRConsentRepository } from '@domain/repositories/IGDPRConsentRepository';
-import { IEncryptionService } from '@domain/repositories/IEncryptionService';
 
 export interface CreatePatientInput {
   firstName: string;
@@ -45,7 +44,6 @@ export class CreatePatientUseCase {
   constructor(
     private readonly patientRepository: IPatientRepository,
     private readonly gdprRepository: IGDPRConsentRepository,
-    private readonly encryptionService: IEncryptionService,
   ) {}
 
   async execute(input: CreatePatientInput): Promise<CreatePatientOutput> {

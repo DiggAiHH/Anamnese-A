@@ -68,12 +68,14 @@ export class VoskSpeechService implements ISpeechService {
     onError?: (error: string) => void
   ): Promise<void> {
     try {
+      const normalizedLanguage = this.mapLanguageCode(language);
+
       // Validate language
-      if (!this.supportedLanguages.includes(language)) {
+      if (!this.supportedLanguages.includes(normalizedLanguage)) {
         throw new Error(`Unsupported language: ${language}`);
       }
 
-      this.currentLanguage = language;
+      this.currentLanguage = normalizedLanguage;
       this.recognizedText = '';
 
       // Store callbacks
@@ -88,7 +90,7 @@ export class VoskSpeechService implements ISpeechService {
       }
 
       // Start recognition
-      await Voice.start(language, {
+      await Voice.start(normalizedLanguage, {
         RECOGNIZER_ENGINE: 'GOOGLE', // Use Google's on-device recognition
       });
 
@@ -144,18 +146,21 @@ export class VoskSpeechService implements ISpeechService {
     return this.recognizedText;
   }
 
+  getCurrentLanguage(): string {
+    return this.currentLanguage;
+  }
+
   /**
    * Event handler: Speech started
    */
-  private onSpeechStart(event: SpeechStartEvent): void {
-    console.log('Speech recognition started');
+  private onSpeechStart(_event: SpeechStartEvent): void {
+    // no-op handler; Voice requires assignment
   }
 
   /**
    * Event handler: Speech ended
    */
-  private onSpeechEnd(event: SpeechEndEvent): void {
-    console.log('Speech recognition ended');
+  private onSpeechEnd(_event: SpeechEndEvent): void {
     this.isRecording = false;
   }
 
@@ -246,8 +251,8 @@ export class VoskSpeechService implements ISpeechService {
    * For now, this is a placeholder for future implementation
    */
   async transcribeAudioFile(
-    audioPath: string,
-    language: string = 'de-DE'
+    _audioPath: string,
+    _language: string = 'de-DE'
   ): Promise<{
     text: string;
     confidence: number;

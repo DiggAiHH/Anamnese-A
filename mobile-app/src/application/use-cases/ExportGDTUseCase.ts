@@ -15,8 +15,7 @@ import { IPatientRepository } from '@domain/repositories/IPatientRepository';
 import { IQuestionnaireRepository } from '@domain/repositories/IQuestionnaireRepository';
 import { IAnswerRepository } from '@domain/repositories/IAnswerRepository';
 import { IGDPRConsentRepository } from '@domain/repositories/IGDPRConsentRepository';
-import { IEncryptionService } from '@domain/repositories/IEncryptionService';
-import { GDTExportVO, GDTRecordBuilder, GDTFieldIds } from '@domain/value-objects/GDTExport';
+import { GDTExportVO, GDTRecordBuilder } from '@domain/value-objects/GDTExport';
 import RNFS from 'react-native-fs';
 
 export interface ExportGDTInput {
@@ -43,7 +42,6 @@ export class ExportGDTUseCase {
     private readonly questionnaireRepository: IQuestionnaireRepository,
     private readonly answerRepository: IAnswerRepository,
     private readonly gdprRepository: IGDPRConsentRepository,
-    private readonly encryptionService: IEncryptionService,
   ) {}
 
   async execute(input: ExportGDTInput): Promise<ExportGDTOutput> {

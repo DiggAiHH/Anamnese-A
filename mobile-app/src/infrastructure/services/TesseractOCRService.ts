@@ -1,4 +1,4 @@
-import TesseractOcr, { TesseractOcrResult } from 'react-native-tesseract-ocr';
+import TesseractOcr from 'react-native-tesseract-ocr';
 import { IOCRService } from '@domain/repositories/IOCRService';
 
 /**

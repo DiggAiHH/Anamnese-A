@@ -15,7 +15,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-export const HomeScreen = ({ navigation }: Props): React.JSX.Element => {
+export const HomeScreen = (_: Props): React.JSX.Element => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>

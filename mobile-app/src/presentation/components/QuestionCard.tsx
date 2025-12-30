@@ -8,7 +8,7 @@
  *   → Answer Repository (Persistence)
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import { Question } from '@domain/entities/Questionnaire';
 import { AnswerValue } from '@domain/entities/Answer';
-import { useQuestionnaireStore } from '../state/useQuestionnaireStore';
 
 interface QuestionCardProps {
   question: Question;
@@ -73,7 +72,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         style={[
           styles.textInput,
           question.type === 'textarea' && styles.textareaInput,
-          error && styles.inputError,
+          error ? styles.inputError : undefined,
         ]}
         value={(value as string) ?? ''}
         onChangeText={onValueChange}
@@ -90,7 +89,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const renderNumberInput = (): React.ReactNode => {
     return (
       <TextInput
-        style={[styles.textInput, error && styles.inputError]}
+        style={[styles.textInput, error ? styles.inputError : undefined]}
         value={value?.toString() ?? ''}
         onChangeText={(text) => {
           const num = parseFloat(text);
@@ -108,7 +107,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const renderDateInput = (): React.ReactNode => {
     return (
       <TextInput
-        style={[styles.textInput, error && styles.inputError]}
+        style={[styles.textInput, error ? styles.inputError : undefined]}
         value={(value as string) ?? ''}
         onChangeText={onValueChange}
         placeholder="DD.MM.YYYY"

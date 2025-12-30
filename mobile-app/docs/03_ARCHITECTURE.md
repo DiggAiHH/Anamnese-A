@@ -395,14 +395,14 @@ CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp);
 interface EncryptionConfig {
   algorithm: 'AES-256-GCM';
   keyDerivation: 'PBKDF2';
-  iterations: 100000;        // NIST-Empfehlung
+  iterations: 600000;        // OWASP 2023+ Empfehlung
   saltLength: 16;            // 128 bits
   ivLength: 12;              // 96 bits (GCM standard)
   tagLength: 16;             // 128 bits (Authentication Tag)
 }
 
 // Flow:
-// 1. User Master Password → PBKDF2 (100k iterations) → 256-bit Key
+// 1. User Master Password → PBKDF2 (600k iterations) → 256-bit Key
 // 2. Store Key in Secure Storage (Keychain/KeyStore)
 // 3. For each encryption: Generate random IV
 // 4. Encrypt: Plaintext + Key + IV → Ciphertext + Auth Tag
@@ -411,7 +411,7 @@ interface EncryptionConfig {
 
 ### **Key Management:**
 - **Master Password:** User-generated, min. 16 Zeichen
-- **Derived Key:** Via PBKDF2 mit 100.000 Iterationen
+- **Derived Key:** Via PBKDF2 mit 600.000 Iterationen
 - **Storage:** 
   - iOS: Keychain
   - Android: KeyStore

@@ -206,7 +206,7 @@ export const selectVisibleQuestions = (state: QuestionnaireState & Questionnaire
   const section = questionnaire.sections[currentSectionIndex];
   if (!section) return [];
   
-  return questionnaire.getVisibleQuestions(section.id, answers);
+  return questionnaire.getVisibleQuestions(answers, section.id);
 };
 
 export const selectProgress = (state: QuestionnaireState & QuestionnaireActions): number => {
@@ -214,8 +214,5 @@ export const selectProgress = (state: QuestionnaireState & QuestionnaireActions)
   
   if (!questionnaire) return 0;
   
-  const totalQuestions = questionnaire.getTotalQuestions();
-  const answeredQuestions = answers.size;
-  
-  return totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+  return questionnaire.calculateProgress(answers);
 };

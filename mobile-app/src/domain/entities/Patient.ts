@@ -28,7 +28,13 @@ export const PatientSchema = z.object({
   ]),
   // GDPR Consent Tracking
   gdprConsents: z.array(z.object({
-    type: z.enum(['data_processing', 'data_storage', 'gdt_export', 'ocr_processing']),
+    type: z.enum([
+      'data_processing',
+      'data_storage',
+      'gdt_export',
+      'ocr_processing',
+      'voice_recognition',
+    ]),
     granted: z.boolean(),
     timestamp: z.date(),
     version: z.string(), // Version der Datenschutzerklärung

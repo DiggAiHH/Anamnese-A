@@ -133,7 +133,10 @@ export class VoskSpeechService implements ISpeechService {
   async isAvailable(): Promise<boolean> {
     try {
       const available = await Voice.isAvailable();
-      return available === 1 || available === true;
+      if (typeof available === 'number') {
+        return available === 1;
+      }
+      return !!available;
     } catch (error) {
       console.error('[Speech] Error checking availability:', error);
       return false;
@@ -142,6 +145,10 @@ export class VoskSpeechService implements ISpeechService {
 
   async getSupportedLanguages(): Promise<string[]> {
     try {
+      if (typeof Voice.getSupportedLanguages !== 'function') {
+        return Object.values(this.languageMap);
+      }
+
       const languages = await Voice.getSupportedLanguages();
       console.log('[Speech] Supported languages:', languages);
       return languages || [];

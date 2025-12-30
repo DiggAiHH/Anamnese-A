@@ -9,6 +9,8 @@
 
 import { z } from 'zod';
 
+const PBKDF2_ITERATIONS = 600000;
+
 export const EncryptedDataSchema = z.object({
   // Verschlüsselter Ciphertext (Base64)
   ciphertext: z.string(),
@@ -59,7 +61,7 @@ export class EncryptedDataVO {
       algorithm: 'aes-256-gcm',
       kdf: {
         name: 'pbkdf2',
-        iterations: 100000, // OWASP Empfehlung
+        iterations: PBKDF2_ITERATIONS,
         hash: 'sha256',
       },
       encryptedAt: new Date(),

@@ -8,6 +8,10 @@
 import { randomBytes, pbkdf2, createCipheriv, createDecipheriv } from 'react-native-quick-crypto';
 import { EncryptedDataVO } from '@domain/value-objects/EncryptedData';
 import { IEncryptionService } from '@domain/repositories/IEncryptionService';
+import {
+  PBKDF2_ITERATIONS as SHARED_PBKDF2_ITERATIONS,
+  validatePasswordStrength,
+} from '@shared/SharedEncryptionBridge';
 
 /**
  * Encryption Service Implementation
@@ -16,10 +20,9 @@ export class NativeEncryptionService implements IEncryptionService {
   // Constants
   private readonly ALGORITHM = 'aes-256-gcm';
   private readonly KEY_LENGTH = 32; // 256 bit
-  private readonly IV_LENGTH = 16; // 128 bit
-  private readonly AUTH_TAG_LENGTH = 16; // 128 bit
-  private readonly SALT_LENGTH = 32; // 256 bit
-  private readonly PBKDF2_ITERATIONS = 100000; // OWASP recommendation
+  private readonly IV_LENGTH = 12; // Align with Web Crypto (96 bit)
+  private readonly SALT_LENGTH = 16; // Align with shared web module (128 bit)
+  private readonly PBKDF2_ITERATIONS = SHARED_PBKDF2_ITERATIONS;
   private readonly PBKDF2_HASH = 'sha256';
 
   /**
@@ -29,10 +32,7 @@ export class NativeEncryptionService implements IEncryptionService {
     password: string,
     salt?: string,
   ): Promise<{ key: string; salt: string }> {
-    // Validate password strength
-    if (password.length < 16) {
-      throw new Error('Password must be at least 16 characters long');
-    }
+    this.ensurePasswordStrength(password);
 
     // Generate salt if not provided
     const saltBuffer = salt
@@ -173,6 +173,13 @@ export class NativeEncryptionService implements IEncryptionService {
         else resolve(buffer);
       });
     });
+  }
+
+  private ensurePasswordStrength(password: string): void {
+    const result = validatePasswordStrength(password);
+    if (!result.valid) {
+      throw new Error(`Password policy violation: ${result.errors.join('; ')}`);
+    }
   }
 }
 

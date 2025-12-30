@@ -20,8 +20,13 @@ export const DB_NAME = 'anamnese.db';
 /**
  * Database Connection Singleton
  */
-class DatabaseConnection {
+export class DatabaseConnection {
   private db: SQLiteDatabase | null = null;
+  private readonly dbName: string;
+
+  constructor(dbName = DB_NAME) {
+    this.dbName = dbName;
+  }
 
   /**
    * Öffnet Datenbankverbindung
@@ -33,7 +38,7 @@ class DatabaseConnection {
 
     try {
       this.db = await SQLite.openDatabase({
-        name: DB_NAME,
+        name: this.dbName,
         location: 'default',
       });
 
@@ -43,6 +48,27 @@ class DatabaseConnection {
     } catch (error) {
       throw new Error(`Failed to connect to database: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /**
+   * SQL Helper that ensures connection and returns first result set
+   */
+  async executeSql(statement: string, params?: any[]): Promise<any> {
+    const database = await this.connect();
+    const [result] = await database.executeSql(statement, params);
+    return result;
+  }
+
+  /**
+   * Run a transactional function if supported
+   */
+  async transaction<T>(fn: (db: SQLiteDatabase) => Promise<T> | T): Promise<T> {
+    const database = await this.connect();
+    const tx = (database as any).transaction;
+    if (typeof tx === 'function') {
+      return tx.call(database, fn);
+    }
+    return fn(database);
   }
 
   /**
@@ -189,7 +215,7 @@ class DatabaseConnection {
   /**
    * Führt Database Migration durch (für zukünftige Updates)
    */
-  async migrate(fromVersion: number, toVersion: number): Promise<void> {
+  async migrate(_fromVersion: number, _toVersion: number): Promise<void> {
     if (!this.db) throw new Error('Database not connected');
 
     // Zukünftige Migrations hier implementieren
@@ -231,7 +257,7 @@ class DatabaseConnection {
 
     // Database size (approximation)
     const RNFS = await import('react-native-fs');
-    const dbPath = `${RNFS.DocumentDirectoryPath}/${DB_NAME}`;
+    const dbPath = `${RNFS.DocumentDirectoryPath}/${this.dbName}`;
     const stats = await RNFS.stat(dbPath);
 
     return {

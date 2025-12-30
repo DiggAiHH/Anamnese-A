@@ -1,107 +1,145 @@
 import { SaveAnswerUseCase } from '../SaveAnswerUseCase';
-import { IAnswerRepository } from '../../../domain/repositories/IAnswerRepository';
-import { IEncryptionService } from '../../../domain/repositories/IEncryptionService';
-import { AnswerEntity, AnswerValue, AnswerSourceType } from '../../../domain/entities/Answer';
-import { EncryptedDataVO } from '../../../domain/value-objects/EncryptedData';
-import { QuestionType } from '../../../domain/entities/Questionnaire';
+import { IAnswerRepository } from '@domain/repositories/IAnswerRepository';
+import { IEncryptionService } from '@domain/repositories/IEncryptionService';
+import { AnswerEntity, AnswerValue } from '@domain/entities/Answer';
+import { EncryptedDataVO } from '@domain/value-objects/EncryptedData';
 
-// Mock implementations
 class MockAnswerRepository implements IAnswerRepository {
   private answers: AnswerEntity[] = [];
 
   async save(answer: AnswerEntity): Promise<void> {
-    const index = this.answers.findIndex(a => a.id === answer.id);
-    if (index >= 0) {
-      this.answers[index] = answer;
+    const idx = this.answers.findIndex(a => a.id === answer.id);
+    if (idx >= 0) {
+      this.answers[idx] = answer;
     } else {
       this.answers.push(answer);
     }
   }
 
   async findById(id: string): Promise<AnswerEntity | null> {
-    return this.answers.find(a => a.id === id) || null;
+    return this.answers.find(a => a.id === id) ?? null;
   }
 
   async findByQuestionnaireId(questionnaireId: string): Promise<AnswerEntity[]> {
     return this.answers.filter(a => a.questionnaireId === questionnaireId);
   }
 
-  async findByQuestionId(
-    questionnaireId: string,
-    questionId: string
-  ): Promise<AnswerEntity | null> {
-    return (
-      this.answers.find(
-        a => a.questionnaireId === questionnaireId && a.questionId === questionId
-      ) || null
-    );
+  async findByQuestionId(questionnaireId: string, questionId: string): Promise<AnswerEntity | null> {
+    return this.answers.find(a => a.questionnaireId === questionnaireId && a.questionId === questionId) ?? null;
   }
 
-  async delete(id: string): Promise<void> {
-    this.answers = this.answers.filter(a => a.id !== id);
+  async saveMany(answers: AnswerEntity[]): Promise<void> {
+    answers.forEach(answer => this.save(answer));
   }
 
-  async deleteByQuestionnaireId(questionnaireId: string): Promise<void> {
-    this.answers = this.answers.filter(a => a.questionnaireId !== questionnaireId);
+  async delete(): Promise<void> {}
+  async deleteByQuestionnaireId(): Promise<void> {}
+  async saveBatch(): Promise<void> {}
+  async getDecryptedAnswersMap(): Promise<Map<string, any>> {
+    return new Map();
   }
-
-  // Helper for tests
-  getAllAnswers(): AnswerEntity[] {
-    return this.answers;
-  }
-
-  clear(): void {
-    this.answers = [];
+  async getAnswersMap(): Promise<Map<string, AnswerValue>> {
+    return new Map();
   }
 }
 
 class MockEncryptionService implements IEncryptionService {
-  async encrypt(data: string, key: Buffer): Promise<EncryptedDataVO> {
-    // Mock encryption - just encode
-    const encoded = Buffer.from(data).toString('base64');
-    return new EncryptedDataVO(
-      encoded,
-      'mock-iv',
-      'mock-auth-tag',
-      'mock-salt'
-    );
+  async deriveKey(password: string): Promise<{ key: string; salt: string }> {
+    return { key: Buffer.from(password).toString('base64'), salt: 'c2FsdA==' };
   }
 
-  async decrypt(encryptedData: EncryptedDataVO, key: Buffer): Promise<string> {
-    // Mock decryption - just decode
-    return Buffer.from(encryptedData.ciphertext, 'base64').toString();
+  async encrypt(data: string, _key: string): Promise<EncryptedDataVO> {
+    return EncryptedDataVO.create({
+      ciphertext: Buffer.from(data).toString('base64'),
+      iv: 'aW52',
+      authTag: 'YXV0aC10YWc=',
+      salt: 'c2FsdA==',
+    });
   }
 
-  async deriveKey(password: string, salt: Buffer): Promise<Buffer> {
-    return Buffer.from(password);
+  async decrypt(encryptedData: EncryptedDataVO, _key: string): Promise<string> {
+    return Buffer.from(encryptedData.ciphertext, 'base64').toString('utf-8');
   }
 
   async hashPassword(password: string): Promise<string> {
-    return `hashed_${password}`;
+    return password;
   }
 
-  async verifyPassword(password: string, hash: string): Promise<boolean> {
-    return hash === `hashed_${password}`;
+  async verifyPassword(): Promise<boolean> {
+    return true;
   }
 
-  generateRandomBytes(length: number): Buffer {
-    return Buffer.alloc(length, 0);
+  async generateRandomString(): Promise<string> {
+    return 'random';
   }
 }
 
 describe('SaveAnswerUseCase', () => {
+  let repository: MockAnswerRepository;
+  let encryption: MockEncryptionService;
   let useCase: SaveAnswerUseCase;
-  let mockRepository: MockAnswerRepository;
-  let mockEncryption: MockEncryptionService;
-  const mockEncryptionKey = Buffer.from('test-key');
+
+  const question = {
+    id: 'first_name',
+    labelKey: 'q.first_name',
+    type: 'text' as const,
+    required: true,
+    validation: { min: 2, max: 50 },
+  };
 
   beforeEach(() => {
-    mockRepository = new MockAnswerRepository();
-    mockEncryption = new MockEncryptionService();
-    useCase = new SaveAnswerUseCase(mockRepository, mockEncryption);
+    repository = new MockAnswerRepository();
+    encryption = new MockEncryptionService();
+    useCase = new SaveAnswerUseCase(repository, encryption);
   });
 
-  afterEach(() => {
-    mockRepository.clear();
+  it('saves a valid answer and returns id', async () => {
+    const result = await useCase.execute({
+      questionnaireId: '11111111-1111-1111-1111-111111111111',
+      question,
+      value: 'John Doe',
+      encryptionKey: 'base64key',
+      sourceType: 'manual',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.answerId).toBeDefined();
+    const stored = await repository.findByQuestionId('11111111-1111-1111-1111-111111111111', 'first_name');
+    expect(stored?.encryptedValue.length).toBeGreaterThan(0);
   });
-pppppppppppptpppppppppppptèèèèèèeèèèèèewèèsèèèèèeèèèèeèpppppppppppptpppppppppppptèèèèèèeèèèèèewèèsèèèèèeèèèèeèdèeèèèèeèpppppppppppptpppppppppppptèèèèèèeèèèèèewèèsèèèèèeèèèèeèdsèèèèèeèpppppppppppptpppppppppppptèèèèèèeèèèèèewèèsèèèèèeèèèèeèdsèddèèeèpppppppppppptpppppppppppptèèèèèèeèèèèèewèèsèèèèèeèèèèeèdsèdddèeèpppppppppppptpppppppppppptèèèèèèeèèèèèewèèsèèèèèeèèèèeèdsèdddè
+
+  it('returns validation errors for missing required value', async () => {
+    const result = await useCase.execute({
+      questionnaireId: '11111111-1111-1111-1111-111111111111',
+      question,
+      value: null,
+      encryptionKey: 'base64key',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.validationErrors?.length).toBeGreaterThan(0);
+  });
+
+  it('updates existing answer instead of creating duplicate', async () => {
+    await useCase.execute({
+      questionnaireId: '11111111-1111-1111-1111-111111111111',
+      question,
+      value: 'John',
+      encryptionKey: 'base64key',
+    });
+
+    const second = await useCase.execute({
+      questionnaireId: '11111111-1111-1111-1111-111111111111',
+      question,
+      value: 'Johnny',
+      encryptionKey: 'base64key',
+      sourceType: 'voice',
+      confidence: 0.8,
+    });
+
+    expect(second.success).toBe(true);
+    const answers = await repository.findByQuestionnaireId('11111111-1111-1111-1111-111111111111');
+    expect(answers).toHaveLength(1);
+    expect(answers[0].sourceType).toBe('voice');
+  });
+});

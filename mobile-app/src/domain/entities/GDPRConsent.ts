@@ -216,6 +216,14 @@ export class GDPRConsentEntity {
   }
 
   /**
+   * Öffentliches Ablaufdatum (für Reports)
+   */
+  calculateExpirationDate(): Date | null {
+    if (!this.data.grantedAt) return null;
+    return this.calculateExpiryDate();
+  }
+
+  /**
    * Berechnet Ablaufdatum basierend auf Retention Period
    */
   private calculateExpiryDate(): Date {

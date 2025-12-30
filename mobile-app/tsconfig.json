@@ -4,8 +4,8 @@
     "target": "ES2021",
     "lib": ["ES2021"],
     "jsx": "react-native",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "Node16",
+    "moduleResolution": "node16",
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
@@ -30,9 +30,10 @@
       "@infrastructure/*": ["infrastructure/*"],
       "@presentation/*": ["presentation/*"],
       "@shared/*": ["shared/*"]
-    }
+    },
+    "types": ["jest", "react", "react-native", "node"]
   },
-  "include": ["src/**/*", "types/**/*"],
+  "include": ["src/**/*", "types/**/*", "__tests__/**/*"],
   "exclude": [
     "node_modules",
     "babel.config.js",

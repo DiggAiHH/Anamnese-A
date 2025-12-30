@@ -26,5 +26,6 @@ module.exports = {
     '^@infrastructure/(.*)$': '<rootDir>/src/infrastructure/$1',
     '^@presentation/(.*)$': '<rootDir>/src/presentation/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
+    '^shared/encryption\\.js$': '<rootDir>/__mocks__/sharedEncryption.js',
   },
 };

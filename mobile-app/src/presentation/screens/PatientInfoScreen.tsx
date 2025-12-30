@@ -11,13 +11,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import DatePicker from 'react-native-date-picker';
 import { useQuestionnaireStore } from '../state/useQuestionnaireStore';
+import { PatientEntity, Patient } from '@domain/entities/Patient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PatientInfo'>;
 
 export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { setPatient } = useQuestionnaireStore();
 
   const [firstName, setFirstName] = useState('');
@@ -80,15 +81,17 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
+    const languageCode = (i18n.language?.split('-')[0] ?? 'de') as Patient['language'];
+
     // Store patient data in Zustand
-    setPatient({
+    const patient = PatientEntity.create({
       firstName,
       lastName,
       birthDate: birthDate!.toISOString().split('T')[0],
-      gender: gender!,
-      email: email || undefined,
-      phone: phone || undefined,
+      language: languageCode,
     });
+
+    setPatient(patient);
 
     // Navigate to GDPR consent screen
     navigation.navigate('GDPRConsent');
@@ -131,7 +134,7 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
             {t('patientInfo.firstName')} <Text style={styles.required}>*</Text>
           </Text>
           <TextInput
-            style={[styles.input, errors.firstName && styles.inputError]}
+            style={[styles.input, errors.firstName ? styles.inputError : undefined]}
             value={firstName}
             onChangeText={setFirstName}
             placeholder={t('patientInfo.firstNamePlaceholder')}
@@ -150,7 +153,7 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
             {t('patientInfo.lastName')} <Text style={styles.required}>*</Text>
           </Text>
           <TextInput
-            style={[styles.input, errors.lastName && styles.inputError]}
+            style={[styles.input, errors.lastName ? styles.inputError : undefined]}
             value={lastName}
             onChangeText={setLastName}
             placeholder={t('patientInfo.lastNamePlaceholder')}
@@ -169,7 +172,7 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
             {t('patientInfo.birthDate')} <Text style={styles.required}>*</Text>
           </Text>
           <TouchableOpacity
-            style={[styles.input, styles.dateButton, errors.birthDate && styles.inputError]}
+              style={[styles.input, styles.dateButton, errors.birthDate ? styles.inputError : undefined]}
             onPress={() => setShowDatePicker(true)}
             testID="input-birth_date"
           >
@@ -192,7 +195,7 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
           mode="date"
           maximumDate={new Date()}
           minimumDate={new Date(1900, 0, 1)}
-          onConfirm={(date) => {
+          onConfirm={(date: Date) => {
             setShowDatePicker(false);
             setBirthDate(date);
           }}
@@ -257,7 +260,7 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>{t('patientInfo.email')}</Text>
           <TextInput
-            style={[styles.input, errors.email && styles.inputError]}
+            style={[styles.input, errors.email ? styles.inputError : undefined]}
             value={email}
             onChangeText={setEmail}
             placeholder={t('patientInfo.emailPlaceholder')}
@@ -275,7 +278,7 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>{t('patientInfo.phone')}</Text>
           <TextInput
-            style={[styles.input, errors.phone && styles.inputError]}
+            style={[styles.input, errors.phone ? styles.inputError : undefined]}
             value={phone}
             onChangeText={setPhone}
             placeholder={t('patientInfo.phonePlaceholder')}

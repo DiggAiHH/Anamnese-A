@@ -135,7 +135,7 @@ src/presentation/
 
 ### **Encryption**
 - **Algorithm**: AES-256-GCM
-- **Key Derivation**: PBKDF2 (100,000 iterations, SHA-256)
+- **Key Derivation**: PBKDF2 (600,000 iterations, SHA-256)
 - **Storage**: Encryption key in sessionStorage (cleared on close)
 - **PII Data**: Alle personenbezogene Daten verschlüsselt
 

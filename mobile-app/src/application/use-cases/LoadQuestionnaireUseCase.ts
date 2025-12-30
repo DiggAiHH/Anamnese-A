@@ -10,7 +10,7 @@
  *   → Return questionnaire + answers map
  */
 
-import { QuestionnaireEntity, Section } from '@domain/entities/Questionnaire';
+import { QuestionnaireEntity } from '@domain/entities/Questionnaire';
 import { AnswerValue } from '@domain/entities/Answer';
 import { IQuestionnaireRepository } from '@domain/repositories/IQuestionnaireRepository';
 import { IAnswerRepository } from '@domain/repositories/IAnswerRepository';

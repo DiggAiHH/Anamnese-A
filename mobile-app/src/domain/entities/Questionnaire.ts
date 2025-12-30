@@ -88,7 +88,7 @@ export const QuestionnaireSchema = z.object({
   sections: z.array(SectionSchema),
   createdAt: z.date(),
   updatedAt: z.date(),
-  completedAt: z.date().optional(),
+  completedAt: z.date().nullable().optional(),
   status: z.enum(['draft', 'in_progress', 'completed']),
 });
 
@@ -102,21 +102,37 @@ export class QuestionnaireEntity {
     QuestionnaireSchema.parse(data);
   }
 
-  static create(params: {
-    patientId: string;
-    sections: Section[];
-    version?: string;
-  }): QuestionnaireEntity {
+  static create(patientId: string, sections: Section[], version?: string): QuestionnaireEntity;
+  static create(params: { patientId: string; sections: Section[]; version?: string }): QuestionnaireEntity;
+  static create(
+    patientOrParams: string | { patientId: string; sections: Section[]; version?: string },
+    sections?: Section[],
+    version = '1.0.0',
+  ): QuestionnaireEntity {
+    const { patientId, sections: sectionList, version: providedVersion } =
+      typeof patientOrParams === 'string'
+        ? { patientId: patientOrParams, sections: sections ?? [], version }
+        : {
+            patientId: patientOrParams.patientId,
+            sections: patientOrParams.sections,
+            version: patientOrParams.version ?? version,
+          };
+
+    if (!sectionList || sectionList.length === 0) {
+      throw new Error('Questionnaire must have at least one section');
+    }
+
     const id = crypto.randomUUID();
     const now = new Date();
 
     return new QuestionnaireEntity({
       id,
-      version: params.version ?? '1.0.0',
-      patientId: params.patientId,
-      sections: params.sections.sort((a, b) => a.order - b.order),
+      version: providedVersion ?? version,
+      patientId,
+      sections: [...sectionList].sort((a, b) => a.order - b.order),
       createdAt: now,
       updatedAt: now,
+      completedAt: null,
       status: 'draft',
     });
   }
@@ -128,6 +144,10 @@ export class QuestionnaireEntity {
 
   get patientId(): string {
     return this.data.patientId;
+  }
+
+  get version(): string {
+    return this.data.version;
   }
 
   get sections(): Section[] {
@@ -146,7 +166,7 @@ export class QuestionnaireEntity {
     return this.data.updatedAt;
   }
 
-  get completedAt(): Date | undefined {
+  get completedAt(): Date | null | undefined {
     return this.data.completedAt;
   }
 
@@ -195,30 +215,20 @@ export class QuestionnaireEntity {
    * Status auf "in_progress" setzen
    */
   markAsStarted(): QuestionnaireEntity {
-    return new QuestionnaireEntity({
-      ...this.data,
-      status: 'in_progress',
-      updatedAt: new Date(),
-    });
+    return this.updateStatus('in_progress');
   }
 
   /**
    * Fragebogen als abgeschlossen markieren
    */
   markAsCompleted(): QuestionnaireEntity {
-    const now = new Date();
-    return new QuestionnaireEntity({
-      ...this.data,
-      status: 'completed',
-      completedAt: now,
-      updatedAt: now,
-    });
+    return this.updateStatus('completed');
   }
 
   /**
    * Prüft ob Conditional Logic erfüllt ist
    */
-  evaluateConditions(
+  static evaluateConditions(
     question: Question,
     answers: Map<string, unknown>,
   ): boolean {
@@ -249,19 +259,59 @@ export class QuestionnaireEntity {
     });
   }
 
+  evaluateConditions(
+    question: Question,
+    answers: Map<string, unknown>,
+  ): boolean {
+    return QuestionnaireEntity.evaluateConditions(question, answers);
+  }
+
   /**
    * Gibt sichtbare Fragen einer Sektion zurück (basierend auf Conditions)
    */
   getVisibleQuestions(
-    sectionId: string,
     answers: Map<string, unknown>,
+    sectionId?: string,
   ): Question[] {
-    const section = this.findSection(sectionId);
-    if (!section) return [];
+    const sectionsToCheck = sectionId
+      ? this.data.sections.filter(s => s.id === sectionId)
+      : this.data.sections;
 
-    return section.questions.filter(question =>
-      this.evaluateConditions(question, answers),
-    );
+    const visibleQuestions: Question[] = [];
+
+    sectionsToCheck.forEach(section => {
+      section.questions.forEach(question => {
+        if (QuestionnaireEntity.evaluateConditions(question, answers)) {
+          visibleQuestions.push(question);
+        }
+      });
+    });
+
+    return visibleQuestions;
+  }
+
+  /**
+   * Fortschritt in Prozent (sichtbare Fragen)
+   */
+  calculateProgress(answers: Map<string, unknown>): number {
+    const visibleQuestions = this.getVisibleQuestions(answers);
+    if (visibleQuestions.length === 0) return 0;
+
+    const answeredVisible = visibleQuestions.filter(q => answers.has(q.id));
+    return Math.round((answeredVisible.length / visibleQuestions.length) * 100);
+  }
+
+  /**
+   * Status aktualisieren
+   */
+  updateStatus(status: Questionnaire['status']): QuestionnaireEntity {
+    const now = new Date();
+    return new QuestionnaireEntity({
+      ...this.data,
+      status,
+      updatedAt: now,
+      completedAt: status === 'completed' ? now : null,
+    });
   }
 
   /**
@@ -281,7 +331,7 @@ export class QuestionnaireEntity {
       ...json,
       createdAt: new Date(json.createdAt),
       updatedAt: new Date(json.updatedAt),
-      completedAt: json.completedAt ? new Date(json.completedAt) : undefined,
+      completedAt: json.completedAt ? new Date(json.completedAt) : null,
     });
   }
 }

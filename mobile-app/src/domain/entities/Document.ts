@@ -241,6 +241,53 @@ export class DocumentEntity {
   }
 
   /**
+   * Rehydrate entity from persistence layer (DB rows)
+   */
+  static fromPersistence(data: {
+    id: string;
+    patientId: string;
+    questionnaireId?: string | null;
+    type: Document['type'];
+    mimeType: string;
+    fileName: string;
+    fileSize: number;
+    encryptedFilePath: string;
+    ocrData?: Document['ocrData'] | string | null;
+    ocrConsentGranted: boolean;
+    uploadedAt: number | string | Date;
+    updatedAt: number | string | Date;
+    auditLog: Document['auditLog'] | string;
+  }): DocumentEntity {
+    const parseDate = (value: number | string | Date | undefined): Date =>
+      value instanceof Date ? value : new Date(value ?? Date.now());
+
+    const rawAuditLog = typeof data.auditLog === 'string' ? JSON.parse(data.auditLog) : data.auditLog;
+
+    return new DocumentEntity({
+      id: data.id,
+      patientId: data.patientId,
+      questionnaireId: data.questionnaireId ?? undefined,
+      type: data.type,
+      mimeType: data.mimeType,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      encryptedFilePath: data.encryptedFilePath,
+      ocrData: data.ocrData
+        ? typeof data.ocrData === 'string'
+          ? JSON.parse(data.ocrData)
+          : data.ocrData
+        : undefined,
+      uploadedAt: parseDate(data.uploadedAt),
+      updatedAt: parseDate(data.updatedAt),
+      ocrConsentGranted: data.ocrConsentGranted,
+      auditLog: (rawAuditLog ?? []).map((entry: any) => ({
+        ...entry,
+        timestamp: parseDate(entry.timestamp),
+      })),
+    });
+  }
+
+  /**
    * Von Plain Object erstellen
    */
   static fromJSON(json: Document): DocumentEntity {

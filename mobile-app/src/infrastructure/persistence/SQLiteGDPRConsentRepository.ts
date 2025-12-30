@@ -1,6 +1,6 @@
 import { DatabaseConnection } from './DatabaseConnection';
 import { IGDPRConsentRepository } from '@domain/repositories/IGDPRConsentRepository';
-import { GDPRConsentEntity } from '@domain/entities/GDPRConsent';
+import { GDPRConsentEntity, GDPRConsent } from '@domain/entities/GDPRConsent';
 
 /**
  * SQLite implementation of GDPR Consent Repository
@@ -159,6 +159,44 @@ export class SQLiteGDPRConsentRepository implements IGDPRConsentRepository {
     await this.db.executeSql(query, [patientId]);
   }
 
+  async findByPatientIdAndType(patientId: string, type: GDPRConsent['type']): Promise<GDPRConsentEntity | null> {
+    return this.findByPatientAndType(patientId, type);
+  }
+
+  async hasActiveConsent(patientId: string, type: GDPRConsent['type']): Promise<boolean> {
+    return this.isConsentGranted(patientId, type);
+  }
+
+  async getAllActiveConsents(): Promise<GDPRConsentEntity[]> {
+    const query = `
+      SELECT * FROM gdpr_consents
+      WHERE granted = 1 AND revoked_at IS NULL
+      ORDER BY granted_at DESC
+    `;
+    const results = await this.db.executeSql(query, []);
+
+    const consents: GDPRConsentEntity[] = [];
+    for (let i = 0; i < results.rows.length; i++) {
+      consents.push(this.mapRowToEntity(results.rows.item(i)));
+    }
+    return consents;
+  }
+
+  async getConsentHistory(patientId: string, type?: GDPRConsent['type']): Promise<GDPRConsentEntity[]> {
+    const query = type
+      ? `SELECT * FROM gdpr_consents WHERE patient_id = ? AND type = ? ORDER BY granted_at DESC`
+      : `SELECT * FROM gdpr_consents WHERE patient_id = ? ORDER BY granted_at DESC`;
+
+    const params = type ? [patientId, type] : [patientId];
+    const results = await this.db.executeSql(query, params);
+
+    const consents: GDPRConsentEntity[] = [];
+    for (let i = 0; i < results.rows.length; i++) {
+      consents.push(this.mapRowToEntity(results.rows.item(i)));
+    }
+    return consents;
+  }
+
   /**
    * Get consent statistics for a patient
    */
@@ -228,7 +266,7 @@ export class SQLiteGDPRConsentRepository implements IGDPRConsentRepository {
    * Map database row to GDPRConsentEntity
    */
   private mapRowToEntity(row: any): GDPRConsentEntity {
-    return GDPRConsentEntity.create({
+    return GDPRConsentEntity.fromJSON({
       id: row.id,
       patientId: row.patient_id,
       type: row.type,
