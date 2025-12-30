@@ -1,3 +1,9 @@
+-- =============================================================================
+-- DATABASE EXTENSIONS
+-- =============================================================================
+-- HISTORY-AWARE: schema uses gen_random_uuid(); provided by pgcrypto
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Praxen/Medizinische Einrichtungen
 CREATE TABLE IF NOT EXISTS practices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

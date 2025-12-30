@@ -43,11 +43,13 @@ PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f 
 
 echo "✅ Schema migration complete"
 
-# Seed data
-echo "🌱 Seeding test data..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f database/seeds.sql
+SEEDS_FILE="database/seeds_auth.sql"
 
-echo "✅ Seed data inserted"
+# Seed data (HISTORY-AWARE: seeds.sql is not schema-compatible; use auth seeds)
+echo "🌱 Seeding test data..."
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$SEEDS_FILE"
+
+echo "✅ Seed data inserted ($SEEDS_FILE)"
 
 # Verify data
 echo ""
@@ -68,8 +70,8 @@ echo ""
 echo "✅ Database setup complete!"
 echo ""
 echo "🔐 Test Login Credentials:"
-echo "   Email: admin@anamnese.local"
-echo "   Password: admin123 (CHANGE IN PRODUCTION!)"
+echo "   Email: test@example.com"
+echo "   Password: password123"
 echo ""
 echo "🔗 Test Code: TEST1234"
 echo ""
