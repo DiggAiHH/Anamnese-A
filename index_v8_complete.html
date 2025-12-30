@@ -29943,13 +29943,53 @@ console.log('GDT Performance Optimization module loaded');
                 if (typeof initLoginUI === 'function') {
                     initLoginUI();
                 }
+                                if (typeof enhanceAriaLabels === 'function') {
+                                        enhanceAriaLabels();
+                                }
             });
         } else {
             if (typeof initLoginUI === 'function') {
                 initLoginUI();
             }
+                        if (typeof enhanceAriaLabels === 'function') {
+                                enhanceAriaLabels();
+                        }
         }
     </script>
+
+        <script>
+                // Accessibility hardening: ensure icon-only controls get an accessible name
+                function enhanceAriaLabels() {
+                        try {
+                                const buttons = document.querySelectorAll('button');
+                                buttons.forEach(btn => {
+                                        const aria = btn.getAttribute('aria-label');
+                                        const title = btn.getAttribute('title');
+                                        const text = (btn.textContent || '').trim();
+                                        if (!aria || aria.trim() === '') {
+                                                if (text) {
+                                                        btn.setAttribute('aria-label', text);
+                                                } else if (title) {
+                                                        btn.setAttribute('aria-label', title);
+                                                }
+                                        }
+                                });
+
+                                const formControls = document.querySelectorAll('input, select, textarea');
+                                formControls.forEach(ctrl => {
+                                        const hasLabel = ctrl.getAttribute('aria-label') || ctrl.getAttribute('aria-labelledby');
+                                        if (!hasLabel) {
+                                                const placeholder = ctrl.getAttribute('placeholder');
+                                                if (placeholder) {
+                                                        ctrl.setAttribute('aria-label', placeholder);
+                                                }
+                                        }
+                                });
+                        } catch (e) {
+                                // Non-fatal: accessibility enhancement best-effort
+                        }
+                }
+        </script>
 
     <!--
     ====================================================================

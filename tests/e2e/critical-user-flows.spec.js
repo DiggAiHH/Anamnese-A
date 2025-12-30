@@ -1,12 +1,12 @@
-// @ts-check
+// @ts-nocheck
+/* eslint-disable no-undef, no-console */
 const { test, expect } = require('@playwright/test');
 
 const APP_URL_TEST = 'http://localhost:8080/index_v8_complete.html?test=true';
 
 async function gotoReady(page) {
   await page.goto(APP_URL_TEST);
-  // Use string expression to avoid TS typing issues in Node context
-  await page.waitForFunction('window.__ANAMNESE_READY__ === true', { timeout: 30000 });
+  await page.waitForFunction(() => window.__ANAMNESE_READY__ === true, { timeout: 30000 });
   await page.waitForSelector('#app-container', { state: 'visible', timeout: 30000 });
 }
 
@@ -204,11 +204,11 @@ test.describe('Critical User Flows - Blind Audit', () => {
       try {
         // In classic scripts, global bindings are not always window properties.
         // For deterministic checks (and TS safety), only use window.
-        // @ts-expect-error - getAnswers may be injected globally in the app bundle
+        // @ts-ignore - injected in app; not part of Window type
         if (typeof window.getAnswers !== 'function') {
           return { success: true, answers: {}, note: 'window.getAnswers not defined, handled gracefully' };
         }
-        // @ts-expect-error - see above
+        // @ts-ignore - injected in app; not part of Window type
         const answers = window.getAnswers();
         return { success: true, answers };
       } catch (e) {
@@ -391,7 +391,6 @@ test.describe('Edge Cases and Error Handling', () => {
     
     // Should be disabled for required fields
     if (await nextButton.isVisible()) {
-      const isEnabled = await nextButton.isEnabled();
       // If required fields exist, button should be disabled
       // We're checking that the app doesn't crash either way
       await page.waitForTimeout(500);

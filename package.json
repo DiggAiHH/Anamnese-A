@@ -10,7 +10,8 @@
     "test:all": "npm test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "setup": "node setup.js"
+    "setup": "node setup.js",
+    "lighthouse": "mkdir -p reports && npx lighthouse http://localhost:8080/index_v8_complete.html --output=html --output-path=reports/lighthouse.html --only-categories=performance,accessibility,best-practices,seo --quiet --chrome-flags='--headless=new'"
   },
   "keywords": [
     "medical",

@@ -4,6 +4,7 @@
 let model = null;
 let recognizer = null;
 let modelLoaded = false;
+const DEFAULT_MODEL_PATH = 'public/models/vosk-model-small-de-0.15';
 
 // Handle messages from main thread
 self.onmessage = async function(event) {
@@ -11,7 +12,7 @@ self.onmessage = async function(event) {
     
     switch (action) {
         case 'init':
-            await initializeModel(modelPath);
+            await initializeModel(modelPath || DEFAULT_MODEL_PATH);
             break;
         case 'process':
             if (modelLoaded && audio) {
@@ -44,7 +45,7 @@ async function initializeModel(modelPath) {
         
         self.postMessage({
             type: 'ready',
-            message: 'VOSK model loaded successfully'
+            message: `VOSK model loaded successfully from ${modelPath}`
         });
         
     } catch (error) {

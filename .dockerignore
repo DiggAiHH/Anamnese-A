@@ -20,6 +20,8 @@ test-*.js
 tests/
 playwright-report/
 playwright-results/
+test-results/
+reports/
 
 # Development
 .vscode/

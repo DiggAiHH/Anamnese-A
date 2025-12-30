@@ -252,6 +252,32 @@ test.describe('Dokument-Upload & OCR', () => {
     const hasMultiple = await fileInput.getAttribute('multiple');
     expect(hasMultiple).not.toBeNull();
   });
+
+  test('Multi-Dokumente werden gespeichert (GDPR Storage)', async ({ page }) => {
+    await gotoReady(page);
+
+    const result = await page.evaluate(() => {
+      try {
+        if (typeof DOCUMENT_STORAGE_GDPR === 'undefined') {
+          return { ok: false, reason: 'no storage' };
+        }
+        // Reset for deterministic test
+        DOCUMENT_STORAGE_GDPR.documents = [];
+        DOCUMENT_STORAGE_GDPR.addDocument({ filename: 'doc1.txt', text: 'hello', originalSize: 5, type: 'text/plain' });
+        DOCUMENT_STORAGE_GDPR.addDocument({ filename: 'doc2.txt', text: 'world', originalSize: 5, type: 'text/plain' });
+
+        const encrypted = localStorage.getItem('ocrDocuments_encrypted');
+        const plain = localStorage.getItem('ocrDocuments');
+        return { ok: true, count: DOCUMENT_STORAGE_GDPR.documents.length, persisted: !!(encrypted || plain) };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.count).toBeGreaterThanOrEqual(2);
+    expect(result.persisted).toBe(true);
+  });
 });
 
 test.describe('Keyboard Navigation', () => {

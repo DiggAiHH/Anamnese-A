@@ -5,6 +5,8 @@ set -e
 
 VOSK_VERSION="0.0.9"
 VOSK_DIR="public/lib/vosk"
+MODEL_NAME="vosk-model-small-de-0.15"
+MODEL_DIR="public/models/${MODEL_NAME}"
 
 mkdir -p "$VOSK_DIR"
 
@@ -17,8 +19,14 @@ curl -L -o "$VOSK_DIR/vosk.wasm" \
   "https://cdn.jsdelivr.net/npm/vosk-browser@$VOSK_VERSION/dist/vosk.wasm"
 
 echo "📥 Downloading German model (small)..."
-curl -L -o "$VOSK_DIR/vosk-model-small-de-0.15.tar.gz" \
-  "https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip"
+mkdir -p "$MODEL_DIR"
+
+echo "📥 Downloading German model (small)..."
+curl -L -o "/tmp/${MODEL_NAME}.zip" \
+  "https://alphacephei.com/vosk/models/${MODEL_NAME}.zip"
+
+echo "📦 Extracting model to $MODEL_DIR ..."
+unzip -o "/tmp/${MODEL_NAME}.zip" -d public/models >/tmp/vosk-unzip.log
 
 echo "✅ Vosk-Browser heruntergeladen nach $VOSK_DIR"
-echo "⚠️  Hinweis: Modell muss noch entpackt werden: tar -xzf vosk-model-small-de-0.15.tar.gz"
+echo "✅ Modell entpackt nach $MODEL_DIR"

@@ -6,7 +6,7 @@ const APP_URL = 'http://localhost:8080/index_v8_complete.html?test=true';
 
 async function gotoReady(page) {
   await page.goto(APP_URL);
-  await page.waitForFunction('window.__ANAMNESE_READY__ === true', { timeout: 30000 });
+  await page.waitForFunction(() => window.__ANAMNESE_READY__ === true, { timeout: 30000 });
   await page.waitForSelector('#app-container', { state: 'visible', timeout: 30000 });
 }
 
