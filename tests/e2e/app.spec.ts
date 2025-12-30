@@ -36,11 +36,11 @@ test.describe('Anamnese-A - User Journey Tests', () => {
     await page.goto('http://localhost:8080/index_v8_complete.html');
     
     // Warte auf Privacy-Modal (10 Sekunden Timeout)
-    const privacyModal = page.locator('#privacy-modal, [role="dialog"]').first();
+    const privacyModal = page.locator('#privacy-modal').first();
     await expect(privacyModal).toBeVisible({ timeout: 10000 });
     
     // Suche Accept-Button
-    const acceptButton = page.locator('button:has-text("Accept"), button:has-text("Akzeptieren")').first();
+    const acceptButton = page.locator('#privacy-accept-btn').first();
     await expect(acceptButton).toBeVisible();
     
     // Klicke Accept

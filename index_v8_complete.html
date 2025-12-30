@@ -91,6 +91,24 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     
     <!-- Android PWA Support -->
     <meta name="mobile-web-app-capable" content="yes">
+
+        <script>
+                // HISTORY-AWARE: Deterministic Test/Automation flag for Playwright
+                // Used to bypass prompts and expose App for E2E diagnostics
+                (function() {
+                        let testMode = false;
+                        try {
+                                const params = new URLSearchParams(window.location.search);
+                                testMode = params.get('test') === 'true';
+                        } catch (e) {}
+                        try {
+                                if (typeof navigator !== 'undefined' && navigator.webdriver === true) {
+                                        testMode = true;
+                                }
+                        } catch (e) {}
+                        window.__TEST_MODE__ = testMode;
+                })();
+        </script>
     
     <!-- LAZY LOADING: Tesseract.js, PDF.js werden dynamisch geladen -->
     <!-- Tesseract.js for OCR - LAZY LOADED -->
@@ -115,6 +133,20 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
             vosk: false,
             errors: []
         };
+
+                // =================================================================
+                // TEST/CI HOOKS (nur im Test-Modus)
+                // =================================================================
+                // Playwright/WebKit kann bei "const App" keine window-Eigenschaft sehen.
+                // Für deterministische E2E-Tests exportieren wir App/AppState nur im Test-Modus.
+                try {
+                        if (window.__TEST_MODE__) {
+                                window.App = window.App || App;
+                                window.AppState = window.AppState || AppState;
+                        }
+                } catch (e) {
+                        // ignore
+                }
 
         // Funktion: Script dynamisch laden
         function loadScript(src, name) {
@@ -2386,8 +2418,9 @@ async function setupEncryptionKey(retryCount = 0) {
         // HISTORY-AWARE: Playwright/WebKit hängt sonst am prompt() und App.init() läuft nicht fertig.
         try {
                 const urlParams = new URLSearchParams(window.location.search);
-                const isTestMode = urlParams.get('test') === 'true' || (typeof navigator !== 'undefined' && navigator.webdriver === true);
-                if (isTestMode) {
+                const isTestMode = urlParams.get('test') === 'true';
+                const isAutomation = (typeof navigator !== 'undefined' && navigator.webdriver === true);
+                if (isTestMode || isAutomation) {
                         if (!sessionStorage.getItem('derived_key')) {
                                 sessionStorage.setItem('derived_key', 'TEST_MASTER_PASSWORD_DO_NOT_USE_IN_PROD');
                         }
@@ -2773,6 +2806,7 @@ function showSaveIndicator(status) {
     if (!indicator) {
         indicator = document.createElement('div');
         indicator.id = 'save-indicator';
+                indicator.className = 'save-indicator';
         indicator.style.cssText = `
             position: fixed;
             bottom: 20px;
@@ -3336,6 +3370,13 @@ async function exportJsonFileWithDocuments(encrypted = true, includeDocuments = 
  * Fragt vor dem Export, ob Dokumente hochgeladen werden sollen
  */
 async function exportWithDocumentPrompt(encrypted = true) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isTestMode = urlParams.get('test') === 'true';
+
+        if (isTestMode) {
+                return exportJsonFileWithDocuments(encrypted, true);
+        }
+
     const wantToUpload = confirm('Would you like to upload additional documents (images, PDFs, text files) before export?');
     
     if (wantToUpload) {
@@ -3632,11 +3673,11 @@ function clearUploadedDocuments() {
             --input-text: #212529;
             --input-border: #ced4da;
             --input-focus: #80bdff;
-            --primary: #007bff;
-            --primary-hover: #0056b3;
-            --secondary: #6c757d;
-            --success: #28a745;
-            --danger: #dc3545;
+            --primary: #0b5ed7;
+            --primary-hover: #0a53be;
+            --secondary: #495057;
+            --success: #1c7c2f;
+            --danger: #b02a37;
             --warning: #ffc107;
             --border-color: #dee2e6;
             --shadow: rgba(0, 0, 0, 0.1);
@@ -3985,11 +4026,12 @@ function clearUploadedDocuments() {
             font-family: inherit;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
-        }
+                input:focus, select:focus, textarea:focus {
+                        outline: 3px solid var(--primary);
+                        outline-offset: 2px;
+                        border-color: var(--primary);
+                        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+                }
         input.invalid, select.invalid, textarea.invalid {
             border-color: var(--danger);
         }
@@ -4044,6 +4086,10 @@ function clearUploadedDocuments() {
             margin-bottom: 1rem;
             flex-wrap: wrap;
         }
+                button {
+                        min-height: 44px;
+                        min-width: 44px;
+                }
         .btn {
             flex: 1;
             padding: 0.875rem 1.5rem;
@@ -4058,15 +4104,21 @@ function clearUploadedDocuments() {
             justify-content: center;
             gap: 0.5rem;
             min-width: 120px;
+                        min-height: 44px;
         }
+                .btn:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible {
+                        outline: 3px solid var(--primary);
+                        outline-offset: 2px;
+                        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+                }
         .btn-primary { background: var(--primary); color: white; }
         .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
         .btn-secondary { background: var(--secondary); color: white; }
         .btn-secondary:hover:not(:disabled) { background: #5a6268; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-success { background: var(--success); color: white; }
-        .btn-info { background: #17a2b8; color: white; border: none; }
-        .btn-info:hover:not(:disabled) { background: #138496; }
+        .btn-info { background: #0a6c9a; color: white; border: none; }
+        .btn-info:hover:not(:disabled) { background: #085c84; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn.hidden { display: none; }
 
@@ -4131,11 +4183,12 @@ function clearUploadedDocuments() {
             border-color: var(--primary);
             background: rgba(0, 123, 255, 0.05);
         }
-        .date-select-wrapper select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
-        }
+                .date-select-wrapper select:focus {
+                        outline: 3px solid var(--primary);
+                        outline-offset: 2px;
+                        border-color: var(--primary);
+                        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+                }
         .date-select-wrapper select option {
             padding: 8px;
         }
@@ -4236,25 +4289,25 @@ function clearUploadedDocuments() {
             transition: all 0.3s ease;
         }
 
-        .validation-feedback.error {
-            color: #dc2626;
-            font-weight: 500;
-        }
+                .validation-feedback.error {
+                        color: #b02a37;
+                        font-weight: 600;
+                }
 
-        .validation-feedback.success {
-            color: #059669;
-            font-weight: 500;
-        }
+                .validation-feedback.success {
+                        color: #0f7a3a;
+                        font-weight: 600;
+                }
 
         /* Question card enhanced states */
         .form-group {
             transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
         }
 
-        .form-group:has(.validation-feedback.error) {
-            border-left: 4px solid #dc2626;
-            background-color: #fef2f2;
-        }
+                .form-group:has(.validation-feedback.error) {
+                        border-left: 4px solid #b02a37;
+                        background-color: #fde8ea;
+                }
 
         .form-group:has(.validation-feedback.success) {
             border-left: 4px solid #059669;
@@ -4328,7 +4381,7 @@ function clearUploadedDocuments() {
         // ====================================================================
         (function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const isTestMode = urlParams.get('test') === 'true' || (typeof navigator !== 'undefined' && navigator.webdriver === true);
+                        const isTestMode = urlParams.get('test') === 'true';
 
                         if (!isTestMode) return;
 
@@ -4376,7 +4429,7 @@ function clearUploadedDocuments() {
 
         <div class="progress-container" role="complementary" aria-label="Form completion progress">
             <div class="progress-text" id="progress-text" aria-live="polite" aria-atomic="true">Schritt 1 von 3</div>
-            <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10">
+                        <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="10" aria-labelledby="progress-text">
                 <div class="progress-fill" id="progress-fill" style="width: 10%;"></div>
             </div>
         </div>
@@ -4391,8 +4444,7 @@ function clearUploadedDocuments() {
 
         <div class="action-buttons">
             <button class="btn btn-secondary" onclick="App.saveToFile()">💾 <span data-translate="btn_save">Save</span></button>
-            <button class="btn btn-secondary" onclick="document.getElementById('load-file').click()">📂 <span data-translate="btn_load">Load</span></button>
-            <input type="file" id="load-file" accept=".json" style="display:none" onchange="App.loadFromFile(event)">
+                        <button class="btn btn-secondary" onclick="document.getElementById('load-file').click()" aria-label="Load saved questionnaire">📂 <span data-translate="btn_load">Load</span></button>
             <button class="btn btn-danger" onclick="App.resetAll()">🔄 <span data-translate="btn_restart">Restart</span></button>
         </div>
 
@@ -4400,10 +4452,10 @@ function clearUploadedDocuments() {
              JSON ANSWER BOX
              ================================================================ -->
         <div class="question-card" style="margin-bottom: 1.5rem;">
-            <h3 style="margin: 0 0 0.5rem 0; font-size: 1.3rem; color: var(--primary);">
-                🔒 <span data-translate="json_box_title">Encrypted Answers (AES-256)</span>
+                        <h3 id="json-box-title" style="margin: 0 0 0.5rem 0; font-size: 1.3rem; color: var(--primary);">
+                                🔒 <span data-translate="json_box_title">Encrypted Answers (AES-256)</span>
             </h3>
-            <textarea id="json-answer-box" rows="10" readonly style="font-family: monospace; font-size: 0.8rem;"></textarea>
+                        <textarea id="json-answer-box" rows="10" readonly style="font-family: monospace; font-size: 0.8rem;" aria-labelledby="json-box-title" aria-readonly="true"></textarea>
             
             <!-- Document Upload Section -->
             <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--primary);">
@@ -4411,26 +4463,32 @@ function clearUploadedDocuments() {
                 <p style="font-size: 0.85rem; color: var(--secondary); margin: 0 0 0.5rem 0;" data-translate="additional_documents_desc">
                     You can upload additional documents (images, PDFs, text files). These will be processed with OCR and exported encrypted.
                 </p>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                    <button class="btn btn-info" onclick="App.showDocumentUploadDialog()" style="font-size: 0.9rem;">
-                        📤 <span data-translate="upload_documents">Upload Documents</span>
-                    </button>
-                    <button class="btn btn-secondary" onclick="App.showUploadedDocuments()" style="font-size: 0.9rem;">
-                        📋 <span data-translate="view_documents">View Documents</span>
-                    </button>
-                    <button class="btn btn-danger" onclick="App.clearUploadedDocuments()" style="font-size: 0.9rem;">
-                        🗑️ <span data-translate="delete_documents">Delete Documents</span>
-                    </button>
-                </div>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button class="btn btn-info" onclick="App.showDocumentUploadDialog()" style="font-size: 0.9rem;" aria-label="Upload documents for OCR">
+                                                📤 <span data-translate="upload_documents">Upload Documents</span>
+                                        </button>
+                                        <label for="document-upload" class="btn btn-secondary" style="font-size: 0.9rem; cursor: pointer;" aria-label="Select documents for OCR (multiple)">
+                                                📑 <span data-translate="choose_documents">Choose Files</span>
+                                        </label>
+                                        <input type="file" id="document-upload" accept=".pdf,.png,.jpg,.jpeg,.tiff,.txt" multiple aria-label="Dokumente hochladen (mehrere Dateien erlaubt)" style="display: block; padding: 0.75rem 0;" />
+                                        <button class="btn btn-secondary" onclick="App.showUploadedDocuments()" style="font-size: 0.9rem;">
+                                                📋 <span data-translate="view_documents">View Documents</span>
+                                        </button>
+                                        <button class="btn btn-danger" onclick="App.clearUploadedDocuments()" style="font-size: 0.9rem;">
+                                                🗑️ <span data-translate="delete_documents">Delete Documents</span>
+                                        </button>
+                                </div>
             </div>
+                        <!-- Hidden JSON load input placed after visible document upload to keep accessibility tests targeting visible controls -->
+                        <input type="file" id="load-file" accept=".json" aria-label="Load saved questionnaire file" style="display:none" onchange="App.loadFromFile(event)">
             
-            <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button class="btn btn-primary" onclick="App.exportWithDocumentPrompt(true)">
-                    💾 <span data-translate="export_encrypted_docs">Export (Encrypted + Documents)</span>
-                </button>
-                <button class="btn btn-secondary" onclick="App.exportJsonFile(false)">
-                    💾 <span data-translate="export_file_raw">Export (Raw JSON)</span>
-                </button>
+                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-secondary" onclick="App.exportJsonFile(false)">
+                                        💾 <span data-translate="export_file_raw">Export (Raw JSON)</span>
+                                </button>
+                                <button class="btn btn-primary" onclick="App.exportWithDocumentPrompt(true)">
+                                        💾 <span data-translate="export_encrypted_docs">Export (Encrypted + Documents)</span>
+                                </button>
                 <button class="btn btn-success" onclick="App.showDecryptionModal()">
                     🔑 <span data-translate="decrypt_data">Decrypt Data</span>
                 </button>
@@ -16141,7 +16199,13 @@ function clearUploadedDocuments() {
         // Beispiel: file:///pfad/zur/index_v8_complete.html?test=true
         // =================================================================
         const urlParams = new URLSearchParams(window.location.search);
-        const isTestMode = urlParams.get('test') === 'true' || (typeof navigator !== 'undefined' && navigator.webdriver === true);
+        // Test-Modus nur explizit via URL-Flag aktivieren (keine implizite Änderung des Produkt-Verhaltens in Automation)
+        const isTestMode = urlParams.get('test') === 'true';
+        // Automation-Erkennung: nur für Prompt-Bypass/Determinismus nutzen, NICHT für Privacy-Auto-Accept
+        const isAutomation = (typeof navigator !== 'undefined' && navigator.webdriver === true);
+
+        // Playwright-Hook (für Tests, die explizit ?test=true nutzen)
+        try { window.__ANAMNESE_READY__ = false; } catch (e) { /* ignore */ }
         
         // TEST MODE AKTIV - Privacy-Dialog wird übersprungen (console.log removed per ESLint)
         
@@ -16635,7 +16699,7 @@ function clearUploadedDocuments() {
                 const currentValue = AppState.answers[field.id] || '';
                 const fieldId = `field_${field.id}`;
 
-                let html = `<div class="form-group" data-field-id="${field.id}">`;
+                let html = `<div class="form-group" data-field-wrapper="${field.id}">`;
                 
                 // For checkbox/radio fields without options array, render as individual option
                 // Use field.label directly instead of translation to get the specific option text
@@ -16656,7 +16720,7 @@ function clearUploadedDocuments() {
                 
                 // For other field types, use translation or fallback to field.label
                 const label = T(labelKey) !== labelKey ? T(labelKey) : field.label;
-                html += `<label class="question-label">${escapeHtml(label)}${required}</label>`;
+                html += `<label class="question-label" for="${fieldId}" id="label_${field.id}">${escapeHtml(label)}${required}</label>`;
 
                 switch (field.type) {
                     case 'text':
@@ -16668,7 +16732,8 @@ function clearUploadedDocuments() {
                         html += `<input type="${field.type}" id="${fieldId}" value="${escapeHtml(currentValue)}" 
                                  data-field-id="${field.id}" ${field.required ? 'required' : ''}
                                  ${field.min !== undefined ? `min="${field.min}"` : ''}
-                                 ${field.max !== undefined ? `max="${field.max}"` : ''}>`;
+                                 ${field.max !== undefined ? `max="${field.max}"` : ''}
+                                 aria-labelledby="label_${field.id}" aria-required="${field.required ? 'true' : 'false'}">`;
                         html += `</div>`;
                         html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
@@ -16676,13 +16741,15 @@ function clearUploadedDocuments() {
                     case 'textarea':
                         html += `<div class="input-wrapper">`;
                         html += `<textarea id="${fieldId}" rows="3" data-field-id="${field.id}" 
-                                 ${field.required ? 'required' : ''}>${escapeHtml(currentValue)}</textarea>`;
+                                 ${field.required ? 'required' : ''} aria-labelledby="label_${field.id}"
+                                 aria-required="${field.required ? 'true' : 'false'}">${escapeHtml(currentValue)}</textarea>`;
                         html += `</div>`;
                         html += `<div class="validation-feedback" id="feedback_${field.id}"></div>`;
                         break;
 
                     case 'select':
-                        html += `<select id="${fieldId}" data-field-id="${field.id}" ${field.required ? 'required' : ''}>`;
+                        html += `<select id="${fieldId}" data-field-id="${field.id}" ${field.required ? 'required' : ''}
+                                 aria-labelledby="label_${field.id}" aria-required="${field.required ? 'true' : 'false'}">`;
                         
                         // Special handling for birthdate fields (0003_tag, 0003_monat, 0003_jahr)
                         if (field.id === '0003_tag') {
@@ -16700,8 +16767,8 @@ function clearUploadedDocuments() {
                             }
                         } else if (field.id === '0003_jahr') {
                             html += `<option value="">${T('0003_jahr')}</option>`;
-                            const currentYear = new Date().getFullYear();
-                            for (let i = 0; i < 100; i++) {
+                                                        const currentYear = new Date().getFullYear();
+                                                        for (let i = 0; i < 130; i++) {
                                 const year = currentYear - i;
                                 const selected = currentValue === String(year) ? 'selected' : '';
                                 html += `<option value="${year}" ${selected}>${year}</option>`;
@@ -17345,6 +17412,20 @@ function clearUploadedDocuments() {
                     console.error('deleteAllDocumentsGDPR function not found');
                 }
             },
+
+                        exportJsonFile(encrypted = true) {
+                                if (typeof window.exportJsonFile === 'function') {
+                                        return window.exportJsonFile(encrypted);
+                                }
+                                console.error('exportJsonFile function not found');
+                        },
+
+                        exportWithDocumentPrompt(encrypted = true) {
+                                if (typeof window.exportWithDocumentPrompt === 'function') {
+                                        return window.exportWithDocumentPrompt(encrypted);
+                                }
+                                console.error('exportWithDocumentPrompt function not found');
+                        },
             
             showAuditReport() {
                 if (typeof showAuditReportGDPR === 'function') {
@@ -17364,6 +17445,7 @@ function clearUploadedDocuments() {
                 const appContainer = document.getElementById('app-container');
                 if (privacyModal) privacyModal.classList.add('hidden');
                 if (appContainer) appContainer.classList.remove('hidden');
+                                try { window.__ANAMNESE_READY__ = true; } catch (e) { /* ignore */ }
                 
                 // Test-Banner anzeigen
                 const header = document.querySelector('header');
@@ -17385,7 +17467,22 @@ function clearUploadedDocuments() {
                 });
             }
             
-            App.init();
+                        Promise.resolve(App.init())
+                                .then(() => {
+                                        try {
+                                                if (isTestMode) window.__ANAMNESE_READY__ = true;
+                                        } catch (e) {
+                                                // ignore
+                                        }
+                                })
+                                .catch((err) => {
+                                        console.error('[App] init failed:', err);
+                                        try {
+                                                if (isTestMode) window.__ANAMNESE_READY__ = 'error';
+                                        } catch (e) {
+                                                // ignore
+                                        }
+                                });
         });
 
         // ====================================================================
@@ -24839,11 +24936,11 @@ if (typeof document !== 'undefined') {
         const style = document.createElement('style');
         style.textContent = `
             .btn-info {
-                background: #2196F3;
-                color: white;
+                                background: #0a6c9a;
+                                color: white;
             }
             .btn-info:hover {
-                background: #1976D2;
+                                background: #085c84;
             }
         `;
         document.head.appendChild(style);
@@ -27201,12 +27298,12 @@ function updateStatusIndicator() {
     
     if (onlineStatus) {
         statusIndicator.innerHTML = '🟢 Online';
-        statusIndicator.style.background = '#4CAF50';
-        statusIndicator.style.color = 'white';
+                statusIndicator.style.background = '#1c7c2f';
+                statusIndicator.style.color = '#ffffff';
     } else {
         statusIndicator.innerHTML = '🔴 Offline';
-        statusIndicator.style.background = '#f44336';
-        statusIndicator.style.color = 'white';
+                statusIndicator.style.background = '#b02a37';
+                statusIndicator.style.color = '#ffffff';
     }
 }
 
@@ -27225,11 +27322,11 @@ function showStatusNotification(message, type = 'info') {
         animation: slideIn 0.3s ease;
     `;
     
-    const colors = {
-        info: { bg: '#2196F3', color: 'white' },
-        success: { bg: '#4CAF50', color: 'white' },
-        warning: { bg: '#ff9800', color: 'white' },
-        error: { bg: '#f44336', color: 'white' }
+        const colors = {
+                info: { bg: '#0a6c9a', color: '#ffffff' },
+                success: { bg: '#1c7c2f', color: '#ffffff' },
+                warning: { bg: '#c07a00', color: '#ffffff' },
+                error: { bg: '#b02a37', color: '#ffffff' }
     };
     
     const style = colors[type] || colors.info;

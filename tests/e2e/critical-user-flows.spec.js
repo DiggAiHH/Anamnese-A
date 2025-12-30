@@ -1,6 +1,14 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
+const APP_URL_TEST = 'http://localhost:8080/index_v8_complete.html?test=true';
+
+async function gotoReady(page) {
+  await page.goto(APP_URL_TEST);
+  await page.waitForFunction(() => window.__ANAMNESE_READY__ === true, { timeout: 30000 });
+  await page.waitForSelector('#app-container', { state: 'visible', timeout: 30000 });
+}
+
 /**
  * CRITICAL USER FLOW TESTS
  * These tests simulate real user behavior to catch bugs that would cause
@@ -11,7 +19,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   
   test.beforeEach(async ({ page }) => {
     // Clear all storage before each test
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
+    await page.goto(APP_URL_TEST);
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
@@ -26,7 +34,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
     await expect(privacyModal).toBeVisible({ timeout: 10000 });
     
     // Try to accept privacy
-    const acceptButton = page.locator('button:has-text("Accept")');
+    const acceptButton = page.locator('#privacy-accept-btn');
     await expect(acceptButton).toBeVisible();
     await acceptButton.click();
     
@@ -39,10 +47,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 2: User fills basic data without crashing', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    
-    // Wait for app to load
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Fill in last name
     const lastNameInput = page.locator('input[name="0000"]');
@@ -103,8 +108,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 3: User fills out form with extreme data', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Try extremely long text input
     const lastNameInput = page.locator('input[name="0000"]');
@@ -133,8 +137,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 4: localStorage full simulation (Bug #1)', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Fill localStorage until it's full
     await page.evaluate(() => {
@@ -173,7 +176,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 5: Encryption key race condition (Bug #2)', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
+    await gotoReady(page);
     
     // Immediately try to encrypt without waiting for key setup
     const encrypted = await page.evaluate(async () => {
@@ -193,8 +196,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 6: Undefined answers access (Bug #3)', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // ARCHITECTURE DECISION: Test defensive programming - app should handle undefined gracefully
     const result = await page.evaluate(() => {
@@ -216,8 +218,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 7: Navigate through all sections', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Get total number of sections
     const sectionCount = await page.evaluate(() => {
@@ -266,8 +267,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 8: Export functionality', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Fill minimal data
     const lastNameInput = page.locator('input[name="0000"]');
@@ -291,8 +291,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 9: Language switching stability', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Find language selector
     const languageSelect = page.locator('#language-select');
@@ -312,8 +311,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 10: Offline mode simulation', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Go offline
     await page.context().setOffline(true);
@@ -333,8 +331,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 11: Memory leak check (Event listeners)', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Navigate back and forth multiple times
     for (let i = 0; i < 5; i++) {
@@ -358,8 +355,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
   });
 
   test('Flow 12: Browser back button handling', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Fill some data
     const lastNameInput = page.locator('input[name="0000"]');
@@ -367,11 +363,11 @@ test.describe('Critical User Flows - Blind Audit', () => {
       await lastNameInput.fill('BackButtonTest');
     }
     
-    // Navigate to another page
-    await page.goto('http://localhost:8080');
+    // Navigate to another state within the same page (stable history across engines)
+    await page.goto(`${APP_URL_TEST}&nav=1`);
     
     // Use browser back button
-    await page.goBack();
+    await page.goBack({ waitUntil: 'domcontentloaded' });
     
     // Check if app recovered gracefully
     await page.waitForTimeout(1000);
@@ -384,8 +380,7 @@ test.describe('Critical User Flows - Blind Audit', () => {
 test.describe('Edge Cases and Error Handling', () => {
   
   test('Edge 1: Empty form submission', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Try to submit without filling anything
     const nextButton = page.locator('#next-btn');
@@ -403,8 +398,7 @@ test.describe('Edge Cases and Error Handling', () => {
   });
 
   test('Edge 2: Rapid clicking (rate limiting)', async ({ page }) => {
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Rapidly click next button
     const nextButton = page.locator('#next-btn');
@@ -435,8 +429,7 @@ test.describe('Edge Cases and Error Handling', () => {
       }
     });
     
-    await page.goto('http://localhost:8080/index_v8_complete.html?test=true');
-    await page.waitForLoadState('networkidle');
+    await gotoReady(page);
     
     // Wait for any async operations
     await page.waitForTimeout(2000);

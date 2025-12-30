@@ -4,12 +4,17 @@ const { test, expect } = require('@playwright/test');
 
 const APP_URL = 'http://localhost:8080/index_v8_complete.html?test=true';
 
+async function gotoReady(page) {
+  await page.goto(APP_URL);
+  await page.waitForFunction(() => window.__ANAMNESE_READY__ === true, { timeout: 30000 });
+  await page.waitForSelector('#app-container', { state: 'visible', timeout: 30000 });
+}
+
 test.describe('Responsive: iPhone 12', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('Seite lädt ohne Horizontal-Scroll', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app', { timeout: 5000 });
+    await gotoReady(page);
 
     const hasHorizontalScroll = await page.evaluate(() => {
       return document.documentElement.scrollWidth > document.documentElement.clientWidth;
@@ -19,8 +24,7 @@ test.describe('Responsive: iPhone 12', () => {
   });
 
   test('Touch-Targets sind groß genug (min 44x44px)', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const buttons = page.locator('button');
     const buttonCount = await buttons.count();
@@ -42,8 +46,7 @@ test.describe('Responsive: iPad', () => {
   test.use({ viewport: { width: 768, height: 1024 } });
 
   test('Seite lädt auf Tablet', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const heading = page.locator('h1').first();
     await expect(heading).toBeVisible();
@@ -54,8 +57,7 @@ test.describe('Responsive: Layout Basics', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('Fragebogen-Felder sind ausfüllbar', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const firstNameInput = page.locator('[data-field-id="0001"]').first();
     if (await firstNameInput.count() > 0) {
@@ -66,8 +68,7 @@ test.describe('Responsive: Layout Basics', () => {
   });
 
   test('Sprachauswahl funktioniert auf Mobile', async ({ page }) => {
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const languageSelect = page.locator('#language-select');
     if (await languageSelect.count() > 0) {
@@ -78,7 +79,7 @@ test.describe('Responsive: Layout Basics', () => {
   });
 
   test('Viewport Meta-Tag ist korrekt gesetzt', async ({ page }) => {
-    await page.goto(APP_URL);
+    await gotoReady(page);
 
     const viewport = await page.evaluate(() => {
       const meta = document.querySelector('meta[name="viewport"]');
@@ -93,8 +94,7 @@ test.describe('Responsive: Layout Basics', () => {
 test.describe('Responsive: Landscape vs Portrait', () => {
   test('iPhone 12 - Portrait Mode', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const heading = page.locator('h1').first();
     await expect(heading).toBeVisible();
@@ -102,8 +102,7 @@ test.describe('Responsive: Landscape vs Portrait', () => {
 
   test('iPhone 12 - Landscape Mode', async ({ page }) => {
     await page.setViewportSize({ width: 844, height: 390 });
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const heading = page.locator('h1').first();
     await expect(heading).toBeVisible();
@@ -118,8 +117,7 @@ test.describe('Responsive: Landscape vs Portrait', () => {
 test.describe('Responsive: Font-Sizes', () => {
   test('Text ist auf Mobile lesbar (min 16px)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 }); // iPhone SE
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const bodyFontSize = await page.evaluate(() => {
       const style = window.getComputedStyle(document.body);
@@ -131,8 +129,7 @@ test.describe('Responsive: Font-Sizes', () => {
 
   test('Input-Felder haben min 16px (verhindert Auto-Zoom auf iOS)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 }); // iPhone 12
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app');
+    await gotoReady(page);
 
     const firstInput = page.locator('input[type="text"]').first();
     if (await firstInput.count() > 0) {
@@ -155,8 +152,7 @@ test.describe('Responsive: Performance on Mobile', () => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     const startTime = Date.now();
-    await page.goto(APP_URL);
-    await page.waitForSelector('#app', { timeout: 10000 });
+    await gotoReady(page);
     const loadTime = Date.now() - startTime;
 
     expect(loadTime).toBeLessThan(10000);

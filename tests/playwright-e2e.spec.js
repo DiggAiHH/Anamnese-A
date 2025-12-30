@@ -88,6 +88,7 @@ test.describe('🧪 Test Suite Validation', () => {
     const anonymizerLoaded = await page.evaluate(() => {
       /* eslint-disable no-undef */
       // NOTE: In classic scripts, const/let bindings are not attached to window.
+      // @ts-expect-error - injected by the test page (browser context)
       return typeof GDPR_ANONYMIZER_MOCK !== 'undefined';
       /* eslint-enable no-undef */
     });
@@ -206,7 +207,8 @@ test.describe('🔒 GDPR Anonymization Tests (Automated)', () => {
     
     if (anonymizationTest) {
       const status = await anonymizationTest.getAttribute('class');
-      expect(status).toContain('passed');
+      // The anonymizer UI marks success with either "passed" or "success"; accept both
+      expect(status).toMatch(/passed|success/);
     }
   });
 });
@@ -272,12 +274,8 @@ test.describe('🌐 Main Application Tests', () => {
     // Ensure no blocking dialogs break WebKit/Firefox runs
     await page.addInitScript(() => {
       try {
-        // Prevent any prompt/confirm from blocking test execution
-        // eslint-disable-next-line no-undef
         window.alert = () => {};
-        // eslint-disable-next-line no-undef
         window.confirm = () => true;
-        // eslint-disable-next-line no-undef
         window.prompt = () => '';
       } catch (e) {
         // ignore
@@ -286,32 +284,36 @@ test.describe('🌐 Main Application Tests', () => {
     
     await page.goto(`${BASE_URL}/index_v8_complete.html?test=true`);
     
-    // Wait for full page load + JS execution
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000); // Allow app init time
-    
-    // Wait for App + language method to exist
+    // Wait for full page load + deterministic app readiness
+    await page.waitForLoadState('domcontentloaded');
+    // Use string expression to avoid TS typing issues in Node context
+    await page.waitForFunction('window.__ANAMNESE_READY__ === true', { timeout: 30000 });
+
+    const title = page.locator('#app-title');
+    await expect(title).toBeVisible({ timeout: TEST_TIMEOUT });
+    const initialTitle = await title.innerText();
+
+    const langSelect = page.locator('#language-select');
+    await expect(langSelect).toBeVisible({ timeout: TEST_TIMEOUT });
     await page.waitForFunction(() => {
-      /* eslint-disable no-undef */
-      // HISTORY-AWARE: App is declared as top-level const in a classic script.
-      // That creates a global binding (App) but not necessarily window.App.
-      return typeof App !== 'undefined' && typeof App.changeLanguage === 'function';
-      /* eslint-enable no-undef */
+      const select = document.getElementById('language-select');
+      return select instanceof HTMLSelectElement && select.options.length > 5;
     }, { timeout: 30000 });
 
     const initialLang = await page.evaluate(() => document.documentElement.getAttribute('lang'));
 
-    // Switch to English via App API (more stable than waiting for <select> options)
-    await page.evaluate(() => {
-      /* eslint-disable no-undef */
-      App.changeLanguage('en');
-      /* eslint-enable no-undef */
-    });
+    // Switch to English via the selector (matches real UX)
+    await page.selectOption('#language-select', 'en');
 
     await page.waitForFunction(() => document.documentElement.getAttribute('lang') === 'en', { timeout: 30000 });
+    await expect(title).toContainText(/Medical|History|Questionnaire/i, { timeout: 30000 });
+
     const newLang = await page.evaluate(() => document.documentElement.getAttribute('lang'));
+    const newTitle = await title.innerText();
+
     expect(newLang).toBe('en');
     expect(newLang).not.toBe(initialLang);
+    expect(newTitle).not.toBe(initialTitle);
   });
 
   test('GDPR panel exists and is interactive', async ({ page }) => {

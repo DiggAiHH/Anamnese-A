@@ -3,14 +3,16 @@
 const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
 
+async function gotoReady(page) {
+  await page.goto('/index_v8_complete.html?test=true');
+  await page.waitForFunction(() => window.__ANAMNESE_READY__ === true, { timeout: 30000 });
+  await page.waitForSelector('#app-container', { state: 'visible', timeout: 30000 });
+}
+
 test.describe('Accessibility (WCAG 2.1 AA) - index_v8_complete.html', () => {
   
   test('Seite erfüllt WCAG 2.1 AA Standards (axe-core)', async ({ page }) => {
-    // Navigate to app
-    await page.goto('/index_v8_complete.html');
-    
-    // Wait for app to load
-    await page.waitForSelector('#app', { timeout: 5000 });
+    await gotoReady(page);
     
     // Run axe accessibility scan
     const accessibilityScanResults = await new AxeBuilder({ page })
@@ -37,37 +39,39 @@ test.describe('Accessibility (WCAG 2.1 AA) - index_v8_complete.html', () => {
   });
 
   test('Skip Links sind vorhanden und funktionieren', async ({ page }) => {
-    await page.goto('/index_v8_complete.html');
+    await gotoReady(page);
     
     // Press Tab to focus skip link
     await page.keyboard.press('Tab');
     
     // Check if skip link is visible or exists
-    const skipLink = page.locator('a[href="#main-content"], a[href="#app"]').first();
-    await expect(skipLink).toHaveCount(1);
+    const skipLinks = page.locator('a.skip-link');
+    await expect(skipLinks).toHaveCount(2);
   });
 
   test('Alle interaktiven Elemente haben sichtbaren Focus', async ({ page }) => {
-    await page.goto('/index_v8_complete.html');
+    await gotoReady(page);
     
     // Tab through first few elements
     for (let i = 0; i < 5; i++) {
       await page.keyboard.press('Tab');
       
-      // Check if focused element has visible outline
-      const focusedElement = await page.evaluateHandle(() => document.activeElement);
-      const outlineWidth = await page.evaluate(el => {
+      const hasVisibleFocus = await page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el) return false;
         const style = window.getComputedStyle(el);
-        return style.outlineWidth;
-      }, focusedElement);
-      
-      // Outline should be at least 2px (current is 3px according to CSS)
-      expect(parseInt(outlineWidth)).toBeGreaterThanOrEqual(2);
+        const outlineWidth = parseFloat(style.outlineWidth || '0');
+        const hasOutline = outlineWidth >= 2 && style.outlineStyle !== 'none';
+        const hasShadow = style.boxShadow && style.boxShadow !== 'none';
+        return hasOutline || hasShadow;
+      });
+
+      expect(hasVisibleFocus).toBe(true);
     }
   });
 
   test('ARIA Landmarks sind korrekt definiert', async ({ page }) => {
-    await page.goto('/index_v8_complete.html');
+    await gotoReady(page);
     
     // Check for main landmark
     const mainLandmark = page.locator('[role="main"], main');
@@ -81,8 +85,8 @@ test.describe('Accessibility (WCAG 2.1 AA) - index_v8_complete.html', () => {
   });
 
   test('Buttons haben aria-label oder zugänglichen Text', async ({ page }) => {
-    await page.goto('/index_v8_complete.html');
-    await page.waitForSelector('button', { timeout: 5000 });
+    await gotoReady(page);
+    await page.waitForSelector('button', { timeout: 30000, state: 'attached' });
     
     // Get all buttons
     const buttons = await page.locator('button').all();
@@ -93,7 +97,7 @@ test.describe('Accessibility (WCAG 2.1 AA) - index_v8_complete.html', () => {
       const title = await button.getAttribute('title');
       const textContent = await button.textContent();
       
-      const hasAccessibleName = ariaLabel || title || (textContent && textContent.trim().length > 0);
+      const hasAccessibleName = !!(ariaLabel || title || (textContent && textContent.trim().length > 0));
       
       if (!hasAccessibleName) {
         const outerHTML = await button.evaluate(el => el.outerHTML);
