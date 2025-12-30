@@ -3701,6 +3701,11 @@ function clearUploadedDocuments() {
 
         *, *::before, *::after { box-sizing: border-box; }
 
+                html {
+                        max-width: 100vw;
+                        overflow-x: hidden;
+                }
+
         body {
             font-family: var(--font-family);
             margin: 0;
@@ -3708,8 +3713,19 @@ function clearUploadedDocuments() {
             background-color: var(--bg-color);
             color: var(--text-color);
             line-height: 1.6;
+                        overflow-x: hidden;
             transition: background-color 0.3s ease, color 0.3s ease;
         }
+
+                #app-container {
+                        max-width: 100vw;
+                        overflow-x: hidden;
+                }
+
+                .enhanced-notification,
+                #licenseBanner {
+                        max-width: calc(100vw - 32px);
+                }
 
         /* =================================================================
            ACCESSIBILITY: SKIP LINKS
@@ -19150,12 +19166,12 @@ const LicensingUI = {
         let message = '';
         let color = '#667eea';
         
-        if (!LicensingConfig.enabled) {
-            message = '🎉 Demo-Modus - Alle Features verfügbar';
-            color = '#22c55e';
-        } else if (status.active) {
-            message = `✅ Lizenz aktiv | ${summary.totalEvents} Exporte diesen Monat | 💳 Klick für Abrechnung`;
-            color = '#22c55e';
+                if (!LicensingConfig.enabled) {
+                        message = '🎉 Demo-Modus - Alle Features verfügbar';
+                        color = '#0f5132'; // dark success green for WCAG contrast
+                } else if (status.active) {
+                        message = `✅ Lizenz aktiv | ${summary.totalEvents} Exporte diesen Monat | 💳 Klick für Abrechnung`;
+                        color = '#0f5132'; // dark success green for WCAG contrast
         } else {
             message = '⚠️ Keine Lizenz - Bitte aktivieren Sie Ihre Lizenz';
             color = '#ef4444';
@@ -21269,8 +21285,8 @@ const ComprehensiveEnhancements = {
                 right: 20px;
                 padding: 16px 24px;
                 border-radius: 8px;
-                background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
-                color: white;
+                background: ${type === 'success' ? '#0f5132' : type === 'error' ? '#b02a37' : '#1d4ed8'};
+                color: #ffffff;
                 font-size: 14px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
                 z-index: 10002;
@@ -29919,7 +29935,7 @@ console.log('GDT Performance Optimization module loaded');
     </script>
 
     <!-- HISTORY-AWARE: Login UI integration for backend auth -->
-    <script src="login-ui.js"></script>
+        <script src="public/login-ui.js"></script>
     <script>
         // Initialize login UI after DOM ready
         if (document.readyState === 'loading') {

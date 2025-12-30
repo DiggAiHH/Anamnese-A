@@ -5,7 +5,8 @@ const APP_URL_TEST = 'http://localhost:8080/index_v8_complete.html?test=true';
 
 async function gotoReady(page) {
   await page.goto(APP_URL_TEST);
-  await page.waitForFunction(() => window.__ANAMNESE_READY__ === true, { timeout: 30000 });
+  // Use string expression to avoid TS typing issues in Node context
+  await page.waitForFunction('window.__ANAMNESE_READY__ === true', { timeout: 30000 });
   await page.waitForSelector('#app-container', { state: 'visible', timeout: 30000 });
 }
 
@@ -201,11 +202,14 @@ test.describe('Critical User Flows - Blind Audit', () => {
     // ARCHITECTURE DECISION: Test defensive programming - app should handle undefined gracefully
     const result = await page.evaluate(() => {
       try {
-        // Check if getAnswers exists before calling
-        if (typeof getAnswers !== 'function') {
-          return { success: true, answers: {}, note: 'getAnswers not defined, handled gracefully' };
+        // In classic scripts, global bindings are not always window properties.
+        // For deterministic checks (and TS safety), only use window.
+        // @ts-expect-error - getAnswers may be injected globally in the app bundle
+        if (typeof window.getAnswers !== 'function') {
+          return { success: true, answers: {}, note: 'window.getAnswers not defined, handled gracefully' };
         }
-        const answers = getAnswers();
+        // @ts-expect-error - see above
+        const answers = window.getAnswers();
         return { success: true, answers };
       } catch (e) {
         // Even catching the error is valid behavior (graceful degradation)
@@ -420,12 +424,20 @@ test.describe('Edge Cases and Error Handling', () => {
     
     const consoleErrors = [];
     const consoleWarnings = [];
+    const notFoundResponses = [];
     
     page.on('console', msg => {
       if (msg.type() === 'error') {
         consoleErrors.push(msg.text());
       } else if (msg.type() === 'warning') {
         consoleWarnings.push(msg.text());
+      }
+    });
+
+    // Capture 404s deterministically with URLs (console messages often omit the URL)
+    page.on('response', response => {
+      if (response.status() === 404) {
+        notFoundResponses.push(response.url());
       }
     });
     
@@ -439,6 +451,11 @@ test.describe('Edge Cases and Error Handling', () => {
       console.log('Console Errors Found:');
       consoleErrors.forEach(err => console.log(' - ' + err));
     }
+
+    if (notFoundResponses.length > 0) {
+      console.log('404 Responses Found:');
+      notFoundResponses.forEach(url => console.log(' - ' + url));
+    }
     
     // Critical errors should fail the test
     // ARCHITECTURE DECISION: Filter out known non-critical warnings
@@ -448,6 +465,8 @@ test.describe('Edge Cases and Error Handling', () => {
       !err.includes('favicon') &&
       // CSP frame-ancestors is informational only (meta tag limitation)
       !err.includes('frame-ancestors') &&
+      // Generic 404 console noise is handled via response URL allowlist below
+      !err.includes('Failed to load resource: the server responded with a status of 404') &&
       // Crypto-JS integrity checks are expected (CDN hash mismatch is non-critical for local dev)
       !err.includes('integrity') &&
       !err.includes('crypto-js') &&
@@ -455,6 +474,21 @@ test.describe('Edge Cases and Error Handling', () => {
       !err.includes('SHA-512') &&
       !err.includes('sha512')
     );
+
+    // Assert 404s are only for optional assets
+    const allowed404Patterns = [
+      /\/favicon\.ico(\?|$)/i,
+      /\/apple-touch-icon\.png(\?|$)/i,
+      /\/apple-touch-icon-precomposed\.png(\?|$)/i,
+      /\/robots\.txt(\?|$)/i,
+      /\/manifest\.json(\?|$)/i
+    ];
+
+    const unexpected404s = notFoundResponses.filter(url =>
+      !allowed404Patterns.some(re => re.test(url))
+    );
+
+    expect(unexpected404s.length).toBe(0);
     
     expect(criticalErrors.length).toBe(0);
   });

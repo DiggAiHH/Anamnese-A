@@ -246,9 +246,29 @@ test.describe('Anamnese-A - User Journey Tests', () => {
     
     if (await daySelect.isVisible() && await monthSelect.isVisible() && await yearSelect.isVisible()) {
       // Versuche 31. Februar (ungültig!)
+      // NOTE: Die App kann die Tag-Optionen dynamisch anpassen; Playwright kann keine
+      // nicht-existierende Option selecten. Wir testen daher, dass die UI ungültige
+      // Tage verhindert (Option fehlt) und die App stabil bleibt.
       await monthSelect.selectOption('2'); // Februar
       await yearSelect.selectOption('1990');
-      await daySelect.selectOption('31'); // Ungültiger Tag
+
+      const dayOptionValues = await daySelect.locator('option').evaluateAll(options =>
+        options.map(o => (o instanceof HTMLOptionElement ? o.value : ''))
+      );
+
+      // Bei Feb 1990 darf 31 nicht auswählbar sein (entweder fehlt oder wird abgefangen)
+      expect(dayOptionValues.includes('31')).toBe(false);
+
+      // Wähle einen gültigen Tag um sicherzustellen, dass das Feld weiterhin bedienbar ist
+      if (dayOptionValues.includes('28')) {
+        await daySelect.selectOption('28');
+      } else {
+        // Fallback: wähle den letzten verfügbaren Tag (nicht Platzhalter)
+        const lastValue = dayOptionValues.filter(v => v && v !== 'Tag').slice(-1)[0];
+        if (lastValue) {
+          await daySelect.selectOption(lastValue);
+        }
+      }
       
       await page.waitForTimeout(1000);
       
