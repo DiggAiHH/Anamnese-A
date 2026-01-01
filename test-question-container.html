@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Question Container - Test Suite</title>
+  <style>
+    :root {
+      --pass: #22c55e;
+      --fail: #ef4444;
+      --bg: #1e1e1e;
+      --fg: #e0e0e0;
+      --border: #333;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    h1 { margin-bottom: 1rem; color: #fff; }
+    h2 { margin: 1.5rem 0 0.5rem; color: #aaa; font-size: 1rem; text-transform: uppercase; }
+    .test-result {
+      padding: 0.5rem 1rem;
+      margin: 0.25rem 0;
+      border-left: 4px solid;
+      background: rgba(255,255,255,0.02);
+    }
+    .pass { border-color: var(--pass); }
+    .fail { border-color: var(--fail); background: rgba(239,68,68,0.1); }
+    .pass::before { content: '✓ '; color: var(--pass); font-weight: bold; }
+    .fail::before { content: '✗ '; color: var(--fail); font-weight: bold; }
+    #summary {
+      margin-top: 2rem;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    #summary.pass { background: rgba(34,197,94,0.2); color: var(--pass); }
+    #summary.fail { background: rgba(239,68,68,0.2); color: var(--fail); }
+    pre {
+      background: #2d2d2d;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+    }
+    code { color: #9cdcfe; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Question Container - Test Suite</h1>
+  <div id="results"></div>
+  <div id="summary"></div>
+  <h2>Demo: Compact Export Format</h2>
+  <pre id="demo-output"></pre>
+
+  <script src="question-container.js"></script>
+  <script>
+    'use strict';
+
+    const results = document.getElementById('results');
+    const summary = document.getElementById('summary');
+    const demoOutput = document.getElementById('demo-output');
+    
+    let passed = 0;
+    let failed = 0;
+
+    function assert(condition, testName) {
+      const div = document.createElement('div');
+      div.className = `test-result ${condition ? 'pass' : 'fail'}`;
+      div.textContent = testName;
+      results.appendChild(div);
+      
+      if (condition) passed++;
+      else failed++;
+    }
+
+    function runTests() {
+      // ====== InputType Enum Tests ======
+      results.innerHTML += '<h2>InputType Enum</h2>';
+      assert(InputType.TEXT === 1, 'InputType.TEXT === 1');
+      assert(InputType.YES_NO === 8, 'InputType.YES_NO === 8');
+      assert(Object.isFrozen(InputType), 'InputType ist immutable (frozen)');
+
+      // ====== Category Enum Tests ======
+      results.innerHTML += '<h2>Category Enum</h2>';
+      assert(Category.BASISDATEN === 1, 'Category.BASISDATEN === 1');
+      assert(CategoryNames[1] === 'Basisdaten', 'CategoryNames[1] === "Basisdaten"');
+
+      // ====== QuestionContainer Tests ======
+      results.innerHTML += '<h2>QuestionContainer Klasse</h2>';
+      
+      const container = new QuestionContainer({
+        id: 100,
+        questionCode: 'qTest',
+        category: Category.BASISDATEN,
+        subcategory: 'Test',
+        label: 'Testfrage',
+        inputType: InputType.YES_NO,
+        required: true,
+        privacyRelevant: true
+      });
+
+      assert(container.id === 100, 'Container ID korrekt');
+      assert(container.categoryName === 'Basisdaten', 'CategoryName automatisch gesetzt');
+      assert(Object.isFrozen(container), 'Container ist immutable');
+      assert(container.valueToLabel(1) === 'Ja', 'YES_NO: 1 → "Ja"');
+      assert(container.valueToLabel(0) === 'Nein', 'YES_NO: 0 → "Nein"');
+      assert(container.labelToValue('Ja') === 1, 'labelToValue("Ja") === 1');
+      assert(container.labelToValue('Nein') === 0, 'labelToValue("Nein") === 0');
+
+      // Validation Tests
+      results.innerHTML += '<h2>Validation Tests</h2>';
+      
+      const validation1 = container.validateAnswer(1);
+      assert(validation1.valid === true, 'YES_NO: 1 ist gültig');
+      
+      const validation2 = container.validateAnswer(2);
+      assert(validation2.valid === false, 'YES_NO: 2 ist ungültig');
+      
+      const requiredEmpty = container.validateAnswer(null);
+      assert(requiredEmpty.valid === false, 'Pflichtfeld: null ist ungültig');
+
+      // Choice Container
+      const choiceContainer = new QuestionContainer({
+        id: 101,
+        questionCode: 'qChoice',
+        category: Category.BESCHWERDEN,
+        subcategory: 'Test',
+        label: 'Auswahl-Test',
+        inputType: InputType.SINGLE_CHOICE,
+        options: [
+          { value: 1, label: 'Option A' },
+          { value: 2, label: 'Option B' },
+          { value: 3, label: 'Option C' }
+        ]
+      });
+
+      assert(choiceContainer.valueToLabel(2) === 'Option B', 'SINGLE_CHOICE: valueToLabel funktioniert');
+      assert(choiceContainer.labelToValue('Option C') === 3, 'SINGLE_CHOICE: labelToValue funktioniert');
+
+      // Multi-Choice Container
+      const multiContainer = new QuestionContainer({
+        id: 102,
+        questionCode: 'qMulti',
+        category: Category.BESCHWERDEN,
+        subcategory: 'Test',
+        label: 'Multi-Test',
+        inputType: InputType.MULTI_CHOICE,
+        options: [
+          { value: 1, label: 'Fieber' },
+          { value: 2, label: 'Übelkeit' },
+          { value: 3, label: 'Schwindel' }
+        ]
+      });
+
+      const multiLabels = multiContainer.valueToLabel([1, 3]);
+      assert(Array.isArray(multiLabels) && multiLabels[0] === 'Fieber' && multiLabels[1] === 'Schwindel', 
+             'MULTI_CHOICE: valueToLabel([1,3]) → ["Fieber", "Schwindel"]');
+
+      // Invalid ID Test
+      results.innerHTML += '<h2>Error Handling</h2>';
+      let errorThrown = false;
+      try {
+        new QuestionContainer({
+          id: 100000, // > 65535
+          questionCode: 'qError',
+          category: Category.BASISDATEN,
+          subcategory: 'Test',
+          label: 'Error Test',
+          inputType: InputType.TEXT
+        });
+      } catch (e) {
+        errorThrown = e instanceof RangeError;
+      }
+      assert(errorThrown, 'RangeError bei ID > 65535');
+
+      // ====== AnswerRegistry Tests ======
+      results.innerHTML += '<h2>AnswerRegistry</h2>';
+      
+      const registry = new AnswerRegistry();
+      
+      registry.set(1, 1);
+      registry.set(2, 0);
+      registry.set(3, [1, 2, 3]);
+      
+      assert(registry.get(1) === 1, 'get(1) === 1');
+      assert(registry.get(2) === 0, 'get(2) === 0');
+      assert(JSON.stringify(registry.get(3)) === '[1,2,3]', 'get(3) === [1,2,3]');
+      assert(registry.size === 3, 'size === 3');
+
+      // Compact String Export
+      const compact = registry.toCompactString();
+      assert(compact.includes('1:1'), 'Compact enthält "1:1"');
+      assert(compact.includes('3:[1,2,3]'), 'Compact enthält "3:[1,2,3]"');
+
+      // Import Test
+      const registry2 = new AnswerRegistry();
+      registry2.fromCompactString('5:1,10:0,15:[2,4,6]');
+      assert(registry2.get(5) === 1, 'Import: get(5) === 1');
+      assert(registry2.get(10) === 0, 'Import: get(10) === 0');
+      assert(JSON.stringify(registry2.get(15)) === '[2,4,6]', 'Import: get(15) === [2,4,6]');
+
+      // Type Safety
+      let typeError = false;
+      try {
+        registry.set(99, 'string value');
+      } catch (e) {
+        typeError = e instanceof TypeError;
+      }
+      assert(typeError, 'TypeError bei String-Wert (nur Integer erlaubt)');
+
+      // ====== QuestionCatalog Tests ======
+      results.innerHTML += '<h2>QuestionCatalog</h2>';
+      
+      const catalog = new QuestionCatalog();
+      catalog.registerBatch(EXAMPLE_QUESTIONS);
+
+      assert(catalog.size === EXAMPLE_QUESTIONS.length, `Katalog enthält ${EXAMPLE_QUESTIONS.length} Container`);
+      assert(catalog.getById(1).label === 'Vorname', 'getById(1).label === "Vorname"');
+      assert(catalog.getByCode('q1000').id === 10, 'getByCode("q1000").id === 10');
+
+      const basisdaten = catalog.getByCategory(Category.BASISDATEN);
+      assert(basisdaten.length === 4, 'Basisdaten hat 4 Container');
+
+      const privacyRelevant = catalog.getPrivacyRelevant();
+      assert(privacyRelevant.length === 4, '4 PII-relevante Container');
+
+      // Condition Check
+      results.innerHTML += '<h2>Condition Checking</h2>';
+      
+      const answers = new AnswerRegistry();
+      
+      // q1001 hat condition: dependsOnContainer: 10, operator: '==', value: 1
+      assert(catalog.checkCondition(11, answers) === false, 'q1001 versteckt wenn q1000 nicht beantwortet');
+      
+      answers.set(10, 0); // q1000 = Nein
+      assert(catalog.checkCondition(11, answers) === false, 'q1001 versteckt wenn q1000 = Nein');
+      
+      answers.set(10, 1); // q1000 = Ja
+      assert(catalog.checkCondition(11, answers) === true, 'q1001 sichtbar wenn q1000 = Ja');
+
+      // Visible Containers
+      const visible = catalog.getVisibleContainers(answers);
+      assert(visible.length > 4, 'Mehr als 4 Container sichtbar nach Antwort');
+
+      // ====== Export Functions ======
+      results.innerHTML += '<h2>Export Functions</h2>';
+      
+      answers.set(1, 0); // Dummy: Vorname als 0 (würde normalerweise String-Hash sein)
+      answers.set(3, 2); // Geschlecht: weiblich
+      
+      const readable = generateReadableExport(catalog, answers);
+      assert(Array.isArray(readable), 'generateReadableExport gibt Array zurück');
+      assert(readable.some(r => r.questionCode === 'q1000'), 'Export enthält q1000');
+
+      const gdtExport = generateGDTExport(answers);
+      assert(typeof gdtExport === 'string', 'generateGDTExport gibt String zurück');
+      assert(gdtExport.includes('10:1'), 'GDT Export enthält "10:1"');
+
+      // ====== Summary ======
+      summary.textContent = `Tests: ${passed + failed} | Passed: ${passed} | Failed: ${failed}`;
+      summary.className = failed === 0 ? 'pass' : 'fail';
+
+      // Demo Output
+      demoOutput.innerHTML = `<code>// Antworten als Integer
+const answers = new AnswerRegistry();
+answers.set(10, 1);  // Container 10 (Beschwerden?): Ja
+answers.set(11, 3);  // Container 11 (Seit wann?): Seit einigen Tagen
+answers.set(12, [1, 4, 5]);  // Container 12 (Symptome): Fieber, Schwindel, Kraftlosigkeit
+
+// Kompakter Export für GDT:
+"${answers.toCompactString()}"
+
+// → Keine PII, nur Nummern!
+// → Container 10 hatte Antwort 1 (Ja)
+// → Container 11 hatte Antwort 3 (Seit einigen Tagen)
+// → Container 12 hatte Antworten [1,4,5] (Fieber, Schwindel, Kraftlosigkeit)</code>`;
+    }
+
+    runTests();
+  </script>
+</body>
+</html>

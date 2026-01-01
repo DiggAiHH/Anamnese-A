@@ -6,12 +6,25 @@ const cors = require('cors');
 const Joi = require('joi');
 const crypto = require('crypto');
 const { Pool } = require('pg');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const winston = require('winston');
 const path = require('path');
+const logger = require('./logger');
 const { AuthService } = require('./middleware/auth');  // HISTORY-AWARE: JWT/Session Auth
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
+const { HandoffStore } = require('./handoff-store');
+const {
+  normalizeMaybeIpV4Mapped,
+  maskIpAddress,
+  sha256Hex,
+  sanitizeAuditDetails
+} = require('./audit-utils');
+
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// Stripe init (avoid hard-fail in dev environments without Stripe)
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
+const stripe = STRIPE_SECRET_KEY ? require('stripe')(STRIPE_SECRET_KEY) : null;
 
 // Initialize Express app
 const app = express();
@@ -41,20 +54,16 @@ const codeQuerySchema = Joi.object({
   sessionId: Joi.string().required()
 });
 
-// Logger configuration (HISTORY-AWARE: Move before DEV_BYPASS to fix init error)
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' }),
-    new winston.transports.Console({
-      format: winston.format.simple()
-    })
-  ]
+const handoffCreateSchema = Joi.object({
+  code: Joi.string().pattern(/^[0-9A-Za-z]{12}$/).required(),
+  payload: Joi.object({
+    handoffPayload: Joi.string().pattern(/^v1\./).max(250000).required()
+  }).required(),
+  expiresInMinutes: Joi.number().integer().min(1).max(60 * 24 * 7).optional()
+});
+
+const handoffCodeSchema = Joi.object({
+  code: Joi.string().pattern(/^[0-9A-Za-z]{12}$/).required()
 });
 
 // Dev bypass configuration - ONLY for testing, never in production
@@ -62,6 +71,24 @@ const logger = winston.createLogger({
 const DEV_BYPASS_PAYMENT = process.env.DEV_BYPASS_PAYMENT === 'true' && process.env.NODE_ENV !== 'production';
 if (DEV_BYPASS_PAYMENT) {
   logger.warn('⚠️  DEV_BYPASS_PAYMENT is ACTIVE - Payment bypass enabled for testing');
+}
+
+// Startup validation (fail-fast in production)
+if (IS_PROD && !DEV_BYPASS_PAYMENT) {
+  if (!STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY is required in production');
+  }
+  if (!STRIPE_WEBHOOK_SECRET) {
+    throw new Error('STRIPE_WEBHOOK_SECRET is required in production');
+  }
+}
+
+// Mandatory crypto key (production)
+if (IS_PROD) {
+  const mk = String(process.env.MASTER_KEY || '');
+  if (!/^[0-9a-fA-F]{64}$/.test(mk)) {
+    throw new Error('MASTER_KEY must be 32-byte hex (64 chars) in production');
+  }
 }
 
 // Database connection pool
@@ -98,7 +125,7 @@ const pool = process.env.DATABASE_URL ? new Pool({
 if (pool) {
   pool.query('SELECT NOW()', (err, res) => {
     if (err) {
-      logger.error('Database connection failed:', err);
+      logger.error('Database connection failed', { message: err?.message });
     } else {
       logger.info('Database connected successfully');
     }
@@ -112,6 +139,15 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.'
+});
+
+// Strengeres Rate-Limit für Abholcode (Brute-Force/Enumeration)
+const handoffLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests, please try again later.'
 });
 
 // Middleware
@@ -169,8 +205,8 @@ app.use(cookieParser());
 
 // Body parser - raw for webhooks
 app.use('/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -179,6 +215,47 @@ app.use(express.static(path.join(__dirname, 'public')));
 // AUTH SERVICE (DSGVO-konform: httpOnly Cookie + server-side sessions)
 // =============================================================================
 const authService = pool ? new AuthService(pool) : null;
+
+// =============================================================================
+// DSGVO-minimierter Anamnese Handoff Store
+// =============================================================================
+const HANDOFF_PEPPER = process.env.HANDOFF_PEPPER || process.env.MASTER_KEY || '';
+if (!HANDOFF_PEPPER) {
+  if (IS_PROD) {
+    throw new Error('HANDOFF_PEPPER (or MASTER_KEY) is required in production');
+  }
+  logger.warn('HANDOFF_PEPPER is not set; handoff code hashing is weak in this environment');
+}
+
+const handoffStore = new HandoffStore({
+  pool,
+  pepper: HANDOFF_PEPPER,
+  singleUse: parseBooleanEnv(process.env.HANDOFF_SINGLE_USE, true)
+});
+
+// Periodic cleanup for expired handoffs
+const HANDOFF_CLEANUP_INTERVAL_MINUTES = Number.parseInt(
+  String(process.env.HANDOFF_CLEANUP_INTERVAL_MINUTES || '10'),
+  10
+);
+if (Number.isFinite(HANDOFF_CLEANUP_INTERVAL_MINUTES) && HANDOFF_CLEANUP_INTERVAL_MINUTES > 0) {
+  const cleanupIntervalMs = HANDOFF_CLEANUP_INTERVAL_MINUTES * 60 * 1000;
+  const cleanupTimer = setInterval(async () => {
+    try {
+      await handoffStore.cleanupExpired();
+    } catch (error) {
+      logger.warn('[handoff] cleanup failed', { message: error?.message });
+    }
+  }, cleanupIntervalMs);
+
+  if (typeof cleanupTimer.unref === 'function') cleanupTimer.unref();
+}
+
+function getDefaultHandoffTtlMinutes() {
+  const raw = Number.parseInt(String(process.env.HANDOFF_TTL_MINUTES || ''), 10);
+  if (Number.isFinite(raw) && raw >= 1 && raw <= 60 * 24 * 7) return raw;
+  return 60 * 24; // 24h
+}
 
 function requireDatabase(req, res) {
   if (!pool) {
@@ -190,6 +267,63 @@ function requireDatabase(req, res) {
   }
   return true;
 }
+
+// =============================================================================
+// Anamnese Handoff API (Lookup per 12-Zeichen Abholcode)
+// =============================================================================
+
+// POST /api/handoff
+// Body: { code: '12chars', payload: {...}, expiresInMinutes?: number }
+app.post('/api/handoff', handoffLimiter, async (req, res) => {
+  try {
+    const { error, value } = handoffCreateSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: error.details.map((d) => d.message)
+      });
+    }
+
+    const ttlMinutes = value.expiresInMinutes ?? getDefaultHandoffTtlMinutes();
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
+
+    const codeHash = handoffStore.hashCode(value.code);
+    await handoffStore.put(codeHash, value.payload, expiresAt);
+
+    return res.json({
+      ok: true,
+      expiresAt: expiresAt.toISOString(),
+      singleUse: handoffStore.singleUse
+    });
+  } catch (err) {
+    logger.error('Handoff create failed', { message: err?.message });
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/handoff/:code
+app.get('/api/handoff/:code', handoffLimiter, async (req, res) => {
+  try {
+    const { error, value } = handoffCodeSchema.validate({ code: req.params.code });
+    if (error) {
+      // Keep responses uniform to reduce enumeration surface.
+      return res.status(404).json({ error: 'Not Found' });
+    }
+
+    const codeHash = handoffStore.hashCode(value.code);
+    const result = await handoffStore.take(codeHash);
+
+    if (!result.found) {
+      // Intentionally avoid distinguishing expired vs. missing.
+      return res.status(404).json({ error: 'Not Found' });
+    }
+
+    return res.json({ ok: true, payload: result.payload });
+  } catch (err) {
+    logger.error('Handoff fetch failed', { message: err?.message });
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // Helper function for AES-256 encryption
 function encryptData(data) {
@@ -232,6 +366,33 @@ function decryptData(encryptedData) {
 
 // Audit logging helper
 async function logAudit(practiceId, action, details, req) {
+  if (!pool) return;
+
+  const auditIpMode = String(process.env.AUDIT_IP_MODE || (IS_PROD ? 'masked' : 'full')).toLowerCase();
+  const auditUaMode = String(process.env.AUDIT_UA_MODE || (IS_PROD ? 'hash' : 'full')).toLowerCase();
+  const auditPepper = process.env.AUDIT_PEPPER || process.env.HANDOFF_PEPPER || process.env.MASTER_KEY || '';
+
+  const rawIp = req?.ip;
+  const rawUa = req?.get ? req.get('user-agent') : undefined;
+
+  const ipAddress =
+    auditIpMode === 'none'
+      ? null
+      : auditIpMode === 'full'
+        ? normalizeMaybeIpV4Mapped(rawIp) || null
+        : maskIpAddress(rawIp);
+
+  const userAgent =
+    auditUaMode === 'none'
+      ? null
+      : auditUaMode === 'full'
+        ? (typeof rawUa === 'string' ? rawUa.slice(0, 1000) : null)
+        : auditPepper
+          ? `sha256:${sha256Hex(auditPepper + String(rawUa || ''))}`
+          : null;
+
+  const safeDetails = sanitizeAuditDetails(details);
+
   try {
     await pool.query(
       `INSERT INTO audit_log (practice_id, action, details, ip_address, user_agent)
@@ -239,13 +400,13 @@ async function logAudit(practiceId, action, details, req) {
       [
         practiceId,
         action,
-        details,
-        req.ip,
-        req.get('user-agent')
+        safeDetails,
+        ipAddress,
+        userAgent
       ]
     );
   } catch (err) {
-    logger.error('Audit logging failed:', err);
+    logger.error('Audit logging failed', { message: err?.message });
   }
 }
 
@@ -365,7 +526,7 @@ app.post('/api/auth/login', async (req, res) => {
       }
     });
   } catch (err) {
-    logger.error('Auth login error:', err);
+    logger.error('Auth login error', { message: err?.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -389,7 +550,7 @@ app.post('/api/auth/logout', async (req, res) => {
     res.clearCookie('anamnese_session');
     res.json({ success: true });
   } catch (err) {
-    logger.error('Auth logout error:', err);
+    logger.error('Auth logout error', { message: err?.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -433,7 +594,7 @@ app.post('/api/validate-practice', async (req, res) => {
       secret: secret
     });
   } catch (err) {
-    logger.error('Practice validation error:', err);
+    logger.error('Practice validation error', { message: err?.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -524,9 +685,16 @@ app.post('/api/create-checkout-session', async (req, res) => {
           bypass: true 
         });
       } catch (err) {
-        logger.error('Error in bypass mode:', err);
+        logger.error('Error in bypass mode', { message: err?.message });
         return res.status(500).json({ error: 'Internal server error' });
       }
+    }
+
+    if (!stripe) {
+      return res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'Payment provider not configured'
+      });
     }
     
     // NORMAL STRIPE MODE: Create Stripe checkout session
@@ -570,13 +738,16 @@ app.post('/api/create-checkout-session', async (req, res) => {
     
     res.json({ sessionId: session.id });
   } catch (err) {
-    logger.error('Checkout session creation error:', err);
+    logger.error('Checkout session creation error', { message: err?.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // POST /webhook (Stripe Webhook)
 app.post('/webhook', async (req, res) => {
+  if (!stripe || !STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).send('Webhook not configured');
+  }
   const sig = req.headers['stripe-signature'];
   let event;
   
@@ -584,10 +755,10 @@ app.post('/webhook', async (req, res) => {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET
+      STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    logger.error('Webhook signature verification failed:', err);
+    logger.error('Webhook signature verification failed', { message: err?.message });
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
   
@@ -621,7 +792,7 @@ app.post('/webhook', async (req, res) => {
       
       logger.info('Payment processed successfully:', { sessionId: session.id });
     } catch (err) {
-      logger.error('Error processing webhook:', err);
+      logger.error('Error processing webhook', { message: err?.message });
       return res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -666,7 +837,7 @@ app.get('/api/code/:sessionId', async (req, res) => {
       mode: result.rows[0].mode
     });
   } catch (err) {
-    logger.error('Code retrieval error:', err);
+    logger.error('Code retrieval error', { message: err?.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -693,19 +864,26 @@ app.use(ErrorHandler.notFound);
 app.use(ErrorHandler.handle);
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received: closing HTTP server');
-  if (!pool) {
-    process.exit(0);
-  }
-  pool.end(() => {
-    logger.info('Database pool closed');
-    process.exit(0);
+async function gracefulShutdown(signal) {
+  logger.info(`${signal} signal received: closing HTTP server`);
+
+  await new Promise((resolve) => {
+    server.close(() => resolve());
   });
-});
+
+  if (pool) {
+    await new Promise((resolve) => pool.end(() => resolve()));
+    logger.info('Database pool closed');
+  }
+
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

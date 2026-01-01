@@ -17,7 +17,7 @@ npm run dev
 
 ## Test Login
 
-- Email: `test@example.com`
+- Email: `user@invalid.test`
 - Password: `password123`
 
 ## Structure

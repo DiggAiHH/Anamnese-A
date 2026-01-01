@@ -80,7 +80,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_practice_id ON users(practice_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
--- Sessions (server-side, DSGVO-friendly)
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -91,6 +90,22 @@ CREATE TABLE IF NOT EXISTS sessions (
   revoked_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- =============================================================================
+-- DSGVO-minimierter Anamnese Handoff Store
+-- Speichert ausschließlich verschlüsselte Payloads (Client-seitig / E2E) + Ablaufzeit.
+-- Der Code wird nicht im Klartext gespeichert, sondern nur als Hash (mit Pepper).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS anamnese_handoffs (
+  code_hash VARCHAR(64) PRIMARY KEY,
+  payload JSONB NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  retrieved_count INTEGER NOT NULL DEFAULT 0,
+  last_retrieved_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_anamnese_handoffs_expires_at ON anamnese_handoffs (expires_at);
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);

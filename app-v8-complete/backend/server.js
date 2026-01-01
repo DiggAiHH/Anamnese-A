@@ -11,11 +11,15 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-v8-app-change-in-production';
-
-if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  WARNING: Using hardcoded JWT_SECRET!');
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET is required in production');
+  }
+  console.warn('⚠️  WARNING: JWT_SECRET missing; using development fallback (NOT for production)');
 }
+
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-secret-v8-app-change-in-production';
 
 // CORS Whitelist
 const ALLOWED_ORIGINS = [
@@ -96,9 +100,9 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
+      const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        EFFECTIVE_JWT_SECRET,
       { expiresIn: '24h' }
     );
 
@@ -140,7 +144,7 @@ function verifyToken(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+      const decoded = jwt.verify(token, EFFECTIVE_JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {

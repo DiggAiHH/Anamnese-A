@@ -43,20 +43,21 @@ PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f 
 
 echo "✅ Schema migration complete"
 
-SEEDS_FILE="database/seeds_auth.sql"
+SEEDS_FILES=("database/seeds_auth.sql" "database/seeds_new.sql")
 
-# Seed data (HISTORY-AWARE: seeds.sql is not schema-compatible; use auth seeds)
+# Seed data
 echo "🌱 Seeding test data..."
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$SEEDS_FILE"
-
-echo "✅ Seed data inserted ($SEEDS_FILE)"
+for seed in "${SEEDS_FILES[@]}"; do
+  PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f "$seed"
+  echo "✅ Seed data inserted ($seed)"
+done
 
 # Verify data
 echo ""
 echo "📊 Verification:"
 echo "================================"
 echo "Practices:"
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT id, name, subscription_tier FROM practices;"
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT id, name, email, active FROM practices ORDER BY created_at DESC NULLS LAST;"
 
 echo ""
 echo "Users:"
@@ -64,14 +65,18 @@ PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c 
 
 echo ""
 echo "Codes:"
-PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT code, mode, language, payment_status FROM codes;"
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT code, mode, language, stripe_session_id, used FROM codes ORDER BY created_at DESC NULLS LAST;"
+
+echo ""
+echo "Audit Log:"
+PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT id, practice_id, action, created_at FROM audit_log ORDER BY created_at DESC LIMIT 10;"
 
 echo ""
 echo "✅ Database setup complete!"
 echo ""
 echo "🔐 Test Login Credentials:"
-echo "   Email: test@example.com"
+echo "   Email: user@invalid.test"
 echo "   Password: password123"
 echo ""
-echo "🔗 Test Code: TEST1234"
+echo "🔗 Test Code: TEST1234 (if seeded)"
 echo ""

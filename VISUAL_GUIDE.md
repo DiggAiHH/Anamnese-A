@@ -51,11 +51,11 @@ docker-compose up -d
 
 # Test-Praxis anlegen
 docker-compose exec db psql -U anamnese_user -d anamnese -c \
-  "INSERT INTO practices (name, email, active) VALUES ('Test-Praxis', 'test@example.com', true);"
+   "INSERT INTO practices (name, email, active) VALUES ('Test-Praxis', 'practice@invalid.test', true);"
 
 # UUID der Praxis abrufen
 docker-compose exec db psql -U anamnese_user -d anamnese -c \
-  "SELECT id FROM practices WHERE email = 'test@example.com';"
+   "SELECT id FROM practices WHERE email = 'practice@invalid.test';"
 ```
 
 #### Option B: Lokal
@@ -65,10 +65,10 @@ createdb anamnese
 psql -d anamnese -f database/schema.sql
 
 # Test-Praxis anlegen
-psql -d anamnese -c "INSERT INTO practices (name, email) VALUES ('Test-Praxis', 'test@example.com');"
+psql -d anamnese -c "INSERT INTO practices (name, email) VALUES ('Test-Praxis', 'practice@invalid.test');"
 
 # UUID abrufen
-psql -d anamnese -c "SELECT id FROM practices WHERE email = 'test@example.com';"
+psql -d anamnese -c "SELECT id FROM practices WHERE email = 'practice@invalid.test';"
 
 # Server starten
 npm start

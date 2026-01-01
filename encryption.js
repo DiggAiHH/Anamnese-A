@@ -16,200 +16,46 @@ const MAX_ATTEMPTS_BEFORE_LOCKOUT = 3;
 // =============================================================================
 window.encryptionInProgress = false;
 
-// Common weak passwords blacklist (OWASP Top 10,000)
-const WEAK_PASSWORD_BLACKLIST = [
-  'password', '123456', '12345678', 'qwerty', 'abc123', 'monkey', '1234567',
-  'letmein', 'trustno1', 'dragon', 'baseball', 'iloveyou', 'master', 'sunshine',
-  'ashley', 'bailey', 'passw0rd', 'shadow', '123123', '654321', 'superman',
-  'qazwsx', 'michael', 'football', 'welcome', 'jesus', 'ninja', 'mustang'
-];
-
-/**
- * Validates password strength according to medical data security requirements
- * @param {string} password - The password to validate
- * @returns {Object} {valid: boolean, errors: string[]} - Validation result
- * 
- * Requirements (§ 630f BGB compliance):
- * - Minimum 16 characters (medical data protection)
- * - At least 1 uppercase letter
- * - At least 1 lowercase letter
- * - At least 1 digit
- * - At least 1 special character
- * - Not in common password blacklist
- */
-function validatePasswordStrength(password) {
-  const errors = [];
-  
-  // Check minimum length (16 chars for medical data)
-  if (password.length < 16) {
-    errors.push('Password must be at least 16 characters long');
-  }
-  
-  // Check maximum length (prevent DoS via excessive PBKDF2)
-  if (password.length > 128) {
-    errors.push('Password must not exceed 128 characters');
-  }
-  
-  // Check complexity requirements
-  if (!/[A-Z]/.test(password)) {
-    errors.push('Password must contain at least one uppercase letter');
-  }
-  
-  if (!/[a-z]/.test(password)) {
-    errors.push('Password must contain at least one lowercase letter');
-  }
-  
-  if (!/[0-9]/.test(password)) {
-    errors.push('Password must contain at least one digit');
-  }
-  
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    errors.push('Password must contain at least one special character');
-  }
-  
-  // Check against common weak passwords (case-insensitive)
-  const lowerPassword = password.toLowerCase();
-  if (WEAK_PASSWORD_BLACKLIST.some(weak => lowerPassword.includes(weak))) {
-    errors.push('Password contains common weak patterns');
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors: errors
-  };
-}
-
-/**
- * Derive encryption key from password using PBKDF2
- * @param {string} password - User's master password
- * @param {Uint8Array} salt - 16-byte cryptographic salt
- * @returns {Promise<CryptoKey>} - AES-256-GCM key
- * 
- * OWASP 2023: Minimum 600,000 iterations for PBKDF2-HMAC-SHA256
- * Performance: ~400-600ms on modern hardware (acceptable for medical security)
- */
-async function deriveKey(password, salt, c) {
-    const encoder = new TextEncoder();
-    c = c || (typeof crypto !== 'undefined' ? crypto : (typeof window !== 'undefined' ? window.crypto : undefined));
-    if (!c || !c.subtle) throw new Error('No crypto.subtle available');
-    const passwordKey = await c.subtle.importKey(
-        'raw',
-        encoder.encode(password),
-        'PBKDF2',
-        false,
-        ['deriveBits', 'deriveKey']
-    );
-
-    return c.subtle.deriveKey(
-        {
-            name: 'PBKDF2',
-            salt: salt,
-            iterations: 600000, // OWASP 2023 recommendation (upgraded from 100k)
-            hash: 'SHA-256'
-        },
-        passwordKey,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['encrypt', 'decrypt']
-    );
-}
-
-/**
- * Encrypt data with AES-256-GCM
- * @param {string} data - Plaintext data to encrypt
- * @param {string} password - Master password (will be validated)
- * @param {boolean} skipValidation - Skip password validation (for testing only)
- * @returns {Promise<string>} - Base64 encoded encrypted data
- * 
- * Format: Base64(salt[16] + iv[12] + authTag[16] + ciphertext)
- * - salt: Unique per encryption (prevents rainbow tables)
- * - iv: Unique per encryption (GCM requirement)
- * - authTag: GCM authentication tag (tamper detection)
- */
-async function encryptData(data, password, skipValidation = false, c) {
-        // Validate password strength (unless explicitly skipped for testing)
-        if (!skipValidation) {
-            const validation = validatePasswordStrength(password);
-            if (!validation.valid) {
-                throw new Error('Weak password: ' + validation.errors.join(', '));
-            }
-        }
-        c = c || (typeof crypto !== 'undefined' ? crypto : (typeof window !== 'undefined' ? window.crypto : undefined));
-        if (!c || !c.subtle) throw new Error('No crypto.subtle available');
-        const encoder = new TextEncoder();
-        const salt = c.getRandomValues(new Uint8Array(16));
-        const iv = c.getRandomValues(new Uint8Array(12));
-        const key = await deriveKey(password, salt, c);
-        const encryptedData = await c.subtle.encrypt(
-                {
-                        name: 'AES-GCM',
-                        iv: iv
-                },
-                key,
-                encoder.encode(data)
-        );
-
-        // Combine salt, iv, and encrypted data (includes GCM auth tag)
-        const result = new Uint8Array(salt.length + iv.length + encryptedData.byteLength);
-        result.set(salt, 0);
-        result.set(iv, salt.length);
-        result.set(new Uint8Array(encryptedData), salt.length + iv.length);
-
-        // Convert to base64 for storage
-        return btoa(String.fromCharCode.apply(null, result));
-}
-
-/**
- * Decrypt data with AES-256-GCM
- * @param {string} encryptedBase64 - Base64 encoded encrypted data
- * @param {string} password - Master password used for encryption
- * @returns {Promise<string>} - Decrypted plaintext
- * 
- * Error cases:
- * - Invalid base64: Corrupted data
- * - Wrong password: GCM authentication fails
- * - Tampered data: GCM authentication fails
- * 
- * Security: Timing-attack resistant (crypto.subtle.decrypt is constant-time)
- */
-async function decryptData(encryptedBase64, password, c) {
-        const decoder = new TextDecoder();
-        c = c || (typeof crypto !== 'undefined' ? crypto : (typeof window !== 'undefined' ? window.crypto : undefined));
-        if (!c || !c.subtle) throw new Error('No crypto.subtle available');
-        // Validate input format
-        if (!encryptedBase64 || typeof encryptedBase64 !== 'string') {
-            throw new Error('Invalid encrypted data format');
-        }
+function resolveSharedEncryptionCore() {
+    if (typeof globalThis !== 'undefined' && globalThis.SharedEncryption) {
+        return globalThis.SharedEncryption;
+    }
+    if (typeof module === 'object' && module.exports) {
         try {
-            // Decode from base64
-            const encryptedArray = new Uint8Array(
-                    atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
-            );
-            // Validate minimum length: salt(16) + iv(12) + authTag(16) = 44 bytes
-            if (encryptedArray.length < 44) {
-                throw new Error('Encrypted data too short - possibly corrupted');
-            }
-            // Extract salt, iv, and encrypted data
-            const salt = encryptedArray.slice(0, 16);
-            const iv = encryptedArray.slice(16, 28);
-            const data = encryptedArray.slice(28);
-            const key = await deriveKey(password, salt, c);
-            const decryptedData = await c.subtle.decrypt(
-                    {
-                            name: 'AES-GCM',
-                            iv: iv
-                    },
-                    key,
-                    data
-            );
-            return decoder.decode(decryptedData);
-        } catch (e) {
-                // Don't leak information about error type (timing-attack mitigation)
-                if (e.message.includes('corrupted')) {
-                    throw new Error('Data corrupted or invalid format');
-                }
-                throw new Error('Decryption failed - incorrect password or corrupted data');
+            // eslint-disable-next-line global-require
+            return require('./shared/encryption.js');
+        } catch (error) {
+            console.error('Failed to load shared encryption module via require:', error);
         }
+    }
+    return null;
+}
+
+const SharedEncryptionCore = resolveSharedEncryptionCore();
+
+if (!SharedEncryptionCore) {
+    throw new Error('Shared encryption core module not loaded. Please ensure shared/encryption.js is included before encryption.js');
+}
+
+function validatePasswordStrength(password) {
+    return SharedEncryptionCore.validatePasswordStrength(password);
+}
+
+async function deriveKey(password, salt, c) {
+    return SharedEncryptionCore.deriveKey(password, salt, c);
+}
+
+async function encryptData(data, password, skipValidation = false, c) {
+    return SharedEncryptionCore.encryptData(data, password, {
+        skipValidation,
+        cryptoImpl: c
+    });
+}
+
+async function decryptData(encryptedBase64, password, c) {
+    return SharedEncryptionCore.decryptData(encryptedBase64, password, {
+        cryptoImpl: c
+    });
 }
 
 // Show password modal

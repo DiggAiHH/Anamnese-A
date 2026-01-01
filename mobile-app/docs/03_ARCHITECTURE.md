@@ -361,8 +361,8 @@ CREATE TABLE gdpr_consents (
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 );
 
--- audit_logs (Art. 30, 32 DSGVO)
-CREATE TABLE audit_logs (
+-- audit_log (Art. 30, 32 DSGVO)
+CREATE TABLE audit_log (
     id TEXT PRIMARY KEY,
     patient_id TEXT,
     action TEXT NOT NULL,       -- 'answer_saved', 'data_encrypted', 'ocr_performed'
@@ -382,8 +382,8 @@ CREATE TABLE settings (
 CREATE INDEX idx_answers_patient ON answers(patient_id);
 CREATE INDEX idx_answers_question ON answers(question_id);
 CREATE INDEX idx_documents_patient ON documents(patient_id);
-CREATE INDEX idx_audit_logs_patient ON audit_logs(patient_id);
-CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp);
+CREATE INDEX idx_audit_log_patient ON audit_log(patient_id);
+CREATE INDEX idx_audit_log_timestamp ON audit_log(timestamp);
 ```
 
 ---

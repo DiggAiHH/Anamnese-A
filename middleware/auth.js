@@ -5,10 +5,19 @@
 // DSGVO-SAFE: Session data stays on server, only session ID in cookie
 
 const jwt = require('jsonwebtoken');
+const logger = require('../logger');
 
 // HISTORY-AWARE: avoid hardcoded production secrets
 // DSGVO-SAFE: token only contains sessionId + minimal identifiers
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-jwt-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET is required in production');
+  }
+  logger.warn('JWT_SECRET is not set; using development fallback (NOT for production)');
+}
+
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-insecure-jwt-secret-change-in-production';
 const JWT_EXPIRY = '7d'; // 7 days
 const SESSION_COOKIE_NAME = 'anamnese_session';
 
@@ -19,13 +28,13 @@ class AuthService {
 
   // Generate JWT token
   generateToken(payload) {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+    return jwt.sign(payload, EFFECTIVE_JWT_SECRET, { expiresIn: JWT_EXPIRY });
   }
 
   // Verify JWT token
   verifyToken(token) {
     try {
-      return jwt.verify(token, JWT_SECRET);
+      return jwt.verify(token, EFFECTIVE_JWT_SECRET);
     } catch (error) {
       return null;
     }
@@ -52,7 +61,7 @@ class AuthService {
       ]);
       return result.rows[0];
     } catch (error) {
-      console.error('[Auth] Session creation failed:', error);
+      logger.error('[Auth] Session creation failed', { message: error?.message });
       throw new Error('Session creation failed');
     }
   }
@@ -71,7 +80,7 @@ class AuthService {
       const result = await this.pool.query(query, [sessionId]);
       return result.rows[0] || null;
     } catch (error) {
-      console.error('[Auth] Session retrieval failed:', error);
+      logger.error('[Auth] Session retrieval failed', { message: error?.message });
       return null;
     }
   }
@@ -88,7 +97,7 @@ class AuthService {
       await this.pool.query(query, [sessionId]);
       return true;
     } catch (error) {
-      console.error('[Auth] Session revocation failed:', error);
+      logger.error('[Auth] Session revocation failed', { message: error?.message });
       return false;
     }
   }
@@ -102,10 +111,10 @@ class AuthService {
 
     try {
       const result = await this.pool.query(query);
-      console.warn(`[Auth] Cleaned ${result.rowCount} expired sessions`);
+      logger.warn('[Auth] Cleaned expired sessions', { count: result.rowCount });
       return result.rowCount;
     } catch (error) {
-      console.error('[Auth] Session cleanup failed:', error);
+      logger.error('[Auth] Session cleanup failed', { message: error?.message });
       return 0;
     }
   }
@@ -154,7 +163,7 @@ function authMiddleware(authService) {
 
       next();
     } catch (error) {
-      console.error('[Auth Middleware] Error:', error);
+      logger.error('[Auth Middleware] Error', { message: error?.message });
       return res.status(500).json({
         error: 'Internal Server Error',
         message: 'Authentication check failed'

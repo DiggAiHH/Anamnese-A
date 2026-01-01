@@ -167,6 +167,14 @@ async function pseudonymizePatientIdAsync(patientData) {
     return hashHex.substring(0, 10).toUpperCase();
 }
 
+async function hashSha256HexAsync(input) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(String(input || ''));
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // Synchronous version - WARNING: Uses basic hashing, not cryptographically secure
 // This is ONLY for UI synchronous contexts and testing. Production exports should use async version.
 // For production, modify exportGDT to be async and use pseudonymizePatientIdAsync
@@ -506,6 +514,13 @@ async function exportGDT(formData, consent = null) {
 
 // Audit logging function (GDPR Art. 30, 32)
 async function logGDTExport(formData, filename, consent) {
+    let userAgentHash = null;
+    try {
+        userAgentHash = (await hashSha256HexAsync(navigator.userAgent)).substring(0, 16);
+    } catch (e) {
+        userAgentHash = null;
+    }
+
     const auditEntry = {
         timestamp: new Date().toISOString(),
         action: 'GDT_EXPORT',
@@ -521,7 +536,7 @@ async function logGDTExport(formData, filename, consent) {
             includeAddress: gdtExportConfig.includeAddress,
             includeContactData: gdtExportConfig.includeContactData
         },
-        userAgent: navigator.userAgent,
+        userAgentHash,
         language: navigator.language
     };
     
@@ -535,8 +550,6 @@ async function logGDTExport(formData, filename, consent) {
     }
     
     localStorage.setItem('gdtAuditLog', JSON.stringify(auditLog));
-    
-    console.log('GDT Export logged:', auditEntry);
 }
 
 // Log GDT export errors

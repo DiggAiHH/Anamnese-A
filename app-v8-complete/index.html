@@ -96,6 +96,8 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <script src="/public/lib/pdf.min.js"></script>
     <!-- CryptoJS for encryption -->
     <script src="/public/lib/crypto-js.min.js"></script>
+    <!-- Vosk Consent Guard to enforce offline speech approval -->
+    <script src="/vosk-consent.js"></script>
     <!-- GDPR Anonymization Engine (PII Detection & Dictionary Export) -->
     <script src="/public/gdpr-anonymizer.js"></script>
     <!-- Login UI Styles (WCAG 2.1 AA konform) -->
@@ -22814,7 +22816,7 @@ let voskWorker = null;
 async function initVoskRecognizer() {
     try {
         // Check if VOSK model is available
-        const modelPath = 'model/vosk-model-small-de-0.15';
+        const modelPath = 'models/vosk-model-small-de-0.15';
         
         // Create Web Worker for VOSK processing
         if (!voskWorker) {
@@ -23067,8 +23069,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // ====================================================================
         // Web Worker for Vosk speech recognition processing
         // Handles recognition in separate thread for better performance
-// VOSK Web Worker for speech recognition processing
-// This worker handles the actual speech recognition in a separate thread
+    // NOTE: This block is kept for documentation/backwards compatibility, but must
+    // never run in the main thread. The app uses the external worker file
+    // `vosk-worker.js`.
+    if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+
+    // VOSK Web Worker for speech recognition processing
+    // This worker handles the actual speech recognition in a separate thread
 
 let model = null;
 let workerRecognizer = null;  // Renamed to avoid conflict with main thread recognizer
@@ -23172,6 +23179,8 @@ function cleanup() {
     }
     modelLoaded = false;
 }
+
+} // end WorkerGlobalScope guard
 
         // ====================================================================
         // AI PLAUSIBILITY CHECK MODULE (INLINE)

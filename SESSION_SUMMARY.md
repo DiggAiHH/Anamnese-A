@@ -8,7 +8,7 @@
 **Was wurde implementiert**:
 - Backend `/api/auth/login` + `/api/auth/logout` Endpunkte
 - PostgreSQL `users` + `sessions` Tabellen
-- Test-User: `test@example.com` / `password123`
+- Test-User: `user@invalid.test` / `password123`
 - DSGVO-konforme httpOnly Cookie-basierte Sessions
 - CORS konfiguriert für `http://localhost:8080` mit `credentials: true`
 - `login-ui.js` in `index_v8_complete.html` integriert
@@ -17,7 +17,7 @@
 ```bash
 curl -i -X POST http://localhost:3000/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"test@example.com","password":"password123"}'
+  -d '{"email":"user@invalid.test","password":"password123"}'
 
 # Response:
 # HTTP/1.1 200 OK
@@ -199,7 +199,7 @@ await page.waitForSelector('#language-select option');
 - **Test-Suites**: http://localhost:8080/app-v8-complete/tests/
 - **Login-Test**: 
   ```bash
-  Email: test@example.com
+  Email: user@invalid.test
   Pass: password123
   ```
 

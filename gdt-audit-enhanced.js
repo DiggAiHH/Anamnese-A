@@ -23,7 +23,7 @@ function exportAuditLogCSV() {
         entry.patientId || '',
         entry.pseudonymized ? 'Ja' : 'Nein',
         entry.consentGiven ? 'Erteilt' : 'Nicht erteilt',
-        entry.userAgent || '',
+        entry.userAgentHash || entry.userAgent || '',
         entry.language || ''
     ]);
     

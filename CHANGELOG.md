@@ -58,6 +58,11 @@ All notable changes to the Anamnese Medical Questionnaire project.
 - ✅ ESLint: Core modules compliant (67 optional logs remain)
 - ✅ OCR Functions: Code review verified timeout handling
 
+### 🔐 Security Hardening
+
+- **Offline Speech Consent & Audit Trail**: Added `vosk-consent.js`, enforcing an explicit user prompt before any 50 MB Vosk model download, logging consent decisions locally (incl. timestamp, language, SHA hash) and preventing background initialisation until approval.
+- **Integrity-Checked Downloads**: `download-vosk.sh` now pins SHA-256 hashes for `vosk.js`, `vosk.wasm`, and `vosk-model-small-de-0.15.zip`, retries through jsDelivr → unpkg, and keeps a `.sha256` file plus safe re-extraction workflow under `model/`.
+
 ### 📝 Documentation
 
 - **New Report**: `BUGFIX_SESSION_3_REPORT.md` (comprehensive technical documentation)

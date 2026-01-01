@@ -117,8 +117,12 @@ Repository-Analyse am Ende eingebettet als window.REPO_ANALYSIS_DATA.
     <!-- <script src="public/lib/pdf.min.js"></script> -->
     <!-- CryptoJS for encryption - DSGVO-SAFE: local copy, no external CDN -->
     <script src="public/lib/crypto-js/crypto-js.min.js"></script>
+        <!-- Container architecture (integer-only answers, flow helpers) -->
+        <script src="question-container.js"></script>
     <!-- Stripe.js for payment processing - EXCEPTION (PCI-DSS compliant payments) -->
     <script src="https://js.stripe.com/v3/" defer></script>
+        <!-- Vosk Consent Guard: ensures explicit approval before offline model download -->
+        <script src="vosk-consent.js"></script>
     
     <!-- ====================================================================
          LAZY LOADING MODULE - UI zuerst, dann Background-Downloads
@@ -1590,6 +1594,93 @@ function checkCondition(item) {
 }
 
 /**
+ * Normalisiert Section-Fields aus APP_DATA.
+ * Hintergrund: Einige Sections kodieren Optionen als mehrere Einträge mit gleicher id
+ * (z.B. type:'radio'/'checkbox' + id:'1000'). Der Renderer erwartet aber eine Frage
+ * mit Optionen. Diese Funktion gruppiert solche Einträge deterministisch.
+ *
+ * @param {object} section - APP_DATA section
+ * @returns {object[]} Normalisierte Fragenliste
+ */
+function normalizeSectionFields(section) {
+        const rawFields = section.fields || section.questions || [];
+        if (!Array.isArray(rawFields) || rawFields.length === 0) {
+                return [];
+        }
+
+        const normalized = [];
+        const radioGroups = new Map();
+        const checkboxGroups = new Map();
+
+        for (const field of rawFields) {
+                if (!field || !field.id || !field.type) {
+                        continue;
+                }
+
+                // Keep free-text fields as-is
+                if (String(field.id).endsWith('_freitext')) {
+                        normalized.push(field);
+                        continue;
+                }
+
+                if (field.type === 'radio') {
+                        const key = String(field.id);
+                        if (!radioGroups.has(key)) {
+                                radioGroups.set(key, { id: key, type: 'radio-group', required: false, options: [] });
+                        }
+                        const group = radioGroups.get(key);
+                        group.required = group.required || Boolean(field.required);
+                        // Store by label as value to keep existing condition checks working ("Ja"/"Nein")
+                        const label = String(field.label ?? '');
+                        group.options.push({ value: label, label });
+                        continue;
+                }
+
+                if (field.type === 'checkbox') {
+                        const key = String(field.id);
+                        if (!checkboxGroups.has(key)) {
+                                checkboxGroups.set(key, { id: key, type: 'checkbox-group', required: false, options: [] });
+                        }
+                        const group = checkboxGroups.get(key);
+                        group.required = group.required || Boolean(field.required);
+                        const label = String(field.label ?? '');
+                        group.options.push({ value: label, label });
+                        continue;
+                }
+
+                normalized.push(field);
+        }
+
+        const groupItems = [
+                ...Array.from(radioGroups.values()),
+                ...Array.from(checkboxGroups.values())
+        ].sort((a, b) => {
+                const ai = parseInt(a.id, 10);
+                const bi = parseInt(b.id, 10);
+                if (!isNaN(ai) && !isNaN(bi)) return ai - bi;
+                return String(a.id).localeCompare(String(b.id));
+        });
+
+        return [...normalized, ...groupItems];
+}
+
+/**
+ * Liefert den Fragetyp (für Validierung) aus der aktuell gerenderten Section.
+ * @param {string} id
+ * @returns {string}
+ */
+function getCurrentQuestionType(id) {
+        try {
+                const section = APP_DATA.sections[APP_STATE.currentSectionIndex];
+                const fields = normalizeSectionFields(section);
+                const match = fields.find(q => String(q.id) === String(id));
+                return (match && match.type) ? match.type : 'text';
+        } catch (e) {
+                return 'text';
+        }
+}
+
+/**
  * Rendert die aktuelle Sektion und alle Fragen.
  * Fügt die Logik zur dynamischen Anzeige von Fragen hinzu.
  */
@@ -2257,12 +2348,128 @@ function sanitizeInput(input) {
 // =================================================================
 
 /**
- * Input validation utilities
+ * Input validation utilities - erweitert für strikte Feldvalidierung
+ * DSGVO: Keine PII in Logs/Fehlermeldungen
  */
 const InputValidator = {
     MAX_TEXT_LENGTH: 10000, // 10KB
+    MAX_TEXTAREA_LENGTH: 50000, // 50KB für Freitext
+    MAX_NAME_LENGTH: 100,
     MAX_ARRAY_SIZE: 50,
     
+    // Feld-IDs, die als "Name" gelten (keine Ziffern erlaubt)
+    NAME_FIELD_IDS: ['0000', '0001', 'nachname', 'vorname', 'firstname', 'lastname', 'name'],
+    
+    /**
+     * Prüft, ob ein Feld ein Namensfeld ist
+     * @param {string} id
+     * @returns {boolean}
+     */
+    isNameField(id) {
+        const idLower = String(id).toLowerCase();
+        return this.NAME_FIELD_IDS.some(n => idLower === n || idLower.includes(n));
+    },
+    
+    /**
+     * Validiert einen Namen (keine Ziffern, Mindestlänge, nur Buchstaben/Bindestriche/Leerzeichen)
+     * @param {string} value
+     * @returns {{valid: boolean, errors: string[]}}
+     */
+    validateName(value) {
+        const errors = [];
+        if (typeof value !== 'string') return { valid: true, errors: [] };
+        
+        const trimmed = value.trim();
+        if (trimmed.length === 0) return { valid: true, errors: [] }; // Leerwert OK (required wird woanders geprüft)
+        
+        if (trimmed.length < 2) {
+            errors.push('Name muss mindestens 2 Zeichen lang sein');
+        }
+        if (trimmed.length > this.MAX_NAME_LENGTH) {
+            errors.push(`Name zu lang (max ${this.MAX_NAME_LENGTH} Zeichen)`);
+        }
+        // Keine Ziffern
+        if (/\d/.test(trimmed)) {
+            errors.push('Name darf keine Ziffern enthalten');
+        }
+        // Nur erlaubte Zeichen: Buchstaben (inkl. Umlaute), Bindestriche, Leerzeichen, Apostrophe
+        if (!/^[\p{L}\s\-']+$/u.test(trimmed)) {
+            errors.push('Name enthält ungültige Zeichen');
+        }
+        
+        return { valid: errors.length === 0, errors };
+    },
+    
+    /**
+     * Validiert E-Mail-Format
+     * @param {string} value
+     * @returns {{valid: boolean, errors: string[]}}
+     */
+    validateEmail(value) {
+        const errors = [];
+        if (typeof value !== 'string' || value.trim().length === 0) return { valid: true, errors: [] };
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        if (!emailRegex.test(value.trim())) {
+            errors.push('Ungültiges E-Mail-Format');
+        }
+        if (value.length > 254) {
+            errors.push('E-Mail-Adresse zu lang');
+        }
+        
+        return { valid: errors.length === 0, errors };
+    },
+    
+    /**
+     * Validiert Telefonnummer
+     * @param {string} value
+     * @returns {{valid: boolean, errors: string[]}}
+     */
+    validatePhone(value) {
+        const errors = [];
+        if (typeof value !== 'string' || value.trim().length === 0) return { valid: true, errors: [] };
+        
+        const trimmed = value.trim();
+        // Erlaubt: Ziffern, +, -, Leerzeichen, Klammern, /
+        if (!/^[\d\s\+\-\(\)\/]+$/.test(trimmed)) {
+            errors.push('Ungültiges Telefon-Format');
+        }
+        // Mindestens 6 Ziffern
+        const digits = trimmed.replace(/\D/g, '');
+        if (digits.length < 6) {
+            errors.push('Telefonnummer zu kurz (min. 6 Ziffern)');
+        }
+        if (digits.length > 20) {
+            errors.push('Telefonnummer zu lang');
+        }
+        
+        return { valid: errors.length === 0, errors };
+    },
+    
+    /**
+     * Validiert Postleitzahl (deutsch: 5 Ziffern)
+     * @param {string} value
+     * @returns {{valid: boolean, errors: string[]}}
+     */
+    validatePostalCode(value) {
+        const errors = [];
+        if (typeof value !== 'string' || value.trim().length === 0) return { valid: true, errors: [] };
+        
+        // Deutsche PLZ: genau 5 Ziffern
+        if (!/^\d{5}$/.test(value.trim())) {
+            errors.push('Postleitzahl muss 5 Ziffern haben');
+        }
+        
+        return { valid: errors.length === 0, errors };
+    },
+    
+    /**
+     * Hauptvalidierungsfunktion
+     * @param {string} id - Feld-ID
+     * @param {any} value - Wert
+     * @param {string} questionType - Fragetyp
+     * @returns {{valid: boolean, errors: string[]}}
+     */
     validateValue(id, value, questionType) {
         const errors = [];
         
@@ -2271,10 +2478,19 @@ const InputValidator = {
             return { valid: true, errors: [] }; // Allow empty for optional fields
         }
         
-        // Length validation
+        // Namensfelder: strikte Validierung
+        if (this.isNameField(id)) {
+            const nameResult = this.validateName(value);
+            if (!nameResult.valid) {
+                errors.push(...nameResult.errors);
+            }
+        }
+        
+        // Length validation für Strings
         if (typeof value === 'string') {
-            if (value.length > this.MAX_TEXT_LENGTH) {
-                errors.push(`Text zu lang (max ${this.MAX_TEXT_LENGTH} Zeichen)`);
+            const maxLen = (questionType === 'textarea') ? this.MAX_TEXTAREA_LENGTH : this.MAX_TEXT_LENGTH;
+            if (value.length > maxLen) {
+                errors.push(`Text zu lang (max ${maxLen} Zeichen)`);
             }
         }
         
@@ -2286,18 +2502,21 @@ const InputValidator = {
         }
         
         // Type-specific validation
-        if (questionType === 'email' && typeof value === 'string' && value.length > 0) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(value)) {
-                errors.push('Ungültiges E-Mail-Format');
-            }
+        if (questionType === 'email') {
+            const emailResult = this.validateEmail(value);
+            if (!emailResult.valid) errors.push(...emailResult.errors);
         }
         
-        if (questionType === 'phone' && typeof value === 'string' && value.length > 0) {
-            const phoneRegex = /^[\d\s\+\-\(\)]+$/;
-            if (!phoneRegex.test(value)) {
-                errors.push('Ungültiges Telefon-Format');
-            }
+        if (questionType === 'phone' || questionType === 'tel') {
+            const phoneResult = this.validatePhone(value);
+            if (!phoneResult.valid) errors.push(...phoneResult.errors);
+        }
+        
+        // PLZ-Felder erkennen
+        const idLower = String(id).toLowerCase();
+        if (idLower.includes('plz') || idLower.includes('postal') || idLower.includes('zip')) {
+            const plzResult = this.validatePostalCode(value);
+            if (!plzResult.valid) errors.push(...plzResult.errors);
         }
         
         return {
@@ -2540,28 +2759,127 @@ async function setupEncryptionKey(retryCount = 0) {
  * Erstellt das JSON-Objekt der Antworten.
  * @returns {object} - Das JSON-Objekt der Antworten.
  */
-function getAnswerJson() {
-    const answers = {};
-    // Sammle alle Antworten aus APP_STATE.answers
-    for (const [key, value] of Object.entries(APP_STATE.answers)) {
-        // Filtere leere oder null-Werte
-        if (value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && value.length === 0)) {
-            answers[key] = value;
+function getTransmissionAnswers() {
+        try {
+                if (typeof getAnswers === 'function') {
+                        return getAnswers() || {};
+                }
+        } catch (e) {
+                // ignore
         }
-    }
-    
-    // Füge Metadaten hinzu
-    const result = {
-        metadata: {
-            version: APP_DATA.version,
-            timestamp: new Date().toISOString(),
-            language: APP_STATE.currentLanguage,
-            app_title: getTranslation('app_title')
-        },
-        answers: answers
-    };
-    
-    return result;
+
+        if (typeof AppState !== 'undefined' && AppState?.answers) {
+                return AppState.answers;
+        }
+        if (typeof APP_STATE !== 'undefined' && APP_STATE?.answers) {
+                return APP_STATE.answers;
+        }
+        return {};
+}
+
+function collectFreeTextForTransmission(answers) {
+        const freeText = {};
+        for (const [key, value] of Object.entries(answers)) {
+                if (typeof value !== 'string') continue;
+                if (!value.trim()) continue;
+                // Export-Regel: nur explizite Freitextfelder, keine Namen/PII
+                if (key.includes('freitext') || key.endsWith('_freitext')) {
+                        freeText[key] = value.trim();
+                }
+        }
+        return freeText;
+}
+
+function computeTransmissionCode() {
+        const answers = getTransmissionAnswers();
+
+        const sections = window.APP_DATA?.sections || [];
+        const hasCheckCondition = typeof checkCondition === 'function';
+
+        const isRequiredAnswered = (val) => {
+                if (val === undefined || val === null) return false;
+                if (typeof val === 'string') return val.trim().length > 0;
+                if (Array.isArray(val)) return val.length > 0;
+                return true;
+        };
+
+        // Profil 1: Vollständig (alle sichtbaren required-Felder beantwortet)
+        let allVisibleRequiredAnswered = true;
+        for (const section of sections) {
+                if (section?.condition && hasCheckCondition && !checkCondition(section)) {
+                        continue;
+                }
+                const fields = section?.fields || [];
+                for (const field of fields) {
+                        if (!field?.required) continue;
+                        const val = answers[field.id];
+                        if (!isRequiredAnswered(val)) {
+                                allVisibleRequiredAnswered = false;
+                                break;
+                        }
+                }
+                if (!allVisibleRequiredAnswered) break;
+        }
+        if (allVisibleRequiredAnswered) return 1;
+
+        // Profil 2: Minimal (Basisdaten + zentrale Triage)
+        const minimalOk =
+                isRequiredAnswered(answers['0000']) && // Nachname
+                isRequiredAnswered(answers['0001']) && // Vorname
+                isRequiredAnswered(answers['0002']) && // Geschlecht
+                isRequiredAnswered(answers['0003']) && // ISO-DOB (aggregiert)
+                isRequiredAnswered(answers['1000']);   // Beschwerden? (Ja/Nein)
+        if (minimalOk) return 2;
+
+        // Profil 3+: unvollständig
+        return 3;
+}
+
+function buildTransmissionPayload(options = {}) {
+        const includeDocuments = Boolean(options.includeDocuments);
+        const answers = getTransmissionAnswers();
+        const freeText = collectFreeTextForTransmission(answers);
+
+        const payload = {
+                metadata: {
+                        version: window.APP_DATA?.version || 'unknown',
+                        timestamp: new Date().toISOString(),
+                        language: (typeof AppState !== 'undefined' && AppState?.language) ? AppState.language : (APP_STATE?.currentLanguage || 'de'),
+                        app_title: (typeof getTranslation === 'function') ? getTranslation('app_title') : 'Anamnese'
+                },
+                transmission: {
+                        code: computeTransmissionCode(),
+                        freeText: freeText
+                }
+        };
+
+        // Optional: Verbesserungsvorschlag (lokal erfasst)
+        try {
+                const suggestion = localStorage.getItem('anamnese_improvement_suggestion');
+                if (suggestion && suggestion.trim()) {
+                        payload.transmission.improvementSuggestion = suggestion.trim();
+                }
+        } catch (e) {
+                // ignore
+        }
+
+        // Optional: Dokumente (bereits DSGVO-anonymisiert durch OCR-Modul)
+        if (includeDocuments) {
+                try {
+                        if (typeof DOCUMENT_STORAGE !== 'undefined' && Array.isArray(DOCUMENT_STORAGE.documents) && DOCUMENT_STORAGE.documents.length > 0) {
+                                payload.transmission.attachedDocuments = DOCUMENT_STORAGE.documents;
+                        }
+                } catch (e) {
+                        // ignore
+                }
+        }
+
+        return payload;
+}
+
+function getAnswerJson() {
+        // DSGVO-by-design: Exporte enthalten keine strukturierten Antworten/PII mehr.
+        return buildTransmissionPayload({ includeDocuments: false });
 }
 
 /**
@@ -2699,8 +3017,80 @@ async function updateJsonBox() {
         }
     }
     
-    // Aktualisiere die Zusammenfassung (Summary Box)
-    updateSummaryBox(answerJson.answers);
+        // Aktualisiere die Zusammenfassung (Summary Box)
+        // getAnswerJson() enthält bewusst keine answers mehr; Summary bezieht sich auf lokale Answers.
+        updateSummaryBox(getTransmissionAnswers());
+    
+    // Aktualisiere Verbesserungsvorschlag-Zeichenzähler
+    updateImprovementCharCount();
+}
+
+// =================================================================
+// VERBESSERUNGSVORSCHLAG-FUNKTIONALITÄT
+// =================================================================
+
+/**
+ * Speichert den Verbesserungsvorschlag in localStorage
+ * @param {string} value - Der eingegebene Text
+ */
+function saveImprovementSuggestion(value) {
+    try {
+        const trimmed = (value || '').trim().substring(0, 2000);
+        if (trimmed.length > 0) {
+            localStorage.setItem('anamnese_improvement_suggestion', trimmed);
+        } else {
+            localStorage.removeItem('anamnese_improvement_suggestion');
+        }
+        updateImprovementCharCount();
+    } catch (e) {
+        // Storage-Fehler ignorieren
+    }
+}
+
+/**
+ * Löscht den Verbesserungsvorschlag
+ */
+function clearImprovementSuggestion() {
+    try {
+        localStorage.removeItem('anamnese_improvement_suggestion');
+        const input = document.getElementById('improvement-suggestion-input');
+        if (input) input.value = '';
+        updateImprovementCharCount();
+    } catch (e) {
+        // ignore
+    }
+}
+
+/**
+ * Lädt den gespeicherten Verbesserungsvorschlag beim Seitenstart
+ */
+function loadImprovementSuggestion() {
+    try {
+        const saved = localStorage.getItem('anamnese_improvement_suggestion') || '';
+        const input = document.getElementById('improvement-suggestion-input');
+                if (input) {
+                        input.value = saved;
+                        // Placeholder aus Übersetzung setzen (falls vorhanden)
+                        const ph = (typeof T === 'function') ? T('improvement_placeholder') : null;
+                        if (ph && ph !== 'improvement_placeholder') {
+                                input.placeholder = ph;
+                        }
+                }
+        updateImprovementCharCount();
+    } catch (e) {
+        // ignore
+    }
+}
+
+/**
+ * Aktualisiert den Zeichenzähler für Verbesserungsvorschlag
+ */
+function updateImprovementCharCount() {
+    const input = document.getElementById('improvement-suggestion-input');
+    const counter = document.getElementById('improvement-char-count');
+    if (input && counter) {
+        counter.textContent = (input.value || '').length;
+    }
 }
 
 /**
@@ -2766,6 +3156,9 @@ function saveToLocalStorage() {
                 : (typeof AppState !== 'undefined' && AppState.answers) 
                     ? AppState.answers 
                     : {};
+            const intAnswers = (typeof APP_STATE !== 'undefined' && APP_STATE.intAnswers)
+                ? APP_STATE.intAnswers
+                : {};
             const currentSection = (typeof APP_STATE !== 'undefined' && APP_STATE.currentSectionIndex !== undefined) 
                 ? APP_STATE.currentSectionIndex 
                 : (typeof AppState !== 'undefined' && AppState.currentStep !== undefined) 
@@ -2774,6 +3167,7 @@ function saveToLocalStorage() {
             
             const saveData = {
                 answers: answers,
+                intAnswers: intAnswers,
                 currentSection: currentSection,
                 timestamp: new Date().toISOString()
             };
@@ -2870,12 +3264,15 @@ function restoreAutoSave() {
                 }
 
                 // BUG FIX #12: Safe destructuring with validation
-                const { answers, currentSection, timestamp } = parsed;
+                const { answers, intAnswers, currentSection, timestamp } = parsed;
 
                 if (typeof answers !== 'object' || answers === null) {
                         console.error('[Restore] Invalid answers type:', typeof answers);
                         return false;
                 }
+
+                // intAnswers ist optional (ältere Saves haben es nicht)
+                const validIntAnswers = (typeof intAnswers === 'object' && intAnswers !== null) ? intAnswers : {};
 
                 if (typeof currentSection !== 'number' || isNaN(currentSection)) {
                         console.error('[Restore] Invalid currentSection:', currentSection);
@@ -2905,10 +3302,12 @@ function restoreAutoSave() {
 
                 if (typeof APP_STATE !== 'undefined') {
                         APP_STATE.answers = answers;
+                        APP_STATE.intAnswers = validIntAnswers;
                         APP_STATE.currentSectionIndex = currentSection;
                 }
                 if (typeof AppState !== 'undefined') {
                         AppState.answers = answers;
+                        AppState.intAnswers = validIntAnswers;
                         AppState.currentStep = currentSection;
                 }
                 return true;
@@ -3305,25 +3704,22 @@ async function showDocumentUploadDialog() {
  * @returns {object} - Das JSON-Objekt mit Antworten und Dokumenten
  */
 function getAnswerJsonWithDocuments() {
-    const baseJson = getAnswerJson();
-    
-    // Füge Dokumente hinzu aus GDPR-konformem Storage
-    if (typeof DOCUMENT_STORAGE_GDPR !== 'undefined') {
-        const documents = DOCUMENT_STORAGE_GDPR.getAllDocuments();
-        if (documents.length > 0) {
-            baseJson.attachedDocuments = documents;
-            // ✓ ${documents.length} Dokument(e) aus GDPR-Storage hinzugefügt (console.log removed)
+        const payload = buildTransmissionPayload({ includeDocuments: false });
+
+        // Füge Dokumente hinzu aus GDPR-konformem Storage
+        if (typeof DOCUMENT_STORAGE_GDPR !== 'undefined') {
+                const documents = DOCUMENT_STORAGE_GDPR.getAllDocuments();
+                if (documents.length > 0) {
+                        payload.transmission.attachedDocuments = documents;
+                }
+        } else {
+                // Fallback auf altes System (falls GDPR-Modul nicht geladen)
+                if (typeof DOCUMENT_STORAGE !== 'undefined' && DOCUMENT_STORAGE.documents.length > 0) {
+                        payload.transmission.attachedDocuments = DOCUMENT_STORAGE.documents;
+                }
         }
-    } else {
-        // Fallback auf altes System (falls GDPR-Modul nicht geladen)
-        console.warn('⚠️ GDPR-Modul nicht geladen - verwende Legacy-Storage');
-        if (typeof DOCUMENT_STORAGE !== 'undefined' && DOCUMENT_STORAGE.documents.length > 0) {
-            baseJson.attachedDocuments = DOCUMENT_STORAGE.documents;
-            // ✓ ${DOCUMENT_STORAGE.documents.length} Dokument(e) aus Legacy-Storage hinzugefügt (console.log removed)
-        }
-    }
-    
-    return baseJson;
+
+        return payload;
 }
 
 /**
@@ -4365,12 +4761,117 @@ function clearUploadedDocuments() {
             transform: none;
             box-shadow: 0 2px 4px var(--shadow);
         }
+
+                /* Telemedizin: Zoom-Modus (nur aktuelle Frage sichtbar, große Schrift) */
+                body.zoom-mode header,
+                body.zoom-mode .progress-container,
+                body.zoom-mode .nav-buttons,
+                body.zoom-mode .action-buttons,
+                body.zoom-mode .question-card:not(#question-area),
+                body.zoom-mode .summary-box,
+                body.zoom-mode .improvement-suggestion-box,
+                body.zoom-mode footer {
+                        display: none !important;
+                }
+
+                body.zoom-mode #question-area {
+                        max-width: 1000px;
+                        margin: 2rem auto;
+                        min-height: 80vh;
+                        padding: 2rem;
+                        font-size: 1.5rem;
+                }
+
+                body.zoom-mode #question-area h2 {
+                        font-size: 2.5rem;
+                        margin-bottom: 2rem;
+                        text-align: center;
+                }
+
+                body.zoom-mode #question-area .form-group {
+                        margin-bottom: 2rem;
+                }
+
+                body.zoom-mode #question-area .question-label {
+                        font-size: 1.75rem;
+                        margin-bottom: 1rem;
+                        display: block;
+                }
+
+                body.zoom-mode #question-area input[type="text"],
+                body.zoom-mode #question-area input[type="number"],
+                body.zoom-mode #question-area textarea,
+                body.zoom-mode #question-area select {
+                        font-size: 1.5rem;
+                        padding: 1rem 1.25rem;
+                        min-height: 3.5rem;
+                }
+
+                body.zoom-mode #question-area .option-item {
+                        font-size: 1.5rem;
+                        padding: 1.25rem 1.5rem;
+                        margin: 0.75rem 0;
+                }
+
+                body.zoom-mode #question-area .option-item input {
+                        width: 1.5rem;
+                        height: 1.5rem;
+                        margin-right: 1rem;
+                }
+
+                body.zoom-mode #question-area .btn {
+                        font-size: 1.5rem;
+                        padding: 1rem 2rem;
+                }
+
+                /* Zoom-Mode Navigation Buttons (unten fixiert) */
+                body.zoom-mode .zoom-nav-container {
+                        position: fixed;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        background: var(--bg-color);
+                        padding: 1rem 2rem;
+                        display: flex;
+                        justify-content: center;
+                        gap: 2rem;
+                        box-shadow: 0 -4px 12px var(--shadow);
+                        z-index: 10000;
+                }
+
+                body.zoom-mode .zoom-nav-container .btn {
+                        font-size: 1.5rem;
+                        padding: 1rem 3rem;
+                        min-width: 150px;
+                }
+
+                #zoom-exit {
+                        position: fixed;
+                        top: 12px;
+                        right: 12px;
+                        z-index: 10001;
+                        display: none;
+                        font-size: 1.25rem;
+                        padding: 0.75rem 1.5rem;
+                }
+
+                body.zoom-mode #zoom-exit {
+                        display: inline-flex;
+                }
     </style>
 </head>
 <body>
     <!-- Skip Links for Accessibility -->
     <a href="#app-container" class="skip-link">Skip to main content</a>
     <a href="#language-select" class="skip-link">Skip to language selector</a>
+
+        <button id="zoom-exit" class="btn btn-secondary" onclick="App.toggleZoomMode()" aria-label="Exit zoom mode">✖ Zoom beenden</button>
+
+        <!-- Zoom-Mode Navigation (nur im Zoom-Modus sichtbar) -->
+        <div id="zoom-nav-container" class="zoom-nav-container" style="display: none;">
+            <button class="btn btn-secondary" onclick="App.prevStep()" id="zoom-back-btn">← Zurück</button>
+            <button class="btn btn-primary" onclick="App.nextStep()" id="zoom-next-btn">Weiter →</button>
+        </div>
 
     <!-- ================================================================
          DATENSCHUTZ MODAL
@@ -4440,6 +4941,7 @@ function clearUploadedDocuments() {
                 <label for="language-select" class="sr-only">Select language</label>
                 <select id="language-select" onchange="App.changeLanguage(this.value)" aria-label="Language selection"></select>
                 <button id="theme-toggle" onclick="App.toggleTheme()" aria-label="Toggle dark mode">🌙 Dark Mode</button>
+                                <button id="zoom-toggle" onclick="App.toggleZoomMode()" aria-label="Zoom question view">🔎 Zoom</button>
             </nav>
         </header>
 
@@ -4549,6 +5051,112 @@ function clearUploadedDocuments() {
             <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                 <button class="btn btn-primary" onclick="App.exportJSON(true)">📤 <span data-translate="export_full">Export (Full)</span></button>
                 <button class="btn btn-secondary" onclick="App.exportJSON(false)">📤 <span data-translate="export_anonymous">Export (Anonymous)</span></button>
+            </div>
+
+                        <!-- Dual-Code Ausgabe: statischer Code + privates Payload + Key (für Freitext/PII) -->
+                        <div class="question-card" style="margin-top: 1rem;">
+                                <h4 style="margin: 0 0 0.5rem 0; color: var(--primary);">🔐 Dual-Code</h4>
+
+                                <!-- Abholcode (Lookup) -->
+                                <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px;">
+                                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Abholcode (12 Zeichen)</div>
+                                        <label class="question-label" for="handoff-code" style="margin-top: 0.25rem;">Code</label>
+                                        <input id="handoff-code" type="text" readonly style="font-family: monospace; font-size: 1rem; width: 100%;" aria-readonly="true" />
+                                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                                <button class="btn btn-primary" type="button" onclick="App.createHandoff()">Erzeugen &amp; Speichern</button>
+                                                <button class="btn btn-secondary" type="button" onclick="App.copyFromElement('handoff-code')">Kopieren</button>
+                                        </div>
+                                        <div id="handoff-status" style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--secondary);"></div>
+                                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--secondary);">
+                                                Hinweis: Dieser Code kann (bei lokalem Praxis-Server) zum Abruf genutzt werden.
+                                        </div>
+                                </div>
+
+                                <label class="question-label" for="dual-static-code" style="margin-top: 0.5rem;">Statischer Code (ohne Freitext)</label>
+                                <textarea id="dual-static-code" rows="2" readonly style="font-family: monospace; font-size: 0.9rem;" aria-readonly="true"></textarea>
+                                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button class="btn btn-secondary" type="button" onclick="App.copyFromElement('dual-static-code')">Kopieren</button>
+                                </div>
+
+                                <label class="question-label" for="dual-private-payload" style="margin-top: 0.75rem;">Privates Payload (verschlüsselt)</label>
+                                <textarea id="dual-private-payload" rows="3" readonly style="font-family: monospace; font-size: 0.8rem;" aria-readonly="true"></textarea>
+                                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button class="btn btn-secondary" type="button" onclick="App.copyFromElement('dual-private-payload')">Kopieren</button>
+                                </div>
+
+                                <label class="question-label" for="dual-passphrase" style="margin-top: 0.75rem;">Key / Passphrase (für Freitext/PII)</label>
+                                <input id="dual-passphrase" type="text" readonly style="font-family: monospace; font-size: 0.9rem; width: 100%;" aria-readonly="true" />
+                                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button class="btn btn-secondary" type="button" onclick="App.copyFromElement('dual-passphrase')">Kopieren</button>
+                                </div>
+
+                                <div style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--secondary);">
+                                        Der statische Code kann ohne Key ausgewertet werden. Für Freitext/PII wird zusätzlich das Payload + Key benötigt.
+                                </div>
+
+                                <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px;">
+                                        <div style="font-weight: 600; margin-bottom: 0.5rem;">QR (Offline-Transfer)</div>
+                                        <div id="dual-qr" aria-label="QR Code für Offline Transfer"></div>
+                                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--secondary);">
+                                                Praxis: QR scannen → Decoder kann alles rekonstruieren (inkl. Freitext/PII), ohne Internet.
+                                        </div>
+                                </div>
+                        </div>
+
+                        <!-- Praxis Decoder -->
+                        <div class="question-card" style="margin-top: 1rem;">
+                                <h4 style="margin: 0 0 0.5rem 0; color: var(--primary);">🏥 Praxis Decoder</h4>
+
+                                <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px;">
+                                        <div style="font-weight: 600; margin-bottom: 0.5rem;">Abruf per Abholcode</div>
+                                        <label class="question-label" for="praxis-handoff-code" style="margin-top: 0.25rem;">Abholcode (12 Zeichen)</label>
+                                        <input id="praxis-handoff-code" type="text" style="font-family: monospace; font-size: 0.95rem; width: 100%;" placeholder="12 Zeichen" />
+                                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                                <button class="btn btn-primary" type="button" onclick="App.fetchAndDecodeHandoff()">Abrufen &amp; decodieren</button>
+                                        </div>
+                                </div>
+
+                                <label class="question-label" for="praxis-static-code" style="margin-top: 0.5rem;">Statischer Code</label>
+                                <textarea id="praxis-static-code" rows="2" style="font-family: monospace; font-size: 0.9rem;" placeholder="Base62 staticCode"></textarea>
+
+                                <label class="question-label" for="praxis-private-payload" style="margin-top: 0.75rem;">Privates Payload (optional)</label>
+                                <textarea id="praxis-private-payload" rows="3" style="font-family: monospace; font-size: 0.8rem;" placeholder="v1.<salt>.<iv>.<ciphertext>"></textarea>
+
+                                <label class="question-label" for="praxis-passphrase" style="margin-top: 0.75rem;">Key / Passphrase (optional)</label>
+                                <input id="praxis-passphrase" type="text" style="font-family: monospace; font-size: 0.9rem; width: 100%;" placeholder="Base62 Key" />
+
+                                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                        <button class="btn btn-primary" type="button" onclick="App.decodePractice()">Decodieren</button>
+                                        <button class="btn btn-secondary" type="button" onclick="App.fillPracticeFromDual()">Aus Dual-Code übernehmen</button>
+                                </div>
+
+                                <label class="question-label" for="praxis-output" style="margin-top: 0.75rem;">Ausgabe</label>
+                                <textarea id="praxis-output" rows="10" readonly style="font-family: monospace; font-size: 0.8rem;" aria-readonly="true"></textarea>
+                        </div>
+        </div>
+
+        <!-- Verbesserungsvorschlag-Box -->
+        <div id="improvement-suggestion-box" class="improvement-suggestion-box" style="margin: 1.5rem 0; padding: 1rem; background: var(--bg-color); border-radius: 12px; border: 1px solid var(--border-color);">
+            <h4 style="margin: 0 0 0.75rem 0; color: var(--primary);">
+                💡 <span data-translate="improvement_title">Verbesserungsvorschlag / Improvement Suggestion</span>
+            </h4>
+            <p style="font-size: 0.85rem; color: var(--secondary); margin-bottom: 0.75rem;" data-translate="improvement_desc">
+                Haben Sie Anregungen zur Verbesserung dieses Fragebogens? Ihre Meinung hilft uns!
+            </p>
+            <textarea 
+                id="improvement-suggestion-input" 
+                rows="3" 
+                style="width: 100%; padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color); resize: vertical; font-family: inherit;"
+                placeholder="Ihr Vorschlag... / Your suggestion..."
+                aria-label="Verbesserungsvorschlag eingeben"
+                maxlength="2000"
+                oninput="saveImprovementSuggestion(this.value)"
+            ></textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                <small style="color: var(--secondary);"><span id="improvement-char-count">0</span>/2000</small>
+                <button class="btn btn-sm btn-outline-primary" onclick="clearImprovementSuggestion()" style="font-size: 0.8rem;">
+                    🗑️ <span data-translate="clear">Löschen</span>
+                </button>
             </div>
         </div>
 
@@ -16401,8 +17009,9 @@ function clearUploadedDocuments() {
                 }
             }
             
-            // Name validation: Min 3 characters, no digits
-            if ((fieldId === '0001' || fieldId === '0002' || field.id === 'firstName' || field.id === 'lastName') && value) {
+                        // Name validation: Min 2 characters, no digits
+                        // Fields: 0000 (Nachname), 0001 (Vorname)
+                        if ((fieldId === '0000' || fieldId === '0001' || field.id === 'firstName' || field.id === 'lastName') && typeof value === 'string' && value) {
                 if (value.length < 3) {
                     feedbackElement.innerHTML = '⚠️ Mindestens 3 Zeichen erforderlich';
                     feedbackElement.className = 'validation-feedback error';
@@ -16543,10 +17152,23 @@ function clearUploadedDocuments() {
                 document.body.classList.toggle('dark', AppState.isDarkMode);
                 this.updateThemeButton();
 
+                                // Apply persisted Zoom-Mode state on load
+                                document.body.classList.toggle('zoom-mode', Boolean(AppState.isZoomMode));
+                                const zoomNav = document.getElementById('zoom-nav-container');
+                                if (zoomNav) {
+                                        zoomNav.style.display = AppState.isZoomMode ? 'flex' : 'none';
+                                }
+                                const zoomBtn = document.getElementById('zoom-toggle');
+                                if (zoomBtn) {
+                                        zoomBtn.setAttribute('aria-pressed', AppState.isZoomMode ? 'true' : 'false');
+                                }
+
                 if (AppState.privacyAccepted) {
                     document.getElementById('privacy-modal').classList.add('hidden');
                     document.getElementById('app-container').classList.remove('hidden');
                     this.renderStep(AppState.currentStep);
+                    // Lade gespeicherten Verbesserungsvorschlag
+                    loadImprovementSuggestion();
                 } else {
                     // Also update texts in privacy modal
                     this.updateUITexts();
@@ -16560,6 +17182,8 @@ function clearUploadedDocuments() {
                 document.getElementById('privacy-modal').classList.add('hidden');
                 document.getElementById('app-container').classList.remove('hidden');
                 this.renderStep(0);
+                // Lade gespeicherten Verbesserungsvorschlag
+                loadImprovementSuggestion();
             },
 
             // ----- LANGUAGE -----
@@ -16622,6 +17246,34 @@ function clearUploadedDocuments() {
                 this.saveToStorage();
             },
 
+                        // ----- TELEMEDICINE (QUESTION ZOOM MODE) -----
+                        toggleZoomMode() {
+                                AppState.isZoomMode = !AppState.isZoomMode;
+                                document.body.classList.toggle('zoom-mode', AppState.isZoomMode);
+                                
+                                // Zoom-Navigation ein-/ausblenden
+                                const zoomNav = document.getElementById('zoom-nav-container');
+                                if (zoomNav) {
+                                        zoomNav.style.display = AppState.isZoomMode ? 'flex' : 'none';
+                                }
+                                
+                                // Button-Text aktualisieren
+                                const btn = document.getElementById('zoom-toggle');
+                                if (btn) {
+                                        const key = AppState.isZoomMode ? 'zoom_on' : 'zoom_off';
+                                        const label = (typeof T === 'function') ? T(key) : null;
+                                        btn.textContent = label && label !== key ? label : (AppState.isZoomMode ? '✖ Zoom' : '🔎 Zoom');
+                                        btn.setAttribute('aria-pressed', AppState.isZoomMode ? 'true' : 'false');
+                                }
+                                
+                                // Zum Seitenanfang scrollen im Zoom-Modus
+                                if (AppState.isZoomMode) {
+                                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                                
+                                this.saveToStorage();
+                        },
+
             updateThemeButton() {
                 const btn = document.getElementById('theme-toggle');
                 btn.textContent = AppState.isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode';
@@ -16634,6 +17286,7 @@ function clearUploadedDocuments() {
                         answers: AppState.answers,
                         language: AppState.language,
                         isDarkMode: AppState.isDarkMode,
+                                                isZoomMode: AppState.isZoomMode,
                         currentStep: AppState.currentStep,
                         privacyAccepted: AppState.privacyAccepted
                     }));
@@ -17258,7 +17911,485 @@ function clearUploadedDocuments() {
 
                 content.innerHTML = html || '<p>Keine Angaben vorhanden.</p>';
                 box.classList.remove('hidden');
+
+                                // Dual-Code Ausgabe aktualisieren (statischer Code + private Payload + Key)
+                                this.updateDualCodeBoxes().catch((e) => {
+                                        console.error('[Dual-Code] update fehlgeschlagen:', e);
+                                });
             },
+
+                        async updateDualCodeBoxes() {
+                                const elStatic = document.getElementById('dual-static-code');
+                                const elPayload = document.getElementById('dual-private-payload');
+                                const elKey = document.getElementById('dual-passphrase');
+                                if (!elStatic || !elPayload || !elKey) return;
+
+                                if (!window.AnamneseCodec || typeof window.AnamneseCodec.encodeDual !== 'function') {
+                                        elStatic.value = '[Codec nicht geladen]';
+                                        elPayload.value = '';
+                                        elKey.value = '';
+                                        return;
+                                }
+
+                                const codecAnswers = this.buildCodecAnswersFromAppState();
+                                const encoded = await window.AnamneseCodec.encodeDual(codecAnswers, undefined, {
+                                        compress: true,
+                                        privateKinds: new Set(['text', 'pii', 'date'])
+                                });
+
+                                elStatic.value = encoded.staticCode;
+                                elPayload.value = encoded.privatePayload;
+                                elKey.value = encoded.passphrase;
+
+                                this._renderDualQr(encoded);
+                        },
+
+                        _getHandoffApiBaseUrl() {
+                                // Default: gleiche Origin. Wenn Frontend typisch auf :8080 läuft, nutze :3000.
+                                try {
+                                        const url = new URL(window.location.href);
+                                        if (url.port === '8080') {
+                                                return `${url.protocol}//${url.hostname}:3000`;
+                                        }
+                                        return url.origin;
+                                } catch {
+                                        return 'http://localhost:3000';
+                                }
+                        },
+
+                        async createHandoff() {
+                                const outCode = document.getElementById('handoff-code');
+                                const outStatus = document.getElementById('handoff-status');
+                                if (outStatus) outStatus.textContent = '';
+
+                                if (!outCode) return;
+                                if (!window.AnamneseCodec) {
+                                        outCode.value = '';
+                                        if (outStatus) outStatus.textContent = 'Codec nicht geladen.';
+                                        return;
+                                }
+
+                                try {
+                                        // 12-Zeichen Code = Lookup-Key + Entschlüsselungs-Passphrase
+                                        const code = window.AnamneseCodec.randomPassphraseBase62Chars(12);
+                                        if (!/^[0-9A-Za-z]{12}$/.test(code)) {
+                                                throw new Error('Interner Fehler: ungültiger Code');
+                                        }
+                                        const codecAnswers = this.buildCodecAnswersFromAppState();
+
+                                        // Dual erzeugen (Passphrase explizit = Abholcode)
+                                        const dual = await window.AnamneseCodec.encodeDual(codecAnswers, code, {
+                                                compress: true,
+                                                privateKinds: new Set(['text', 'pii', 'date'])
+                                        });
+
+                                        // Komplett-Paket E2E verschlüsseln, damit Server nur Ciphertext sieht
+                                        const handoffPayload = await window.AnamneseCodec.encryptPrivatePayload({
+                                                v: 1,
+                                                staticCode: dual.staticCode,
+                                                privatePayload: dual.privatePayload
+                                        }, code);
+
+                                        const apiBase = this._getHandoffApiBaseUrl();
+                                        const resp = await fetch(`${apiBase}/api/handoff`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                        code,
+                                                        payload: { handoffPayload },
+                                                        expiresInMinutes: 24 * 60
+                                                })
+                                        });
+
+                                        const json = await resp.json().catch(() => ({}));
+                                        if (!resp.ok) {
+                                                throw new Error(json?.message || json?.error || 'Server-Fehler beim Speichern');
+                                        }
+
+                                        outCode.value = code;
+                                        if (outStatus) outStatus.textContent = `Gespeichert (Ablauf: ${json.expiresAt || 'unbekannt'}).`;
+                                } catch (e) {
+                                        if (outStatus) outStatus.textContent = `Fehler: ${e?.message || e}`;
+                                }
+                        },
+
+                        async fetchAndDecodeHandoff() {
+                                const outEl = document.getElementById('praxis-output');
+                                const inCode = document.getElementById('praxis-handoff-code');
+                                const dstStatic = document.getElementById('praxis-static-code');
+                                const dstPayload = document.getElementById('praxis-private-payload');
+                                const dstKey = document.getElementById('praxis-passphrase');
+
+                                if (!outEl || !inCode) return;
+                                const code = String(inCode.value || '').trim();
+                                if (!code) {
+                                        outEl.value = 'Bitte Abholcode eingeben.';
+                                        return;
+                                }
+                                if (!/^[0-9A-Za-z]{12}$/.test(code)) {
+                                        outEl.value = 'Ungültiger Abholcode (12 Zeichen, 0-9A-Za-z).';
+                                        return;
+                                }
+                                if (!window.AnamneseCodec) {
+                                        outEl.value = 'Codec nicht geladen (AnamneseCodec fehlt).';
+                                        return;
+                                }
+
+                                try {
+                                        const apiBase = this._getHandoffApiBaseUrl();
+                                        const resp = await fetch(`${apiBase}/api/handoff/${encodeURIComponent(code)}`);
+                                        const json = await resp.json().catch(() => ({}));
+                                        if (!resp.ok) {
+                                                throw new Error(json?.error || 'Nicht gefunden');
+                                        }
+
+                                        const handoffPayload = String(json?.payload?.handoffPayload || '').trim();
+                                        if (!handoffPayload) throw new Error('Ungültiges Payload vom Server');
+
+                                        const pkg = await window.AnamneseCodec.decodePrivate(handoffPayload, code);
+                                        if (!pkg || !pkg.staticCode || !pkg.privatePayload) {
+                                                throw new Error('Ungültiges Paket (decodePrivate)');
+                                        }
+
+                                        if (dstStatic) dstStatic.value = String(pkg.staticCode);
+                                        if (dstPayload) dstPayload.value = String(pkg.privatePayload);
+                                        if (dstKey) dstKey.value = String(code);
+
+                                        await this.decodePractice();
+                                } catch (e) {
+                                        outEl.value = `Abruf/Decode-Fehler: ${e?.message || e}`;
+                                }
+                        },
+
+                        _renderDualQr(encoded) {
+                                const container = document.getElementById('dual-qr');
+                                if (!container) return;
+                                container.innerHTML = '';
+
+                                // QR Payload bewusst kompakt halten
+                                const qrText = JSON.stringify({ v: 1, s: encoded.staticCode, p: encoded.privatePayload, k: encoded.passphrase });
+
+                                // QRCode.js (local) bevorzugt
+                                if (typeof QRCode !== 'undefined' && typeof QRCode.toCanvas === 'function') {
+                                        QRCode.toCanvas(qrText, {
+                                                width: 256,
+                                                margin: 2
+                                        }, (err, canvas) => {
+                                                if (err) {
+                                                        container.textContent = 'QR konnte nicht generiert werden.';
+                                                        return;
+                                                }
+                                                container.appendChild(canvas);
+                                        });
+                                        return;
+                                }
+
+                                // Fallback: Text anzeigen (immer offline verfügbar)
+                                const pre = document.createElement('pre');
+                                pre.style.whiteSpace = 'pre-wrap';
+                                pre.style.wordBreak = 'break-word';
+                                pre.textContent = qrText;
+                                container.appendChild(pre);
+                        },
+
+                        buildCodecAnswersFromAppState() {
+                                const answers = AppState.answers || {};
+                                const sections = window.APP_DATA?.sections || [];
+
+                                // Feldtypen merken (z.B. number/email/tel/date), um Numbers statisch kodieren zu können
+                                const typeById = new Map();
+
+                                // 1) Optionen deterministisch pro Frage-ID sammeln
+                                const optionsById = new Map();
+                                for (const section of sections) {
+                                        const fields = section?.fields || [];
+                                        for (const field of fields) {
+                                                if (!field || !field.id || !field.type) continue;
+                                                const id = String(field.id);
+
+                                                if (!typeById.has(id)) {
+                                                        typeById.set(id, String(field.type));
+                                                }
+
+                                                if (Array.isArray(field.options) && field.options.length) {
+                                                        // Bevorzuge explizite Optionsliste
+                                                        optionsById.set(id, field.options.map(String));
+                                                        continue;
+                                                }
+
+                                                // Checkbox/Radio können als mehrere Einträge mit gleicher ID + label kommen
+                                                if ((field.type === 'checkbox' || field.type === 'radio') && field.label) {
+                                                        if (!optionsById.has(id)) optionsById.set(id, []);
+                                                        const arr = optionsById.get(id);
+                                                        // Nur einmal aufnehmen (falls doppelt)
+                                                        const label = String(field.label);
+                                                        if (!arr.includes(label)) arr.push(label);
+                                                }
+                                        }
+                                }
+
+                                // 2) Freitext-Felder, die zu Multi-Select gehören, später anheften
+                                const freeTextByBaseId = {};
+
+                                const out = {};
+                                const hasDobIso = typeof answers['0003'] === 'string' && answers['0003'].trim();
+
+                                for (const [rawId, rawVal] of Object.entries(answers)) {
+                                        const id = String(rawId);
+
+                                        // Leere Antworten auslassen (minimaler Code)
+                                        if (rawVal === undefined || rawVal === null) continue;
+                                        if (Array.isArray(rawVal) && rawVal.length === 0) continue;
+                                        if (!Array.isArray(rawVal) && String(rawVal).trim() === '') continue;
+
+                                        // Wenn ISO-Geburtsdatum vorhanden: Komponenten nicht zusätzlich kodieren
+                                        if (hasDobIso && (id === '0003_tag' || id === '0003_monat' || id === '0003_jahr')) continue;
+
+                                        // Freitext-Konvention: *_freitext
+                                        if (id.endsWith('_freitext')) {
+                                                const baseId = id.slice(0, -'_freitext'.length);
+                                                freeTextByBaseId[baseId] = String(rawVal);
+                                                continue;
+                                        }
+
+                                        const opts = optionsById.get(id);
+                                        if (opts && opts.length) {
+                                                // Fixed Answers -> statisch
+                                                if (Array.isArray(rawVal)) {
+                                                        const indices = [];
+                                                        for (const v of rawVal) {
+                                                                const idx = opts.indexOf(String(v));
+                                                                if (idx >= 0) indices.push(idx >>> 0);
+                                                        }
+                                                        // Dedupe + sortiert nach Option-Index (stabil/kompakt)
+                                                        const uniq = Array.from(new Set(indices)).sort((a, b) => a - b);
+                                                        out[id] = { kind: 'multi', indices: uniq };
+                                                } else {
+                                                        const idx = opts.indexOf(String(rawVal));
+                                                        if (idx >= 0) {
+                                                                out[id] = { kind: 'select', index: idx >>> 0 };
+                                                        } else {
+                                                                // Falls Schema/Value nicht matcht: als privat behandeln
+                                                                out[id] = { kind: 'text', text: String(rawVal) };
+                                                        }
+                                                }
+                                                continue;
+                                        }
+
+                                        // Numbers (ohne Optionsliste) statisch als U32 kodieren, wenn sinnvoll
+                                        const fieldType = typeById.get(id);
+                                        if (fieldType === 'number') {
+                                                const n = Number(rawVal);
+                                                if (Number.isFinite(n) && Number.isInteger(n) && n >= 0 && n <= 0xffffffff) {
+                                                        out[id] = { kind: 'number', value: n >>> 0 };
+                                                        continue;
+                                                }
+                                        }
+
+                                        // Alles andere: privat (Freitext/PII)
+                                        const asString = Array.isArray(rawVal) ? rawVal.join(', ') : String(rawVal);
+                                        const isPii = id === '0000' || id === '0001' || id === 'email' || id === 'phone' || id === 'tel' || id === 'lastname' || id === 'firstname';
+                                        out[id] = { kind: isPii ? 'pii' : 'text', text: asString };
+                                }
+
+                                // 3) Freitext an Multi-Select anhängen (falls Basis existiert)
+                                for (const [baseId, text] of Object.entries(freeTextByBaseId)) {
+                                        if (out[baseId] && out[baseId].kind === 'multi') {
+                                                out[baseId].freeText = String(text);
+                                        } else {
+                                                out[`${baseId}_freitext`] = { kind: 'text', text: String(text) };
+                                        }
+                                }
+
+                                // 4) ISO-DOB privat kodieren (wenn vorhanden)
+                                if (hasDobIso) {
+                                        out['0003'] = { kind: 'date', text: String(answers['0003']) };
+                                }
+
+                                return out;
+                        },
+
+                        async copyFromElement(elementId) {
+                                const el = document.getElementById(elementId);
+                                if (!el) return;
+
+                                const text = (el.value !== undefined) ? String(el.value) : String(el.textContent || '');
+                                if (!text) return;
+
+                                try {
+                                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                await navigator.clipboard.writeText(text);
+                                                return;
+                                        }
+                                } catch {
+                                        // Fallback unten
+                                }
+
+                                try {
+                                        // Fallback: selektieren + execCommand
+                                        if (el.select) {
+                                                el.focus();
+                                                el.select();
+                                        }
+                                        document.execCommand('copy');
+                                } catch (e) {
+                                        console.error('[Clipboard] Copy fehlgeschlagen:', e);
+                                }
+                        },
+
+                        fillPracticeFromDual() {
+                                const srcStatic = document.getElementById('dual-static-code');
+                                const srcPayload = document.getElementById('dual-private-payload');
+                                const srcKey = document.getElementById('dual-passphrase');
+
+                                const dstStatic = document.getElementById('praxis-static-code');
+                                const dstPayload = document.getElementById('praxis-private-payload');
+                                const dstKey = document.getElementById('praxis-passphrase');
+
+                                if (dstStatic && srcStatic) dstStatic.value = srcStatic.value || '';
+                                if (dstPayload && srcPayload) dstPayload.value = srcPayload.value || '';
+                                if (dstKey && srcKey) dstKey.value = srcKey.value || '';
+                        },
+
+                        _getPracticeOptionsCache() {
+                                if (this._practiceOptionsCache) return this._practiceOptionsCache;
+
+                                const sections = window.APP_DATA?.sections || [];
+                                const optionsById = new Map();
+                                const labelById = new Map();
+
+                                for (const section of sections) {
+                                        const fields = section?.fields || [];
+                                        for (const field of fields) {
+                                                if (!field || !field.id || !field.type) continue;
+                                                const id = String(field.id);
+
+                                                // Label (Fragetext) best effort
+                                                if (!labelById.has(id)) {
+                                                        const labelKey = `label_${id}`;
+                                                        const label = T(labelKey) !== labelKey ? T(labelKey) : (field.label || id);
+                                                        labelById.set(id, String(label));
+                                                }
+
+                                                if (Array.isArray(field.options) && field.options.length) {
+                                                        if (!optionsById.has(id)) {
+                                                                optionsById.set(id, field.options.map(String));
+                                                        }
+                                                        continue;
+                                                }
+
+                                                if ((field.type === 'checkbox' || field.type === 'radio') && field.label) {
+                                                        if (!optionsById.has(id)) optionsById.set(id, []);
+                                                        const arr = optionsById.get(id);
+                                                        const opt = String(field.label);
+                                                        if (!arr.includes(opt)) arr.push(opt);
+                                                }
+                                        }
+                                }
+
+                                this._practiceOptionsCache = { optionsById, labelById };
+                                return this._practiceOptionsCache;
+                        },
+
+                        _formatDecodedForPractice(decodedAnswers) {
+                                const { optionsById, labelById } = this._getPracticeOptionsCache();
+                                const lines = [];
+
+                                const ids = Object.keys(decodedAnswers || {}).sort((a, b) => String(a).localeCompare(String(b)));
+                                for (const id of ids) {
+                                        const rec = decodedAnswers[id];
+                                        if (!rec || typeof rec !== 'object') continue;
+
+                                        const label = labelById.get(id) || id;
+                                        const opts = optionsById.get(id);
+
+                                        if (rec.kind === 'select') {
+                                                const idx = rec.index;
+                                                const val = (opts && opts[idx] !== undefined) ? opts[idx] : `#${idx}`;
+                                                lines.push(`${id} | ${label}: ${val}`);
+                                                continue;
+                                        }
+
+                                        if (rec.kind === 'multi') {
+                                                const parts = Array.isArray(rec.indices) ? rec.indices.map((idx) => ((opts && opts[idx] !== undefined) ? opts[idx] : `#${idx}`)) : [];
+                                                const extra = rec.freeText ? ` | freitext: ${rec.freeText}` : '';
+                                                lines.push(`${id} | ${label}: ${parts.join(', ')}${extra}`);
+                                                continue;
+                                        }
+
+                                        if (rec.kind === 'number') {
+                                                lines.push(`${id} | ${label}: ${rec.value}`);
+                                                continue;
+                                        }
+
+                                        if (rec.kind === 'text') {
+                                                lines.push(`${id} | ${label}: ${rec.text}`);
+                                                continue;
+                                        }
+
+                                        if (rec.kind === 'textRef') {
+                                                lines.push(`${id} | ${label}: [privat] (token ${rec.tokenId})`);
+                                                continue;
+                                        }
+
+                                        lines.push(`${id} | ${label}: ${JSON.stringify(rec)}`);
+                                }
+
+                                return lines.join('\n');
+                        },
+
+                        async decodePractice() {
+                                const outEl = document.getElementById('praxis-output');
+                                const inStatic = document.getElementById('praxis-static-code');
+                                const inPayload = document.getElementById('praxis-private-payload');
+                                const inKey = document.getElementById('praxis-passphrase');
+                                if (!outEl || !inStatic) return;
+
+                                const staticCode = String(inStatic.value || '').trim();
+                                const privatePayload = String(inPayload?.value || '').trim();
+                                const passphrase = String(inKey?.value || '').trim();
+
+                                if (!staticCode) {
+                                        outEl.value = 'Bitte staticCode eingeben.';
+                                        return;
+                                }
+
+                                if (!window.AnamneseCodec) {
+                                        outEl.value = 'Codec nicht geladen (AnamneseCodec fehlt).';
+                                        return;
+                                }
+
+                                try {
+                                        let decoded;
+                                        // Sonderfall: QR-JSON direkt in staticCode Feld eingefügt
+                                        if (staticCode.startsWith('{')) {
+                                                const obj = JSON.parse(staticCode);
+                                                if (obj && obj.s) {
+                                                        inStatic.value = String(obj.s);
+                                                        if (inPayload) inPayload.value = String(obj.p || '');
+                                                        if (inKey) inKey.value = String(obj.k || '');
+                                                        return this.decodePractice();
+                                                }
+                                        }
+
+                                        if (privatePayload && passphrase && passphrase.length >= 12) {
+                                                decoded = await window.AnamneseCodec.decodeDual(staticCode, privatePayload, passphrase, { compress: true });
+                                                outEl.value =
+                                                        this._formatDecodedForPractice(decoded.answers) +
+                                                        '\n\n---\nRAW JSON:\n' +
+                                                        JSON.stringify(decoded.answers, null, 2);
+                                                return;
+                                        }
+
+                                        const staticDecoded = await window.AnamneseCodec.decodeStatic(staticCode, { compress: true });
+                                        outEl.value =
+                                                this._formatDecodedForPractice(staticDecoded.answers) +
+                                                '\n\nHinweis: Freitext/PII bleiben privat (Payload+Key fehlen).\n\n---\nRAW JSON:\n' +
+                                                JSON.stringify(staticDecoded.answers, null, 2);
+                                } catch (e) {
+                                        outEl.value = `Decode-Fehler: ${e?.message || e}`;
+                                }
+                        },
 
             checkRedFlags() {
                 const redFlagFields = window.APP_DATA.red_flag_fields || [];
@@ -22474,6 +23605,152 @@ let processor = null;
 let currentInputField = null;
 let voskWorker = null;
 
+// =================================================================
+// KONTEXTBEZOGENE WÖRTERBÜCHER FÜR SPRACHERKENNUNG
+// =================================================================
+
+/**
+ * Generiert ein kontextbezogenes Wörterbuch für eine Frage
+ * @param {string} questionId - Die Frage-ID
+ * @returns {string[]} - Array von erwarteten Wörtern/Phrasen
+ */
+function getContextDictionaryForQuestion(questionId) {
+    // Basis-Wörter für alle medizinischen Kontexte
+    const baseMedicalWords = [
+        'ja', 'nein', 'vielleicht', 'manchmal', 'oft', 'selten', 'nie', 'immer',
+        'stark', 'schwach', 'mittel', 'leicht', 'schwer',
+        'links', 'rechts', 'beide', 'oben', 'unten',
+        'heute', 'gestern', 'letzte woche', 'letzten monat', 'letztes jahr',
+        'morgens', 'mittags', 'abends', 'nachts',
+        'schmerzen', 'kopfschmerzen', 'bauchschmerzen', 'rückenschmerzen',
+        'fieber', 'husten', 'schnupfen', 'halsschmerzen',
+        'medikamente', 'tabletten', 'tropfen', 'salbe',
+        'arzt', 'krankenhaus', 'operation', 'untersuchung'
+    ];
+
+    // Suche die Frage und hole kontextspezifische Wörter
+    const question = (typeof findQuestionById === 'function') ? findQuestionById(questionId) : null;
+    
+    if (!question) return baseMedicalWords;
+
+    const contextWords = [...baseMedicalWords];
+
+    // Optionen der Frage als Wörter hinzufügen
+    if (Array.isArray(question.options)) {
+        question.options.forEach(opt => {
+            const word = (typeof opt === 'object' && opt.label) ? opt.label : String(opt);
+            if (word && word.length > 1) {
+                contextWords.push(word.toLowerCase());
+            }
+        });
+    }
+
+    // Spezifische Wörterbücher je nach Frage-Kategorie
+    const idLower = String(questionId).toLowerCase();
+
+    // Namensfelder
+    if (idLower.includes('name') || idLower === '0000' || idLower === '0001') {
+        // Keine spezifischen Wörter für Namen (freie Eingabe)
+        return ['buchstabieren', 'wiederholen', 'korrigieren'];
+    }
+
+    // Geschlecht
+    if (idLower === '0002' || idLower.includes('geschlecht') || idLower.includes('gender')) {
+        contextWords.push('männlich', 'weiblich', 'divers', 'mann', 'frau');
+    }
+
+    // Datum/Geburtsdatum
+    if (idLower.includes('datum') || idLower.includes('geburt') || idLower.includes('date')) {
+        const months = ['januar', 'februar', 'märz', 'april', 'mai', 'juni',
+                       'juli', 'august', 'september', 'oktober', 'november', 'dezember'];
+        contextWords.push(...months);
+        // Zahlen 1-31 und Jahreszahlen
+        for (let i = 1; i <= 31; i++) contextWords.push(String(i));
+        for (let y = 1920; y <= 2025; y++) contextWords.push(String(y));
+    }
+
+    // Beschwerden (q1000-q1999)
+    if (idLower.startsWith('1') || idLower.includes('beschwerde') || idLower.includes('symptom')) {
+        const symptomWords = [
+            'kopfschmerzen', 'migräne', 'schwindel', 'übelkeit', 'erbrechen',
+            'durchfall', 'verstopfung', 'bauchschmerzen', 'magenschmerzen',
+            'brustschmerzen', 'atemnot', 'kurzatmigkeit', 'husten', 'schnupfen',
+            'fieber', 'schüttelfrost', 'müdigkeit', 'erschöpfung', 'schwäche',
+            'schlafstörungen', 'insomnie', 'appetitlosigkeit', 'gewichtsverlust',
+            'gelenkschmerzen', 'muskelschmerzen', 'rückenschmerzen', 'nackenschmerzen',
+            'hautausschlag', 'juckreiz', 'schwellung', 'rötung',
+            'sehstörungen', 'hörstörungen', 'ohrenschmerzen', 'tinnitus',
+            'herzrasen', 'herzstolpern', 'brustenge', 'angina pectoris',
+            'bluthochdruck', 'niedriger blutdruck', 'ohnmacht', 'bewusstlosigkeit'
+        ];
+        contextWords.push(...symptomWords);
+    }
+
+    // Medikamente (q4xxx oder enthält "medikament")
+    if (idLower.startsWith('4') || idLower.includes('medikament') || idLower.includes('medication')) {
+        const medWords = [
+            'ibuprofen', 'paracetamol', 'aspirin', 'antibiotikum', 'antibiotika',
+            'cortison', 'insulin', 'metformin', 'ramipril', 'bisoprolol',
+            'omeprazol', 'pantoprazol', 'simvastatin', 'atorvastatin',
+            'amlodipin', 'candesartan', 'metoprolol', 'torasemid',
+            'marcumar', 'eliquis', 'xarelto', 'pradaxa',
+            'levothyroxin', 'l-thyroxin', 'vitamin d', 'vitamin b12',
+            'schmerzmittel', 'blutverdünner', 'blutdrucksenker', 'cholesterinsenker',
+            'milligramm', 'mikrogramm', 'tablette', 'kapsel', 'tropfen',
+            'morgens', 'mittags', 'abends', 'nachts', 'täglich', 'wöchentlich'
+        ];
+        contextWords.push(...medWords);
+    }
+
+    // Allergien
+    if (idLower.includes('allergi') || idLower.includes('unverträglich')) {
+        const allergyWords = [
+            'penicillin', 'amoxicillin', 'sulfonamid', 'iod', 'kontrastmittel',
+            'latex', 'nickel', 'pollen', 'gräser', 'hausstaub', 'milben',
+            'tierhaare', 'katze', 'hund', 'pferd',
+            'nüsse', 'erdnüsse', 'haselnüsse', 'mandeln', 'walnüsse',
+            'milch', 'laktose', 'gluten', 'weizen', 'soja', 'ei', 'fisch', 'meeresfrüchte',
+            'bienengift', 'wespengift', 'insektenstiche',
+            'ausschlag', 'schwellung', 'atemnot', 'anaphylaxie', 'schock'
+        ];
+        contextWords.push(...allergyWords);
+    }
+
+    // Vorerkrankungen
+    if (idLower.includes('vorerkrank') || idLower.includes('diagnose') || idLower.startsWith('5')) {
+        const diseaseWords = [
+            'diabetes', 'zuckerkrankheit', 'bluthochdruck', 'hypertonie',
+            'herzinfarkt', 'schlaganfall', 'thrombose', 'embolie',
+            'asthma', 'copd', 'bronchitis', 'lungenentzündung',
+            'rheuma', 'arthrose', 'osteoporose', 'gicht',
+            'krebs', 'tumor', 'karzinom', 'leukämie',
+            'depression', 'angststörung', 'panikattacken',
+            'epilepsie', 'parkinson', 'demenz', 'alzheimer',
+            'niereninsuffizienz', 'leberzirrhose', 'hepatitis',
+            'schilddrüsenunterfunktion', 'schilddrüsenüberfunktion'
+        ];
+        contextWords.push(...diseaseWords);
+    }
+
+    // Deduplizieren und zurückgeben
+    return [...new Set(contextWords)];
+}
+
+/**
+ * Sendet das kontextbezogene Wörterbuch an den Vosk-Worker
+ * @param {string} questionId
+ */
+function updateVoskDictionary(questionId) {
+    if (!voskWorker) return;
+    
+    const dictionary = getContextDictionaryForQuestion(questionId);
+    
+    voskWorker.postMessage({
+        action: 'setDictionary',
+        words: dictionary
+    });
+}
+
 // Initialize VOSK recognizer
 async function initVoskRecognizer() {
     try {
@@ -22528,6 +23805,9 @@ function handleRecognitionResult(data) {
 // Start voice recognition for a specific field
 async function startVoiceRecognition(fieldId) {
     currentInputField = fieldId;
+    
+    // Kontextbezogenes Wörterbuch laden
+    updateVoskDictionary(fieldId);
     
     // Show voice status
     const voiceStatus = document.getElementById('voiceStatus');
@@ -22731,6 +24011,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // ====================================================================
         // Web Worker for Vosk speech recognition processing
         // Handles recognition in separate thread for better performance
+// NOTE: This block is kept for documentation/backwards compatibility, but must
+// never run in the main thread. The app uses the external worker file
+// `vosk-worker.js`.
+if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+
 // VOSK Web Worker for speech recognition processing
 // This worker handles the actual speech recognition in a separate thread
 
@@ -22836,6 +24121,8 @@ function cleanup() {
     }
     modelLoaded = false;
 }
+
+} // end WorkerGlobalScope guard
 
         // ====================================================================
         // AI PLAUSIBILITY CHECK MODULE (INLINE)
@@ -29933,6 +31220,12 @@ console.log('GDT Performance Optimization module loaded');
 
         console.log('[AdvancedImprovements] Module loaded - Phase 3 features ready');
     </script>
+
+        <!-- Dual-Codec (statischer Code + verschlüsseltes Freitext/PII-Payload) -->
+        <script src="anamnese-codec.js"></script>
+
+        <!-- DSGVO-SAFE: Local QRCode.js (für Offline-Transfer per Scan) -->
+        <script src="public/lib/qrcode.min.js"></script>
 
     <!-- HISTORY-AWARE: Login UI integration for backend auth -->
         <script src="public/login-ui.js"></script>

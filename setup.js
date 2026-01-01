@@ -101,7 +101,7 @@ async function setup() {
   console.log('3. Import schema: psql -d anamnese -f database/schema.sql');
   console.log('4. Add a test practice to database:');
   console.log('   INSERT INTO practices (name, email, active)');
-  console.log('   VALUES (\'Test Practice\', \'test@example.com\', true);');
+  console.log('   VALUES (\'Test Practice\', \'practice@invalid.test\', true);');
   console.log('5. Start server: npm start');
   console.log('6. Open http://localhost:' + config.PORT + ' in browser\n');
   

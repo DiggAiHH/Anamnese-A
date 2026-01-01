@@ -13,7 +13,13 @@ require('dotenv').config();
 // In production, always use a cryptographically secure random key from environment variables.
 const TEST_KEY_SEED = 'anamnese-test-suite-2025';
 const TEST_KEY = crypto.createHash('sha256').update(TEST_KEY_SEED).digest('hex');
-const MASTER_KEY = process.env.MASTER_KEY || TEST_KEY;
+
+function isHexKey32Bytes(value) {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
+}
+
+// Use env MASTER_KEY only if it is a valid 32-byte hex key.
+const MASTER_KEY = isHexKey32Bytes(process.env.MASTER_KEY) ? process.env.MASTER_KEY : TEST_KEY;
 
 // Helper function for AES-256 encryption (from server.js)
 function encryptData(data) {

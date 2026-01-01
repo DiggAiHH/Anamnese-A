@@ -57,8 +57,8 @@ sudo systemctl start postgresql
 createdb anamnese
 psql -d anamnese -f database/schema.sql
 
-# Add test practice
-psql -d anamnese -c "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'test@example.com', true);"
+# Add test practice (DSGVO-safe dummy address)
+psql -d anamnese -c "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'practice@invalid.test', true);"
 
 # Start server
 npm run dev

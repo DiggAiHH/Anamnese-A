@@ -99,7 +99,7 @@ Strikte CSP mit nur lokalen Quellen:
 
 **Test-Credentials:**
 ```
-Email:    test@example.com
+Email:    user@invalid.test
 Password: password123
 ```
 

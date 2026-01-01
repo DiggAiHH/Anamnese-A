@@ -59,11 +59,12 @@
 - **Dateien:**
   - `database/schema.sql` (existiert bereits vom 27. Dez)
   - `database/setup.sh` (75 Zeilen) ✅ NEU
-  - `database/seeds.sql` (62 Zeilen) ✅ NEU
+  - `database/seeds_auth.sql` ✅ (Login-Testdaten)
+  - `database/seeds_new.sql` ✅ (Practice/Codes/Audit-Testdaten)
 - **Features:**
   - Automatisierte DB-Initialisierung
-  - Test-Daten: 3 Practices, 4 Users, 4 Codes
-  - Test-Login: admin@anamnese.local / admin123
+  - Test-Daten: 3 Practices, 1 User, 4 Codes
+  - Test-Login: user@invalid.test / password123
   - Test-Code: TEST1234
 - **Ausführung:** `./database/setup.sh` (in Progress)
 

@@ -301,8 +301,8 @@ docker-compose up -d db
 # 4. Import schema
 psql -d anamnese -f database/schema.sql
 
-# 5. Add test practice
-psql -d anamnese -c "INSERT INTO practices (name, email) VALUES ('Test', 'test@example.com');"
+# 5. Add test practice (DSGVO-safe dummy address)
+psql -d anamnese -c "INSERT INTO practices (name, email) VALUES ('Test', 'practice@invalid.test');"
 
 # 6. Start server
 npm start

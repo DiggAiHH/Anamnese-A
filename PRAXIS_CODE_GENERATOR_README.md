@@ -116,10 +116,10 @@ psql -U postgres -d anamnese
 
 # Test-Praxis einfügen
 INSERT INTO practices (name, email, active) 
-VALUES ('Test-Praxis Dr. Müller', 'test@example.com', true);
+VALUES ('Test-Praxis', 'practice@invalid.test', true);
 
 # UUID der Praxis notieren
-SELECT id FROM practices WHERE email = 'test@example.com';
+SELECT id FROM practices WHERE email = 'practice@invalid.test';
 ```
 
 ### Schritt 6: Server starten
@@ -331,7 +331,7 @@ docker-compose logs -f app
 ```bash
 # Test-Praxis anlegen
 docker-compose exec db psql -U anamnese_user -d anamnese -c \
-  "INSERT INTO practices (name, email, active) VALUES ('Test-Praxis', 'test@example.com', true);"
+  "INSERT INTO practices (name, email, active) VALUES ('Test-Praxis', 'practice@invalid.test', true);"
 ```
 
 ### Cloud Deployment (Heroku, AWS, etc.)

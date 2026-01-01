@@ -35,11 +35,11 @@ sudo -u postgres createdb anamnese
 # Import schema
 psql -U postgres -d anamnese -f database/schema.sql
 
-# Add test practice
-psql -U postgres -d anamnese -c "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'test@example.com', true);"
+# Add test practice (DSGVO-safe dummy address)
+psql -U postgres -d anamnese -c "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'practice@invalid.test', true);"
 
 # Get the practice UUID
-psql -U postgres -d anamnese -c "SELECT id FROM practices WHERE email = 'test@example.com';"
+psql -U postgres -d anamnese -c "SELECT id FROM practices WHERE email = 'practice@invalid.test';"
 ```
 
 Copy the UUID - you'll need it to login!
@@ -72,13 +72,13 @@ nano .env  # Set STRIPE keys and MASTER_KEY
 # Start everything
 docker-compose up -d
 
-# Add test practice
+# Add test practice (DSGVO-safe dummy address)
 docker-compose exec db psql -U anamnese_user -d anamnese -c \
-  "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'test@example.com', true);"
+  "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'practice@invalid.test', true);"
 
 # Get practice UUID
 docker-compose exec db psql -U anamnese_user -d anamnese -c \
-  "SELECT id FROM practices WHERE email = 'test@example.com';"
+  "SELECT id FROM practices WHERE email = 'practice@invalid.test';"
 ```
 
 Open `http://localhost:3000` and use the UUID to login!

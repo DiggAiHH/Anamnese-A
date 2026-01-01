@@ -33,13 +33,13 @@ npm run dev
 ### 3. Test-Login
 ```bash
 # Credentials:
-Email: test@example.com
+Email: user@invalid.test
 Password: password123
 
 # API-Test:
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
+  -d '{"email":"user@invalid.test","password":"password123"}'
 ```
 
 ---
@@ -94,12 +94,12 @@ app-v8-complete/
 **Test-User:**
 ```json
 {
-  "email": "test@example.com",
+  "email": "user@invalid.test",
   "password": "password123",
   "name": "Test User"
 }
 {
-  "email": "测试@example.com",
+  "email": "unicode@invalid.test",
   "password": "unicode密码",
   "name": "测试用户"
 }

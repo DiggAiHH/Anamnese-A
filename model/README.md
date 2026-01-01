@@ -1,9 +1,28 @@
-# VOSK Model Directory
+# VOSK Model Directory (Legacy)
 
 ## 📁 Purpose
-This directory should contain the VOSK speech recognition model for local, offline speech-to-text functionality.
+Hinweis: Die aktuelle App-Integration verwendet den Ordner `models/` für Offline-Vosk-Modelle.
+Der Ordner `model/` ist nur noch aus historischen Gründen vorhanden.
 
-## 📥 Download Instructions
+## 🔄 Automated Download (Recommended)
+
+Run the hardened helper script from the repository root:
+
+```bash
+./download-vosk.sh
+```
+
+What the script does:
+
+- Downloads `vosk.js`, `vosk.wasm`, and `vosk-model-small-de-0.15.zip`
+- Verifies every artifact via SHA-256 before placing it in the correct folder
+- Falls back to an alternative CDN when jsDelivr is unavailable
+- Creates/updates `models/vosk-model-small-de-0.15.zip.sha256` so you can verify future downloads offline
+- Replaces older model folders atomically to avoid partially extracted data
+
+You can override the model source (e.g., internal mirror) by setting `VOSK_MODEL_URL_OVERRIDE="https://your.mirror/vosk-model-small-de-0.15.zip"` before running the script.
+
+## 📥 Manual Download Instructions
 
 ### German Model (Recommended)
 Download the **vosk-model-small-de-0.15** (50 MB) for German language support:
@@ -16,8 +35,7 @@ Download the **vosk-model-small-de-0.15** (50 MB) for German language support:
 ### Expected Structure
 After downloading and extracting, your directory structure should look like:
 ```
-model/
-├── README.md (this file)
+models/
 └── vosk-model-small-de-0.15/
     ├── am/
     │   └── final.mdl
@@ -53,15 +71,31 @@ You can place multiple models in this directory and update `vosk-integration.js`
 
 ## 🔧 Integration
 
-The application (`vosk-integration.js`) looks for the model in:
+The application (`vosk-integration.js` / `index_v8_complete.html`) looks for the model in:
 ```
-model/vosk-model-small-de-0.15/
+models/vosk-model-small-de-0.15/
 ```
 
 If the model is not found, the application will:
 1. Log a warning message
 2. Fall back to the browser's built-in speech recognition
 3. Display an appropriate error to the user
+
+## 🔐 Integrity Verification
+
+If you must download files manually, always validate the checksums before extracting:
+
+| Artifact | Destination | SHA-256 |
+| --- | --- | --- |
+| `vosk.js` | `public/lib/vosk/vosk.js` | `29504515526e974f4cb053cf08811c4de5fb2a74007c0a5a957db50eaa8d5d0c` |
+| `vosk.wasm` | `public/lib/vosk/vosk.wasm` | `d51a01d7b07a3b6f20ed3b5288bef4d70cca9aa4426065317603355a587b6d90` |
+| `vosk-model-small-de-0.15.zip` | `models/vosk-model-small-de-0.15.zip` | `b7e53c90b1f0a38456f4cd62b366ecd58803cd97cd42b06438e2c131713d5e43` |
+
+```bash
+sha256sum -c models/vosk-model-small-de-0.15.zip.sha256
+```
+
+The command above is automatically created/updated by `download-vosk.sh`, but you can also compare hashes manually using the table.
 
 ## 📝 Notes
 

@@ -45,7 +45,7 @@ test('Email input validates format', async ({ page }) => {
 test('Submit sends POST request', async ({ page }) => {
   await page.goto('http://localhost:8080');
   await page.click('#login-btn');
-  await page.fill('#login-email', 'test@example.com');
+  await page.fill('#login-email', 'user@invalid.test');
   await page.fill('#login-password', 'password123');
   
   const [response] = await Promise.all([

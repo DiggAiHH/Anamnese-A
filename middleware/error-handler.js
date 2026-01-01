@@ -9,14 +9,27 @@
 // =============================================================================
 class ErrorHandler {
   static handle(err, req, res, next) {
+    let logger = null;
+    try {
+      logger = require('../logger');
+    } catch {
+      logger = null;
+    }
+
     // Log error
-    console.error('[Error Handler]', {
-      message: err.message,
-      stack: err.stack,
-      url: req.originalUrl,
-      method: req.method,
-      timestamp: new Date().toISOString()
-    });
+      const isProd = process.env.NODE_ENV === 'production';
+      const safeLog = {
+        message: err?.message || 'Unknown error',
+        name: err?.name,
+        code: err?.code,
+        status: err?.status || err?.statusCode
+      };
+      // In production: avoid logging stack traces / URLs to reduce PII risk.
+      // In development: include stack for debugging.
+      if (!isProd && err?.stack) safeLog.stack = err.stack;
+    if (logger) {
+      logger.error('[Error Handler]', safeLog);
+    }
 
     // Determine status code
     const statusCode = err.statusCode || err.status || 500;
@@ -88,13 +101,12 @@ const ErrorOverlay = {
   },
 
   captureError(error) {
-    console.error('[Error Overlay] Captured:', error);
+    console.warn('[Error Overlay] Captured:', error?.message || 'Unknown error');
 
     this.errors.push({
       ...error,
       timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href
+      urlPath: window.location.pathname
     });
 
     this.show();
@@ -249,7 +261,7 @@ const ErrorOverlay = {
         ` : ''}
         <div class="error-meta">
           <div><strong>Time:</strong> ${error.timestamp}</div>
-          <div><strong>URL:</strong> ${error.url}</div>
+          <div><strong>Path:</strong> ${error.urlPath || ''}</div>
           ${error.filename ? `<div><strong>File:</strong> ${error.filename}:${error.lineno}:${error.colno}</div>` : ''}
         </div>
         <div class="error-user-notes">
@@ -282,8 +294,7 @@ const ErrorOverlay = {
       },
       context: {
         timestamp: error.timestamp,
-        url: error.url,
-        userAgent: error.userAgent
+        path: error.urlPath
       },
       userFeedback: userNotes
     };
@@ -316,7 +327,7 @@ const ErrorOverlay = {
 if (typeof window !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     ErrorOverlay.init();
-    console.log('[Error Overlay] Initialized');
+    console.warn('[Error Overlay] Initialized');
   });
 }
 

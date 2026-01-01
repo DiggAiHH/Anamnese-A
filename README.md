@@ -122,18 +122,14 @@ A fully offline, privacy-compliant medical history (Anamnese) application with m
 
 To enable local VOSK speech recognition:
 
-1. Download the VOSK German model: [vosk-model-small-de-0.15](https://alphacephei.com/vosk/models)
-2. Extract the model to a `model/` folder in the same directory as index.html:
+1. Run `./download-vosk.sh` from the repository root. The script fetches `vosk.js`, `vosk.wasm`, and the `vosk-model-small-de-0.15.zip` archive, validates each artifact via SHA-256, and automatically falls back to an alternate CDN if the primary endpoint is unavailable.
+2. If you prefer a manual download, place the extracted folder inside `model/` and verify the archive before use:
+   ```bash
+   sha256sum -c models/vosk-model-small-de-0.15.zip.sha256
    ```
-   model/
-   └── vosk-model-small-de-0.15/
-       ├── am/
-       ├── conf/
-       ├── graph/
-       └── ...
-   ```
-3. The application will automatically use VOSK for speech recognition
-4. If VOSK is not available, the browser's built-in speech recognition will be used as fallback
+   The expected hash is `b7e53c90b1f0a38456f4cd62b366ecd58803cd97cd42b06438e2c131713d5e43`.
+3. On the first microphone interaction, a consent modal explains the 50 MB offline download and records the user's decision in a local audit log (no network calls). Only after explicit consent will the model be initialized.
+4. Once the download is complete the application automatically uses the offline recognizer; if the model is missing or consent is denied, it falls back to the browser's built-in speech recognition.
 
 ## 📁 Project Structure
 
