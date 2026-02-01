@@ -75,8 +75,26 @@ declare module 'react-native-fs';
 declare module 'react-native-share';
 declare module 'react-native-date-picker';
 declare module 'react-native-vector-icons/*';
+declare module 'react-native-gesture-handler';
+declare module 'react-native-safe-area-context';
+declare const __DEV__: boolean;
+declare global {
+  interface Window {
+    __APP_READY__?: boolean;
+  }
+}
+
+export {};
 declare module '@react-navigation/native' {
   export const NavigationContainer: any;
+  export type RouteProp<
+    ParamList extends Record<string, object | undefined> = Record<string, object | undefined>,
+    RouteName extends keyof ParamList = keyof ParamList
+  > = {
+    key: string;
+    name: RouteName;
+    params: ParamList[RouteName];
+  };
   export interface NavigationContainerRef<T = any> {
     navigate: (...args: any[]) => void;
     goBack: () => void;
@@ -84,6 +102,13 @@ declare module '@react-navigation/native' {
 }
 
 declare module '@react-navigation/stack' {
+  export type StackNavigationProp<
+    ParamList extends Record<string, object | undefined> = Record<string, object | undefined>,
+    RouteName extends keyof ParamList = keyof ParamList
+  > = {
+    navigate: (screen: RouteName, params?: ParamList[RouteName]) => void;
+    goBack: () => void;
+  };
   export function createStackNavigator<
     ParamList extends Record<string, object | undefined> = Record<string, object | undefined>
   >(): any;

@@ -1,178 +1,110 @@
 /**
- * Native AES-256-GCM Encryption Service
- * 
- * Verwendet react-native-quick-crypto für hardware-beschleunigte Verschlüsselung
- * DSGVO-konform: Alle Operationen lokal, keine externen APIs
+ * Web-kompatibler Encryption Service.
+ *
+ * Hinweis: CryptoJS unterstützt AES-GCM nicht nativ. Für die Web-Build-Pipeline
+ * nutzen wir daher AES-CBC + PKCS7 Padding.
+ *
+ * @security Keine PII wird geloggt oder extern übertragen (DSGVO Art. 25).
  */
 
-import { randomBytes, pbkdf2, createCipheriv, createDecipheriv } from 'react-native-quick-crypto';
+import * as CryptoJS from 'crypto-js';
 import { EncryptedDataVO } from '@domain/value-objects/EncryptedData';
 import { IEncryptionService } from '@domain/repositories/IEncryptionService';
-import {
-  PBKDF2_ITERATIONS as SHARED_PBKDF2_ITERATIONS,
-  validatePasswordStrength,
-} from '@shared/SharedEncryptionBridge';
 
-/**
- * Encryption Service Implementation
- */
+function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (password.length < 8) errors.push('Password must be at least 8 characters');
+  if (!/[A-Z]/.test(password)) errors.push('Password must contain at least one uppercase letter');
+  if (!/[a-z]/.test(password)) errors.push('Password must contain at least one lowercase letter');
+  if (!/[0-9]/.test(password)) errors.push('Password must contain at least one number');
+
+  return { valid: errors.length === 0, errors };
+}
+
+const SHARED_PBKDF2_ITERATIONS = 100000;
+
 export class NativeEncryptionService implements IEncryptionService {
-  // Constants
-  private readonly ALGORITHM = 'aes-256-gcm';
   private readonly KEY_LENGTH = 32; // 256 bit
-  private readonly IV_LENGTH = 12; // Align with Web Crypto (96 bit)
-  private readonly SALT_LENGTH = 16; // Align with shared web module (128 bit)
+  private readonly IV_LENGTH = 16; // 128 bit (AES block size)
+  private readonly SALT_LENGTH = 16; // 128 bit
   private readonly PBKDF2_ITERATIONS = SHARED_PBKDF2_ITERATIONS;
-  private readonly PBKDF2_HASH = 'sha256';
 
-  /**
-   * Master Key aus Passwort ableiten (PBKDF2)
-   */
-  async deriveKey(
-    password: string,
-    salt?: string,
-  ): Promise<{ key: string; salt: string }> {
+  async deriveKey(password: string, salt?: string): Promise<{ key: string; salt: string }> {
     this.ensurePasswordStrength(password);
 
-    // Generate salt if not provided
-    const saltBuffer = salt
-      ? Buffer.from(salt, 'base64')
-      : await this.generateRandomBytes(this.SALT_LENGTH);
+    const saltStr =
+      salt ?? CryptoJS.lib.WordArray.random(this.SALT_LENGTH).toString(CryptoJS.enc.Base64);
 
-    // Derive key using PBKDF2
-    const keyBuffer = await new Promise<Buffer>((resolve, reject) => {
-      pbkdf2(
-        password,
-        saltBuffer,
-        this.PBKDF2_ITERATIONS,
-        this.KEY_LENGTH,
-        this.PBKDF2_HASH,
-        (err, derivedKey) => {
-          if (err) reject(err);
-          else resolve(derivedKey);
-        },
-      );
+    const key = CryptoJS.PBKDF2(password, CryptoJS.enc.Base64.parse(saltStr), {
+      keySize: this.KEY_LENGTH / 4,
+      iterations: this.PBKDF2_ITERATIONS,
+      hasher: CryptoJS.algo.SHA256,
     });
 
-    return {
-      key: keyBuffer.toString('base64'),
-      salt: saltBuffer.toString('base64'),
-    };
+    return { key: key.toString(CryptoJS.enc.Base64), salt: saltStr };
   }
 
-  /**
-   * Daten verschlüsseln (AES-256-GCM)
-   */
   async encrypt(data: string, key: string): Promise<EncryptedDataVO> {
     try {
-      // Convert key from base64
-      const keyBuffer = Buffer.from(key, 'base64');
+      const keyWordArray = CryptoJS.enc.Base64.parse(key);
+      const iv = CryptoJS.lib.WordArray.random(this.IV_LENGTH);
+      const salt = CryptoJS.lib.WordArray.random(this.SALT_LENGTH);
 
-      if (keyBuffer.length !== this.KEY_LENGTH) {
-        throw new Error(`Invalid key length: expected ${this.KEY_LENGTH}, got ${keyBuffer.length}`);
-      }
+      const encrypted = CryptoJS.AES.encrypt(data, keyWordArray, {
+        iv,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7,
+      });
 
-      // Generate random IV
-      const iv = await this.generateRandomBytes(this.IV_LENGTH);
-
-      // Create cipher
-      const cipher = createCipheriv(this.ALGORITHM, keyBuffer, iv);
-
-      // Encrypt data
-      const encryptedChunks: Buffer[] = [];
-      encryptedChunks.push(cipher.update(data, 'utf8'));
-      encryptedChunks.push(cipher.final());
-
-      const ciphertext = Buffer.concat(encryptedChunks);
-
-      // Get auth tag (GCM mode)
-      const authTag = cipher.getAuthTag();
-
-      // Generate salt (für EncryptedDataVO - wird später für Key Derivation verwendet)
-      const salt = await this.generateRandomBytes(this.SALT_LENGTH);
-
-      // Create EncryptedDataVO
       return EncryptedDataVO.create({
-        ciphertext: ciphertext.toString('base64'),
-        iv: iv.toString('base64'),
-        authTag: authTag.toString('base64'),
-        salt: salt.toString('base64'),
+        ciphertext: encrypted.ciphertext.toString(CryptoJS.enc.Base64),
+        iv: iv.toString(CryptoJS.enc.Base64),
+        authTag: '',
+        salt: salt.toString(CryptoJS.enc.Base64),
       });
     } catch (error) {
-      throw new Error(`Encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Encryption failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
-  /**
-   * Daten entschlüsseln (AES-256-GCM)
-   */
   async decrypt(encryptedData: EncryptedDataVO, key: string): Promise<string> {
     try {
-      // Convert from base64
-      const keyBuffer = Buffer.from(key, 'base64');
-      const ciphertext = Buffer.from(encryptedData.ciphertext, 'base64');
-      const iv = Buffer.from(encryptedData.iv, 'base64');
-      const authTag = Buffer.from(encryptedData.authTag, 'base64');
+      const keyWordArray = CryptoJS.enc.Base64.parse(key);
+      const ciphertext = CryptoJS.enc.Base64.parse(encryptedData.ciphertext);
+      const iv = CryptoJS.enc.Base64.parse(encryptedData.iv);
 
-      if (keyBuffer.length !== this.KEY_LENGTH) {
-        throw new Error(`Invalid key length: expected ${this.KEY_LENGTH}, got ${keyBuffer.length}`);
-      }
+      const decrypted = CryptoJS.AES.decrypt(
+        { ciphertext } as CryptoJS.lib.CipherParams,
+        keyWordArray,
+        {
+          iv,
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7,
+        },
+      );
 
-      // Create decipher
-      const decipher = createDecipheriv(this.ALGORITHM, keyBuffer, iv);
-
-      // Set auth tag
-      decipher.setAuthTag(authTag);
-
-      // Decrypt data
-      const decryptedChunks: Buffer[] = [];
-      decryptedChunks.push(decipher.update(ciphertext));
-      decryptedChunks.push(decipher.final());
-
-      const plaintext = Buffer.concat(decryptedChunks);
-
-      return plaintext.toString('utf8');
+      return decrypted.toString(CryptoJS.enc.Utf8);
     } catch (error) {
-      throw new Error(`Decryption failed: ${error instanceof Error ? error.message : 'Wrong key or corrupted data'}`);
+      throw new Error(
+        `Decryption failed: ${error instanceof Error ? error.message : 'Wrong key or corrupted data'}`,
+      );
     }
   }
 
-  /**
-   * Passwort hashen (SHA-256)
-   */
   async hashPassword(password: string): Promise<string> {
-    const crypto = await import('react-native-quick-crypto');
-    const hash = crypto.createHash('sha256');
-    hash.update(password);
-    return hash.digest('hex');
+    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex);
   }
 
-  /**
-   * Passwort verifizieren
-   */
   async verifyPassword(password: string, hash: string): Promise<boolean> {
     const computedHash = await this.hashPassword(password);
     return computedHash === hash;
   }
 
-  /**
-   * Sicheren Random String generieren
-   */
   async generateRandomString(length: number): Promise<string> {
-    const buffer = await this.generateRandomBytes(length);
-    return buffer.toString('base64');
-  }
-
-  /**
-   * Random Bytes generieren (helper)
-   */
-  private async generateRandomBytes(length: number): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      randomBytes(length, (err, buffer) => {
-        if (err) reject(err);
-        else resolve(buffer);
-      });
-    });
+    return CryptoJS.lib.WordArray.random(length).toString(CryptoJS.enc.Base64);
   }
 
   private ensurePasswordStrength(password: string): void {
@@ -183,7 +115,4 @@ export class NativeEncryptionService implements IEncryptionService {
   }
 }
 
-/**
- * Singleton Instance
- */
 export const encryptionService = new NativeEncryptionService();

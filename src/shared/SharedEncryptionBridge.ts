@@ -1,16 +1,41 @@
-import { webcrypto } from 'react-native-quick-crypto';
+/**
+ * Shared Encryption Bridge (Web-Compatible)
+ * Provides encryption utilities without native dependencies
+ */
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const SharedEncryption: SharedEncryptionModule = require('shared/encryption.js');
+// Constants
+export const PBKDF2_ITERATIONS = 100000;
 
-const runtimeCrypto = webcrypto ?? (globalThis as { crypto?: unknown } | undefined)?.crypto;
-
-if (runtimeCrypto && typeof SharedEncryption.setCryptoProvider === 'function') {
-  SharedEncryption.setCryptoProvider(runtimeCrypto);
+/**
+ * Password strength validation
+ */
+export interface PasswordStrengthResult {
+  valid: boolean;
+  errors: string[];
 }
 
-export const PBKDF2_ITERATIONS = SharedEncryption.PBKDF2_ITERATIONS;
+export function validatePasswordStrength(password: string): PasswordStrengthResult {
+  const errors: string[] = [];
+  
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+  
+  return { valid: errors.length === 0, errors };
+}
 
-export const validatePasswordStrength = SharedEncryption.validatePasswordStrength;
+const SharedEncryption = {
+  PBKDF2_ITERATIONS,
+  validatePasswordStrength,
+};
 
 export default SharedEncryption;

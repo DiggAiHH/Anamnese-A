@@ -10,6 +10,7 @@
 
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
 import { QuestionnaireEntity } from '@domain/entities/Questionnaire';
 import { PatientEntity } from '@domain/entities/Patient';
 import { AnswerValue } from '@domain/entities/Answer';
@@ -90,13 +91,15 @@ const initialState: QuestionnaireState = {
 /**
  * Zustand Store mit Immer Middleware (für immutable updates)
  */
+enableMapSet();
+
 export const useQuestionnaireStore = create<QuestionnaireState & QuestionnaireActions>()(
   immer((set, get) => ({
     // State
     ...initialState,
 
     // Patient Actions
-    setPatient: (patient) =>
+    setPatient: (patient: PatientEntity) =>
       set((state) => {
         state.patient = patient;
       }),
@@ -107,7 +110,7 @@ export const useQuestionnaireStore = create<QuestionnaireState & QuestionnaireAc
       }),
 
     // Questionnaire Actions
-    setQuestionnaire: (questionnaire) =>
+    setQuestionnaire: (questionnaire: QuestionnaireEntity) =>
       set((state) => {
         state.questionnaire = questionnaire;
         state.currentSectionIndex = 0;
@@ -120,12 +123,12 @@ export const useQuestionnaireStore = create<QuestionnaireState & QuestionnaireAc
       }),
 
     // Answer Actions
-    setAnswer: (questionId, value) =>
+    setAnswer: (questionId: string, value: AnswerValue) =>
       set((state) => {
         state.answers.set(questionId, value);
       }),
 
-    setAnswers: (answers) =>
+    setAnswers: (answers: Map<string, AnswerValue>) =>
       set((state) => {
         state.answers = new Map(answers);
       }),
@@ -154,7 +157,7 @@ export const useQuestionnaireStore = create<QuestionnaireState & QuestionnaireAc
         }
       }),
 
-    goToSection: (index) =>
+    goToSection: (index: number) =>
       set((state) => {
         const { questionnaire } = get();
         
@@ -164,7 +167,7 @@ export const useQuestionnaireStore = create<QuestionnaireState & QuestionnaireAc
       }),
 
     // Encryption Key
-    setEncryptionKey: (key) =>
+    setEncryptionKey: (key: string) =>
       set((state) => {
         state.encryptionKey = key;
       }),
@@ -175,12 +178,12 @@ export const useQuestionnaireStore = create<QuestionnaireState & QuestionnaireAc
       }),
 
     // Loading & Error
-    setLoading: (isLoading) =>
+    setLoading: (isLoading: boolean) =>
       set((state) => {
         state.isLoading = isLoading;
       }),
 
-    setError: (error) =>
+    setError: (error: string | null) =>
       set((state) => {
         state.error = error;
       }),

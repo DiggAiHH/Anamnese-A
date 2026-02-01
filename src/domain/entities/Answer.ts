@@ -204,7 +204,7 @@ export class AnswerEntity {
       ...json,
       answeredAt: new Date(json.answeredAt),
       updatedAt: new Date(json.updatedAt),
-      auditLog: json.auditLog.map(l => ({
+      auditLog: json.auditLog.map((l: Answer['auditLog'][0]) => ({
         ...l,
         timestamp: new Date(l.timestamp),
       })),
@@ -292,7 +292,8 @@ export class AnswerValidator {
         if (!Array.isArray(value)) {
           errors.push('Value must be an array');
         } else {
-          const validOptions = question.options?.map(o => o.value) ?? [];
+          const validOptions =
+            question.options?.map((o: NonNullable<Question['options']>[number]) => o.value) ?? [];
           const invalidOptions = value.filter(v => !validOptions.includes(v));
           if (invalidOptions.length > 0) {
             errors.push(`Invalid options: ${invalidOptions.join(', ')}`);
@@ -305,7 +306,8 @@ export class AnswerValidator {
         if (typeof value !== 'string') {
           errors.push('Value must be a string');
         } else {
-          const validOptions = question.options?.map(o => o.value) ?? [];
+          const validOptions =
+            question.options?.map((o: NonNullable<Question['options']>[number]) => o.value) ?? [];
           if (!validOptions.includes(value)) {
             errors.push('Invalid option');
           }

@@ -71,9 +71,12 @@ export class LoadQuestionnaireUseCase {
         const template = await this.questionnaireRepository.loadTemplate();
         const version = await this.questionnaireRepository.getLatestTemplateVersion();
 
+        // Patientendaten werden bereits im PatientInfoScreen erfasst
+        const filteredTemplate = template.filter((section) => section.id !== 'personal_data');
+
         questionnaire = QuestionnaireEntity.create({
           patientId: input.patientId,
-          sections: template,
+          sections: filteredTemplate,
           version,
         });
 

@@ -5,6 +5,7 @@
  * - Navigation
  * - i18n
  * - Providers
+ * - Error Boundary
  */
 
 import React, { useEffect } from 'react';
@@ -12,6 +13,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
+
+// Components
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Navigation
 import { RootNavigator } from './navigation/RootNavigator';
@@ -28,30 +32,32 @@ const App = (): React.JSX.Element => {
     const initializeApp = async (): Promise<void> => {
       try {
         await database.connect();
-        console.warn('Database initialized successfully');
+        console.log('Database initialized successfully');
       } catch (error) {
         console.error('Failed to initialize database:', error);
       }
     };
 
-    initializeApp();
+    void initializeApp();
 
     // Cleanup on unmount
     return () => {
-      database.close().catch(error => {
+      void database.close().catch((error: Error) => {
         console.error('Failed to close database:', error);
       });
     };
   }, []);
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={styles.container}>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 };
 

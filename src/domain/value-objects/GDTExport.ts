@@ -109,7 +109,7 @@ export class GDTExportVO {
    */
   toGDTString(): string {
     return this.data.records
-      .map(record => {
+      .map((record: GDTRecord) => {
         const fieldStr = `${record.fieldId}${record.data}`;
         const lengthWithCRLF = 3 + fieldStr.length + 2; // 3 (LLL) + field + 2 (CRLF)
         const lengthStr = lengthWithCRLF.toString().padStart(3, '0');
@@ -148,7 +148,7 @@ export class GDTExportVO {
     }
 
     // Version aus Records extrahieren (Field 9218)
-    const versionRecord = records.find(r => r.fieldId === '9218');
+    const versionRecord = records.find((r: GDTRecord) => r.fieldId === '9218');
     const version = (versionRecord?.data as GDTExport['version']) ?? '2.1';
 
     return GDTExportVO.create({

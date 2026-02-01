@@ -280,7 +280,7 @@ export class DocumentEntity {
       uploadedAt: parseDate(data.uploadedAt),
       updatedAt: parseDate(data.updatedAt),
       ocrConsentGranted: data.ocrConsentGranted,
-      auditLog: (rawAuditLog ?? []).map((entry: any) => ({
+      auditLog: (rawAuditLog ?? []).map((entry: Document['auditLog'][0]) => ({
         ...entry,
         timestamp: parseDate(entry.timestamp),
       })),
@@ -301,7 +301,7 @@ export class DocumentEntity {
             processedAt: new Date(json.ocrData.processedAt),
           }
         : undefined,
-      auditLog: json.auditLog.map(l => ({
+      auditLog: json.auditLog.map((l: Document['auditLog'][0]) => ({
         ...l,
         timestamp: new Date(l.timestamp),
       })),

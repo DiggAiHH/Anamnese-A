@@ -4,20 +4,12 @@
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import type { RootStackParamList } from './types';
 
-// Screens (werden später implementiert)
+// Screens
 import { HomeScreen } from '../screens/HomeScreen';
-
-export type RootStackParamList = {
-  Home: undefined;
-  SelectLanguage: undefined;
-  MasterPassword: { mode: 'setup' | 'unlock' };
-  PatientInfo: undefined;
-  GDPRConsent: undefined;
-  Questionnaire: { questionnaireId: string };
-  Summary: { questionnaireId: string };
-  Export: { questionnaireId: string };
-};
+import { PatientInfoScreen } from '../screens/PatientInfoScreen';
+import { QuestionnaireScreen } from '../screens/QuestionnaireScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -39,7 +31,16 @@ export const RootNavigator = (): React.JSX.Element => {
         component={HomeScreen}
         options={{ title: 'Anamnese' }}
       />
-      {/* Weitere Screens werden später hinzugefügt */}
+      <Stack.Screen
+        name="PatientInfo"
+        component={PatientInfoScreen}
+        options={{ title: 'Patienteninformationen' }}
+      />
+      <Stack.Screen
+        name="Questionnaire"
+        component={QuestionnaireScreen}
+        options={{ title: 'Fragebogen' }}
+      />
     </Stack.Navigator>
   );
 };

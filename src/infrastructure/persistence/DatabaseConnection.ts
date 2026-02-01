@@ -1,14 +1,17 @@
 /**
- * SQLite Database Setup
+ * SQLite Database Setup (Web-Compatible)
  * 
- * Verwendet react-native-sqlite-storage für lokale Datenbank
+ * Verwendet IndexedDB mock für Web-Plattform
  * DSGVO-konform: Alle Daten lokal, verschlüsselt
  */
 
-import SQLite, { SQLiteDatabase } from 'react-native-sqlite-storage';
+import SQLite from 'react-native-sqlite-storage';
+import type { SQLiteDatabase } from 'react-native-sqlite-storage';
 
 // Enable debugging in development
-SQLite.DEBUG(__DEV__);
+if (typeof __DEV__ !== 'undefined' && __DEV__) {
+  SQLite.DEBUG(true);
+}
 SQLite.enablePromise(true);
 
 /**

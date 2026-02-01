@@ -277,7 +277,7 @@ export class GDPRConsentEntity {
       ...json,
       grantedAt: json.grantedAt ? new Date(json.grantedAt) : undefined,
       revokedAt: json.revokedAt ? new Date(json.revokedAt) : undefined,
-      auditLog: json.auditLog.map(l => ({
+      auditLog: json.auditLog.map((l: GDPRConsent['auditLog'][0]) => ({
         ...l,
         timestamp: new Date(l.timestamp),
       })),

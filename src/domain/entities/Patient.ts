@@ -171,8 +171,11 @@ export class PatientEntity {
    */
   hasConsent(type: Patient['gdprConsents'][0]['type']): boolean {
     const consent = this.data.gdprConsents
-      .filter(c => c.type === type)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0];
+      .filter((c: Patient['gdprConsents'][0]) => c.type === type)
+      .sort(
+        (a: Patient['gdprConsents'][0], b: Patient['gdprConsents'][0]) =>
+          b.timestamp.getTime() - a.timestamp.getTime(),
+      )[0];
 
     return consent?.granted ?? false;
   }
@@ -205,11 +208,11 @@ export class PatientEntity {
       ...json,
       createdAt: new Date(json.createdAt),
       updatedAt: new Date(json.updatedAt),
-      gdprConsents: json.gdprConsents.map(c => ({
+      gdprConsents: json.gdprConsents.map((c: Patient['gdprConsents'][0]) => ({
         ...c,
         timestamp: new Date(c.timestamp),
       })),
-      auditLog: json.auditLog.map(l => ({
+      auditLog: json.auditLog.map((l: Patient['auditLog'][0]) => ({
         ...l,
         timestamp: new Date(l.timestamp),
       })),

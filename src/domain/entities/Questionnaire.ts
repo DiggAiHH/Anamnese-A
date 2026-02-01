@@ -41,9 +41,11 @@ export const QuestionSchema = z.object({
     'radio',
     'select',
     'multiselect',
+    'slider',
   ]),
   labelKey: z.string(), // i18n key
   placeholderKey: z.string().optional(),
+  helpTextKey: z.string().optional(), // i18n key for help text
   required: z.boolean().default(false),
   options: z
     .array(
@@ -177,7 +179,7 @@ export class QuestionnaireEntity {
    */
   findQuestion(questionId: string): Question | undefined {
     for (const section of this.data.sections) {
-      const question = section.questions.find(q => q.id === questionId);
+      const question = section.questions.find((q: Question) => q.id === questionId);
       if (question) return question;
     }
     return undefined;
@@ -187,14 +189,14 @@ export class QuestionnaireEntity {
    * Findet Sektion anhand der ID
    */
   findSection(sectionId: string): Section | undefined {
-    return this.data.sections.find(s => s.id === sectionId);
+    return this.data.sections.find((s: Section) => s.id === sectionId);
   }
 
   /**
    * Gibt alle Fragen zurück (flach)
    */
   getAllQuestions(): Question[] {
-    return this.data.sections.flatMap(s => s.questions);
+    return this.data.sections.flatMap((s: Section) => s.questions);
   }
 
   /**
@@ -237,7 +239,7 @@ export class QuestionnaireEntity {
     }
 
     // Alle Conditions müssen erfüllt sein (AND Logik)
-    return question.conditions.every(condition => {
+    return question.conditions.every((condition: Condition) => {
       const answerValue = answers.get(condition.questionId);
       
       switch (condition.operator) {
@@ -274,13 +276,13 @@ export class QuestionnaireEntity {
     sectionId?: string,
   ): Question[] {
     const sectionsToCheck = sectionId
-      ? this.data.sections.filter(s => s.id === sectionId)
+      ? this.data.sections.filter((s: Section) => s.id === sectionId)
       : this.data.sections;
 
     const visibleQuestions: Question[] = [];
 
-    sectionsToCheck.forEach(section => {
-      section.questions.forEach(question => {
+    sectionsToCheck.forEach((section: Section) => {
+      section.questions.forEach((question: Question) => {
         if (QuestionnaireEntity.evaluateConditions(question, answers)) {
           visibleQuestions.push(question);
         }

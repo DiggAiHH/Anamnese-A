@@ -8,26 +8,35 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useTranslation } from 'react-i18next';
-import DatePicker from 'react-native-date-picker';
 import { useQuestionnaireStore } from '../state/useQuestionnaireStore';
 import { PatientEntity, Patient } from '@domain/entities/Patient';
+import { GDPRConsentEntity } from '@domain/entities/GDPRConsent';
+import { LoadQuestionnaireUseCase } from '@application/use-cases/LoadQuestionnaireUseCase';
+import { SQLiteQuestionnaireRepository } from '@infrastructure/persistence/SQLiteQuestionnaireRepository';
+import { SQLiteAnswerRepository } from '@infrastructure/persistence/SQLiteAnswerRepository';
+import { SQLitePatientRepository } from '@infrastructure/persistence/SQLitePatientRepository';
+import { SQLiteGDPRConsentRepository } from '@infrastructure/persistence/SQLiteGDPRConsentRepository';
+import { database } from '@infrastructure/persistence/DatabaseConnection';
+import { encryptionService } from '@infrastructure/encryption/NativeEncryptionService';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PatientInfo'>;
 
 export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
   const { t, i18n } = useTranslation();
-  const { setPatient } = useQuestionnaireStore();
+  const { setPatient, setEncryptionKey } = useQuestionnaireStore();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [birthDate, setBirthDate] = useState<Date | null>(null);
+  const [birthDay, setBirthDay] = useState<number | null>(null);
+  const [birthMonth, setBirthMonth] = useState<number | null>(null);
+  const [birthYear, setBirthYear] = useState<number | null>(null);
   const [gender, setGender] = useState<'male' | 'female' | 'other' | null>(null);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -46,12 +55,17 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
       newErrors.lastName = t('validation.minLength', { count: 2 });
     }
 
-    if (!birthDate) {
+    const parsedBirthDate = parseBirthDate();
+    if (birthDay == null || birthMonth == null || birthYear == null) {
       newErrors.birthDate = t('validation.required');
+    } else if (!parsedBirthDate) {
+      newErrors.birthDate = t('validation.invalidDate');
     } else {
-      const age = calculateAge(birthDate);
-      if (age < 0 || age > 150) {
-        newErrors.birthDate = t('validation.invalidDate');
+      const age = calculateAge(parsedBirthDate);
+      if (age < 1) {
+        newErrors.birthDate = t('validation.ageMin', { min: 1 });
+      } else if (age > 120) {
+        newErrors.birthDate = t('validation.ageMax', { max: 120 });
       }
     }
 
@@ -71,7 +85,7 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext = () => {
+  const handleNext = async (): Promise<void> => {
     if (!validate()) {
       Alert.alert(
         t('common.error'),
@@ -83,18 +97,90 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
 
     const languageCode = (i18n.language?.split('-')[0] ?? 'de') as Patient['language'];
 
+    const encryptionKey = await encryptionService.generateRandomString(32);
+    setEncryptionKey(encryptionKey);
+
     // Store patient data in Zustand
+    const parsedBirthDate = parseBirthDate();
+    if (!parsedBirthDate) {
+      Alert.alert(
+        t('common.error'),
+        t('patientInfo.validationError'),
+        [{ text: t('common.ok') }]
+      );
+      return;
+    }
+
     const patient = PatientEntity.create({
       firstName,
       lastName,
-      birthDate: birthDate!.toISOString().split('T')[0],
+      birthDate: parsedBirthDate.toISOString().split('T')[0],
       language: languageCode,
     });
 
     setPatient(patient);
 
-    // Navigate to GDPR consent screen
-    navigation.navigate('GDPRConsent');
+    const patientRepository = new SQLitePatientRepository();
+    const gdprRepository = new SQLiteGDPRConsentRepository(database);
+
+    await patientRepository.save(patient);
+
+    const dataProcessingConsent = GDPRConsentEntity.create({
+      patientId: patient.id,
+      type: 'data_processing',
+      privacyPolicyVersion: '1.0.0',
+      legalBasis: 'consent',
+      purpose: 'Verarbeitung personenbezogener Gesundheitsdaten',
+      dataCategories: ['Gesundheitsdaten', 'Kontaktdaten'],
+      retentionPeriod: '3 years',
+    }).grant();
+
+    const dataStorageConsent = GDPRConsentEntity.create({
+      patientId: patient.id,
+      type: 'data_storage',
+      privacyPolicyVersion: '1.0.0',
+      legalBasis: 'consent',
+      purpose: 'Speicherung der Anamnese-Daten',
+      dataCategories: ['Anamnese-Antworten'],
+      retentionPeriod: '3 years',
+    }).grant();
+
+    await gdprRepository.save(dataProcessingConsent);
+    await gdprRepository.save(dataStorageConsent);
+
+    const loadQuestionnaireUseCase = new LoadQuestionnaireUseCase(
+      new SQLiteQuestionnaireRepository(),
+      new SQLiteAnswerRepository(),
+      patientRepository,
+    );
+
+    const questionnaireResult = await loadQuestionnaireUseCase.execute({
+      patientId: patient.id,
+      encryptionKey,
+    });
+
+    if (!questionnaireResult.success || !questionnaireResult.questionnaire) {
+      Alert.alert('Error', questionnaireResult.error ?? 'Failed to create questionnaire');
+      return;
+    }
+
+    navigation.navigate('Questionnaire', { questionnaireId: questionnaireResult.questionnaire.id });
+  };
+
+  const parseBirthDate = (): Date | null => {
+    if (birthDay == null || birthMonth == null || birthYear == null) return null;
+    const day = Number(birthDay);
+    const month = Number(birthMonth);
+    const year = Number(birthYear);
+    const currentYear = new Date().getFullYear();
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
+    if (year < 1900 || year > currentYear) return null;
+    if (month < 1 || month > 12) return null;
+    if (day < 1 || day > 31) return null;
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (Number.isNaN(date.getTime())) return null;
+    if (date.getUTCDate() !== day || date.getUTCMonth() !== month - 1) return null;
+    return date;
   };
 
   const calculateAge = (date: Date): number => {
@@ -166,42 +252,58 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Birth Date */}
+        {/* Birth Date (Dropdown) */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>
             {t('patientInfo.birthDate')} <Text style={styles.required}>*</Text>
           </Text>
-          <TouchableOpacity
-              style={[styles.input, styles.dateButton, errors.birthDate ? styles.inputError : undefined]}
-            onPress={() => setShowDatePicker(true)}
-            testID="input-birth_date"
-          >
-            <Text style={birthDate ? styles.dateText : styles.datePlaceholder}>
-              {birthDate
-                ? birthDate.toLocaleDateString()
-                : t('patientInfo.birthDatePlaceholder')}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.birthRow}>
+            <View style={[styles.pickerWrapper, errors.birthDate ? styles.inputError : undefined]}>
+              <Picker
+                selectedValue={birthDay}
+                onValueChange={(value) => setBirthDay(value == null ? null : Number(value))}
+                style={styles.picker}
+                testID="picker-birth_day"
+              >
+                <Picker.Item label={t('patientInfo.day')} value={null} />
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                  <Picker.Item key={day} label={String(day)} value={day} />
+                ))}
+              </Picker>
+            </View>
+            
+            <View style={[styles.pickerWrapper, errors.birthDate ? styles.inputError : undefined]}>
+              <Picker
+                selectedValue={birthMonth}
+                onValueChange={(value) => setBirthMonth(value == null ? null : Number(value))}
+                style={styles.picker}
+                testID="picker-birth_month"
+              >
+                <Picker.Item label={t('patientInfo.month')} value={null} />
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                  <Picker.Item key={month} label={String(month)} value={month} />
+                ))}
+              </Picker>
+            </View>
+            
+            <View style={[styles.pickerWrapper, styles.pickerWrapperYear, errors.birthDate ? styles.inputError : undefined]}>
+              <Picker
+                selectedValue={birthYear}
+                onValueChange={(value) => setBirthYear(value == null ? null : Number(value))}
+                style={styles.picker}
+                testID="picker-birth_year"
+              >
+                <Picker.Item label={t('patientInfo.year')} value={null} />
+                {Array.from({ length: new Date().getFullYear() - 1900 + 1 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                  <Picker.Item key={year} label={String(year)} value={year} />
+                ))}
+              </Picker>
+            </View>
+          </View>
           {errors.birthDate && (
             <Text style={styles.errorText}>{errors.birthDate}</Text>
           )}
         </View>
-
-        {/* Date Picker Modal */}
-        <DatePicker
-          modal
-          open={showDatePicker}
-          date={birthDate || new Date()}
-          mode="date"
-          maximumDate={new Date()}
-          minimumDate={new Date(1900, 0, 1)}
-          onConfirm={(date: Date) => {
-            setShowDatePicker(false);
-            setBirthDate(date);
-          }}
-          onCancel={() => setShowDatePicker(false)}
-          title={t('patientInfo.selectBirthDate')}
-        />
 
         {/* Gender */}
         <View style={styles.inputGroup}>
@@ -295,7 +397,9 @@ export const PatientInfoScreen: React.FC<Props> = ({ navigation }) => {
       {/* Next Button */}
       <TouchableOpacity
         style={styles.nextButton}
-        onPress={handleNext}
+        onPress={() => {
+          void handleNext();
+        }}
         testID="patient-info-next-btn"
       >
         <Text style={styles.nextButtonText}>{t('common.next')}</Text>
@@ -363,6 +467,32 @@ const styles = StyleSheet.create({
   },
   dateButton: {
     justifyContent: 'center',
+  },
+  birthRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pickerWrapper: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  pickerWrapperYear: {
+    flex: 1.5,
+  },
+  picker: {
+    height: 50,
+  },
+  birthInput: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  birthYearInput: {
+    flex: 2,
+    textAlign: 'center',
   },
   dateText: {
     color: '#1F2937',

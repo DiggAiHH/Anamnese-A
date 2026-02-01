@@ -10,58 +10,52 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../navigation/RootNavigator';
+import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-export const HomeScreen = (_: Props): React.JSX.Element => {
+export const HomeScreen = ({ navigation }: Props): React.JSX.Element => {
+  const { t } = useTranslation();
   return (
     <ScrollView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Willkommen zur Anamnese-App</Text>
+        <Text style={styles.title}>{t('welcome')}</Text>
         <Text style={styles.subtitle}>
-          DSGVO-konforme medizinische Anamnese
+          {t('privacy_info')}
         </Text>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={styles.primaryButton}
             onPress={() => {
-              // TODO: Navigation implementieren
-              console.warn('Neue Anamnese starten');
+              navigation.navigate('PatientInfo');
             }}>
-            <Text style={styles.primaryButtonText}>Neue Anamnese starten</Text>
+            <Text style={styles.primaryButtonText}>{t('start_anamnesis')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => {
-              console.warn('Gespeicherte Anamnesen laden');
+              console.log('Gespeicherte Anamnesen laden');
             }}>
-            <Text style={styles.secondaryButtonText}>
-              Gespeicherte Anamnesen
-            </Text>
+            <Text style={styles.secondaryButtonText}>{t('saved_anamnesis')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Datenschutz</Text>
-          <Text style={styles.infoText}>
-            • Alle Daten bleiben lokal auf Ihrem Gerät{'\n'}
-            • AES-256 Verschlüsselung{'\n'}
-            • Keine externen Server{'\n'}
-            • DSGVO-konform
-          </Text>
+          <Text style={styles.infoTitle}>{t('privacy')}</Text>
+          <Text style={styles.infoText}>{t('privacy_info')}</Text>
         </View>
 
         <View style={styles.featuresList}>
-          <Text style={styles.featuresTitle}>Features:</Text>
-          <Text style={styles.featureItem}>✓ 19 Sprachen</Text>
-          <Text style={styles.featureItem}>✓ Offline-First</Text>
-          <Text style={styles.featureItem}>✓ Spracherkennung</Text>
-          <Text style={styles.featureItem}>✓ OCR für Dokumente</Text>
-          <Text style={styles.featureItem}>✓ GDT Export</Text>
+          <Text style={styles.featuresTitle}>{t('features')}:</Text>
+          <Text style={styles.featureItem}>✓ {t('feature_languages')}</Text>
+          <Text style={styles.featureItem}>✓ {t('feature_offline')}</Text>
+          <Text style={styles.featureItem}>✓ {t('feature_voice')}</Text>
+          <Text style={styles.featureItem}>✓ {t('feature_ocr')}</Text>
+          <Text style={styles.featureItem}>✓ {t('feature_gdt')}</Text>
         </View>
       </View>
     </ScrollView>
