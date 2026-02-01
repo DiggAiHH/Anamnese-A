@@ -1,47 +1,75 @@
-# VOSK Models (large binary files - download separately)
-model/vosk-model-*
-model/*.zip
-
-# OS files
+# OSX
 .DS_Store
-Thumbs.db
 
-# Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Temporary files
-*.tmp
-*.bak
-*.log
-
-# Build artifacts (if any)
-dist/
+# Xcode
 build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.xcuserstate
+ios/.xcode.env.local
 
-# Dependencies (if any)
+# Android/IntelliJ
+build/
+.idea
+.gradle
+local.properties
+*.iml
+*.hprof
+.cxx/
+*.keystore
+!debug.keystore
+
+# node.js
 node_modules/
+npm-debug.log
+yarn-error.log
 
-# Environment variables
+# fastlane
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots
+ios/fastlane/test_output
+
+# Bundle artifacts
+*.jsbundle
+
+# CocoaPods
+ios/Pods/
+
+# Expo
+.expo/
+.expo-shared/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+.detox/
+
+# Environment
 .env
 .env.local
-.env.production
+.env.*.local
 
-# Test files
-*.test.js
-test/
+# VS Code
+.vscode/
 
-# Database data
-postgres_data/
-*.db
-*.sqlite
+# Temporary
+tmp/
+temp/
 
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
+# Local Netlify folder
+.netlify

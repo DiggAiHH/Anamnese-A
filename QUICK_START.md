@@ -1,194 +1,276 @@
-# Quick Start Guide - Praxis-Code-Generator
+# 🚀 QUICK START - klaproth Web Deployment
 
-## Installation in 5 Minutes
-
-### Prerequisites
-- Node.js 18+ installed
-- PostgreSQL 14+ installed and running
-- Git
-
-### Step 1: Clone and Install (1 minute)
-
-```bash
-git clone https://github.com/DiggAiHH/Anamnese-A.git
-cd Anamnese-A
-npm install
-```
-
-### Step 2: Configure (1 minute)
-
-```bash
-# Run interactive setup
-npm run setup
-
-# OR manually create .env
-cp .env.example .env
-nano .env  # Edit with your values
-```
-
-### Step 3: Database Setup (2 minutes)
-
-```bash
-# Create database
-sudo -u postgres createdb anamnese
-
-# Import schema
-psql -U postgres -d anamnese -f database/schema.sql
-
-# Add test practice
-psql -U postgres -d anamnese -c "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'test@example.com', true);"
-
-# Get the practice UUID
-psql -U postgres -d anamnese -c "SELECT id FROM practices WHERE email = 'test@example.com';"
-```
-
-Copy the UUID - you'll need it to login!
-
-### Step 4: Start Server (1 minute)
-
-```bash
-npm start
-```
-
-Server runs at `http://localhost:3000`
-
-### Step 5: Test It!
-
-1. Open `http://localhost:3000` in browser
-2. Paste your practice UUID from Step 3
-3. Follow the wizard to generate a test code
-
-## Docker Quick Start (Even Faster!)
-
-```bash
-# Clone repo
-git clone https://github.com/DiggAiHH/Anamnese-A.git
-cd Anamnese-A
-
-# Set environment variables
-cp .env.example .env
-nano .env  # Set STRIPE keys and MASTER_KEY
-
-# Start everything
-docker-compose up -d
-
-# Add test practice
-docker-compose exec db psql -U anamnese_user -d anamnese -c \
-  "INSERT INTO practices (name, email, active) VALUES ('Test Practice', 'test@example.com', true);"
-
-# Get practice UUID
-docker-compose exec db psql -U anamnese_user -d anamnese -c \
-  "SELECT id FROM practices WHERE email = 'test@example.com';"
-```
-
-Open `http://localhost:3000` and use the UUID to login!
-
-## Stripe Test Mode Setup
-
-1. Sign up at [stripe.com](https://stripe.com)
-2. Go to **Developers → API keys**
-3. Copy **Publishable key** (starts with `pk_test_`)
-4. Copy **Secret key** (starts with `sk_test_`)
-5. Update `.env` file
-6. Update `public/js/app.js` with Publishable key:
-   ```javascript
-   const stripe = Stripe('pk_test_YOUR_ACTUAL_KEY');
-   ```
-
-### Test Webhook Locally
-
-```bash
-# Install Stripe CLI
-brew install stripe/stripe-brew/stripe  # Mac
-# or download from https://stripe.com/docs/stripe-cli
-
-# Login
-stripe login
-
-# Forward webhooks to local server
-stripe listen --forward-to localhost:3000/webhook
-
-# Copy webhook signing secret and add to .env
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
-
-## Test Payment
-
-Use Stripe test cards:
-- **Success**: 4242 4242 4242 4242
-- **Declined**: 4000 0000 0000 0002
-- **3D Secure**: 4000 0027 6000 3184
-
-Expiry: Any future date
-CVC: Any 3 digits
-ZIP: Any 5 digits
-
-## Troubleshooting
-
-### Database connection failed
-```bash
-# Check PostgreSQL is running
-sudo systemctl status postgresql
-
-# Check connection string in .env
-DATABASE_URL=postgresql://USER:PASS@localhost:5432/anamnese
-```
-
-### Stripe error "Invalid API key"
-- Make sure you copied the correct key from Stripe Dashboard
-- Test keys start with `sk_test_` or `pk_test_`
-- Update both `.env` and `public/js/app.js`
-
-### Port already in use
-```bash
-# Change PORT in .env
-PORT=3001
-```
-
-### Module not found
-```bash
-# Reinstall dependencies
-rm -rf node_modules package-lock.json
-npm install
-```
-
-## Development Mode
-
-```bash
-# Install nodemon
-npm install -g nodemon
-
-# Start with auto-reload
-npm run dev
-```
-
-## Testing
-
-```bash
-# Run basic tests
-npm test
-
-# Test encryption
-node test-basic.js
-```
-
-## Production Deployment
-
-See [PRAXIS_CODE_GENERATOR_README.md](PRAXIS_CODE_GENERATOR_README.md) for detailed deployment instructions.
-
-## Need Help?
-
-- 📖 [Full Documentation](PRAXIS_CODE_GENERATOR_README.md)
-- 🔒 [Security Guide](PRAXIS_CODE_SECURITY.md)
-- 🐛 [Report Issues](https://github.com/DiggAiHH/Anamnese-A/issues)
+**TL;DR:** 4 commands to deploy klaproth to Netlify.
 
 ---
 
-**Quick Check**: After setup, you should have:
-- ✅ PostgreSQL running with `anamnese` database
-- ✅ `.env` file with all required variables
-- ✅ At least one practice in the database
-- ✅ Server running on port 3000
-- ✅ Stripe test keys configured
+## ⚡ Fast Track (5 Minutes)
 
-If all boxes are checked, you're ready to go! 🚀
+```bash
+# 1. Install dependencies (2-3 min)
+cd /workspaces/Anamnese-A
+npm install --legacy-peer-deps
+
+# 2. Build for web (1-2 min)
+npm run build:web
+
+# 3. Test locally (optional)
+npx serve build/web
+# Open http://localhost:3000 in browser
+
+# 4. Deploy to Netlify (1 min)
+npm install -g netlify-cli
+netlify login
+netlify init  # Site name: klaproth
+netlify deploy --prod --dir=build/web
+```
+
+**Done!** Your app is live at https://klaproth.netlify.app 🎉
+
+---
+
+## 📋 Prerequisites
+
+- ✅ Node.js 18+ installed
+- ✅ npm 9+ installed
+- ✅ Git repository pushed to GitHub (optional)
+- ✅ Netlify account (free tier OK)
+
+---
+
+## 🎯 Step-by-Step (First Time)
+
+### Step 1: Install Dependencies
+```bash
+cd /workspaces/Anamnese-A
+npm install --legacy-peer-deps
+```
+
+**Why `--legacy-peer-deps`?**
+React version mismatch between 18.2.0 and 18.3.1. This is safe.
+
+**Expected Output:**
+```
+added 1234 packages in 2m
+```
+
+### Step 2: Build
+```bash
+npm run build:web
+```
+
+**What happens:**
+- ✅ Webpack compiles TypeScript → JavaScript
+- ✅ Bundles React Native components for web
+- ✅ Optimizes and minifies code
+- ✅ Creates `build/web/` directory
+
+**Expected Output:**
+```
+webpack 5.x compiled successfully in 45s
+```
+
+**Build Size:** ~500KB-1MB (gzipped)
+
+### Step 3: Test Locally (Recommended)
+```bash
+npx serve build/web
+```
+
+**Open:** http://localhost:3000
+
+**Check:**
+- ✅ App loads without errors
+- ✅ Navigation works
+- ✅ UI looks correct
+- ✅ Browser console has no errors
+
+Press `Ctrl+C` to stop server.
+
+### Step 4: Deploy to Netlify
+
+#### First Time Setup
+```bash
+# Install Netlify CLI globally
+npm install -g netlify-cli
+
+# Login to Netlify (opens browser)
+netlify login
+
+# Initialize site
+netlify init
+```
+
+**Interactive Prompts:**
+```
+? What would you like to do? 
+  → Create & configure a new site
+
+? Team: 
+  → [Your Team]
+
+? Site name (optional): 
+  → klaproth
+
+? Your build command: 
+  → npm run build:web
+
+? Directory to deploy: 
+  → build/web
+
+? Netlify functions folder: 
+  → [press enter to skip]
+```
+
+#### Deploy
+```bash
+netlify deploy --prod --dir=build/web
+```
+
+**Expected Output:**
+```
+✔ Deploying to live site URL...
+✔ Finished uploading files
+✔ Deploy complete!
+
+Live URL: https://klaproth.netlify.app
+```
+
+**Done!** 🎉 Visit your live URL.
+
+---
+
+## 🔄 Subsequent Deployments
+
+After first-time setup, deploying is just:
+
+```bash
+npm run build:web
+netlify deploy --prod --dir=build/web
+```
+
+Or use the automation script:
+```bash
+bash scripts/build-and-deploy.sh
+```
+
+---
+
+## 🌐 Alternative: GitHub + Netlify (CI/CD)
+
+**No CLI needed!** Netlify auto-deploys on Git push.
+
+### Setup (One Time)
+1. Push code to GitHub
+2. Go to https://app.netlify.com
+3. Click "Add new site" → "Import an existing project"
+4. Choose GitHub → Select repo
+5. Configure:
+   - Branch: `mobile-app-only`
+   - Build command: `npm run build:web`
+   - Publish directory: `build/web`
+6. Click "Deploy site"
+
+### Usage
+```bash
+git add .
+git commit -m "Update app"
+git push
+```
+
+Netlify auto-builds & deploys! ✨
+
+---
+
+## 🐛 Common Issues
+
+### "npm install fails"
+```bash
+rm -rf node_modules package-lock.json
+npm install --legacy-peer-deps
+```
+
+### "webpack not found"
+```bash
+npm install --save-dev webpack webpack-cli
+```
+
+### "Netlify command not found"
+```bash
+npm install -g netlify-cli
+```
+
+### "Build succeeds but site is blank"
+- Check browser console for errors
+- Ensure `build/web/index.html` exists
+- Verify `netlify.toml` has correct paths
+
+---
+
+## 📊 Verification
+
+After deployment, check:
+
+- [ ] Site loads: https://klaproth.netlify.app
+- [ ] HTTPS enabled (🔒 in address bar)
+- [ ] No JavaScript errors (F12 → Console)
+- [ ] Navigation works
+- [ ] Responsive on mobile
+- [ ] Language switching works
+
+---
+
+## 📚 More Info
+
+- **Detailed Guide:** [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md)
+- **Step-by-Step:** [DEPLOYMENT_STATUS.md](DEPLOYMENT_STATUS.md)
+- **Implementation Details:** [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
+- **Technical Log:** [memory_log.md](memory_log.md)
+
+---
+
+## 🆘 Need Help?
+
+### Check These First:
+1. [WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) - Troubleshooting section
+2. Browser console (F12) - Look for errors
+3. Netlify deploy logs - Check build output
+
+### Still Stuck?
+- Check Netlify docs: https://docs.netlify.com
+- React Native Web docs: https://necolas.github.io/react-native-web/
+
+---
+
+## ⏱️ Time Estimates
+
+| Step | First Time | Subsequent |
+|------|-----------|-----------|
+| Install Dependencies | 2-3 min | - |
+| Build | 1-2 min | 1-2 min |
+| Local Test | 1 min | 1 min |
+| Netlify Setup | 3-5 min | - |
+| Deploy | 1-2 min | 30 sec |
+| **TOTAL** | **8-13 min** | **2-3 min** |
+
+---
+
+## 🎯 Success Criteria
+
+✅ All green? You're done!
+
+- [ ] `npm install` completed without errors
+- [ ] `npm run build:web` created `build/web/` directory
+- [ ] Local test shows working app
+- [ ] `netlify deploy` succeeded
+- [ ] Live URL loads app correctly
+- [ ] No errors in browser console
+
+---
+
+**Ready? Run the 4 commands above!** 🚀
+
+---
+
+_Quick Start Guide by Senior Architect Agent_
+_Last Updated: 2026-01-31_
